@@ -1,0 +1,1 @@
+# 负责数据采集的线程类 AcquisitionThread
