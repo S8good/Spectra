@@ -114,13 +114,28 @@ class MockAPIConfigDialog(QDialog):
 
     def _on_mode_changed(self):
         mode = self.mode_combo.currentData()
-        self.static_group.setVisible(mode == 'static')
+        is_static = (mode == 'static')
+        is_noisy = (mode == 'noisy_baseline')
+
+        self.static_group.setVisible(is_static or is_noisy)
         self.dynamic_group.setVisible(mode == 'dynamic')
-        # 如果是 noisy_baseline，两者都隐藏
-        if mode == 'noisy_baseline':
-             self.noise_label.setText(self.tr("Noise Level (counts):"))
+
+        static_specific_widgets = [
+            self.static_pos_label, self.static_pos_spin,
+            self.static_amp_label, self.static_amp_spin,
+            self.static_width_label, self.static_width_spin
+        ]
+        for widget in static_specific_widgets:
+            widget.setVisible(is_static)
+
+        self.noise_label.setVisible(True)
+        self.noise_spin.setVisible(True)
+        self.noise_spin.setEnabled(True)
+
+        if is_noisy:
+            self.noise_label.setText(self.tr("Noise Level (counts):"))
         else:
-             self.noise_label.setText(self.tr("Noise Level (counts, superimposed):"))
+            self.noise_label.setText(self.tr("Noise Level (counts, superimposed):"))
 
     def _save_and_accept(self):
         config = self.settings.get('mock_api_config', {})

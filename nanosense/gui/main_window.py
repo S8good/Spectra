@@ -46,6 +46,8 @@ class AppWindow(QMainWindow):
         self.analysis_windows = []
         self.db_explorer_window = None
         self.controller = None
+        self._hardware_mode_warning_shown = False
+        self._menu_bar = None
 
         self.db_manager = None
         self.current_project_id = None
@@ -54,16 +56,20 @@ class AppWindow(QMainWindow):
         self._find_or_create_default_project()
 
         # 直接在构造函数中尝试连接硬件
-        self.controller = FX2000Controller.connect(use_real_hardware=self.use_real_hardware)
+        requested_mode = self.use_real_hardware
+        self.controller, fallback_attempted = self._establish_controller(requested_mode, allow_fallback=True)
         if not self.controller:
-            # 根据硬件模式显示不同的错误信息
-            if self.use_real_hardware:
-                error_message = "连接真实硬件失败！\n\n请检查以下几点：\n1. 光谱仪是否已通过USB正确连接。\n2. 设备驱动是否已正确安装。"
+            if requested_mode and fallback_attempted:
+                error_message = self.tr(
+                    "Failed to initialize the spectrometer in both real-hardware and mock modes.\n"
+                    "Please verify the hardware connection and the mock API configuration."
+                )
+            elif requested_mode:
+                error_message = self.tr("Failed to connect to the real spectrometer.\n\nPlease verify:\n1. The device is connected via USB.\n2. The driver is installed correctly.")
             else:
-                error_message = "启动模拟API失败，请检查代码。"
+                error_message = self.tr("Failed to start the mock API. Please check the code.")
 
-            QMessageBox.critical(self, "硬件错误", error_message)
-            # 使用 QTimer 确保窗口在显示错误后能安全关闭
+            QMessageBox.critical(self, self.tr("Hardware Error"), error_message)
             from PyQt5.QtCore import QTimer
             QTimer.singleShot(0, self.close)
             return
@@ -156,6 +162,7 @@ class AppWindow(QMainWindow):
 
     def _connect_menu_signals(self):
         menu = self.menuBar()
+        self._menu_bar = menu
 
         menu.hardware_mode_action.toggled.connect(self._handle_hardware_mode_change)
 
@@ -200,30 +207,83 @@ class AppWindow(QMainWindow):
         dialog = PerformanceDialog(main_window=self, parent=self, slope=slope)
         dialog.exec_()
 
+    def _sync_hardware_mode_action(self):
+        menu = getattr(self, '_menu_bar', None)
+        if menu and hasattr(menu, 'hardware_mode_action'):
+            action = menu.hardware_mode_action
+            action.blockSignals(True)
+            action.setChecked(self.use_real_hardware)
+            action.blockSignals(False)
+
+    def _handle_controller_mode_change(self, actual_mode, requested_mode):
+        if actual_mode == requested_mode:
+            return
+
+        was_real = requested_mode
+        self.use_real_hardware = actual_mode
+        self._sync_hardware_mode_action()
+
+        if was_real and not actual_mode and not self._hardware_mode_warning_shown:
+            QMessageBox.warning(
+                self,
+                self.tr("Hardware Warning"),
+                self.tr("Real hardware connection failed. The application will continue using the mock API.")
+            )
+            self._hardware_mode_warning_shown = True
+
+        print(f"Hardware mode adjusted to {'Real Hardware' if actual_mode else 'Mock API'} automatically.")
+
+    def _establish_controller(self, requested_mode, allow_fallback=True):
+        """
+        尝试根据请求的硬件模式建立控制器实例。
+        :param requested_mode: True 表示真实硬件，False 表示模拟模式
+        :param allow_fallback: 当真实硬件失败时是否尝试自动回退到模拟模式
+        :return: (controller, fallback_attempted)
+        """
+        fallback_attempted = False
+
+        if requested_mode:
+            self._hardware_mode_warning_shown = False
+
+        controller = FX2000Controller.connect(use_real_hardware=requested_mode)
+        if controller:
+            actual_mode = bool(getattr(controller, 'is_real_hardware', requested_mode))
+            self._handle_controller_mode_change(actual_mode, requested_mode)
+            return controller, fallback_attempted
+
+        if requested_mode and allow_fallback:
+            fallback_attempted = True
+            controller = FX2000Controller.connect(use_real_hardware=False)
+            if controller:
+                self._handle_controller_mode_change(False, requested_mode)
+                return controller, fallback_attempted
+
+        return None, fallback_attempted
+
     def _setup_initial_state(self):
         """根据传入的硬件模式，设置复选框的初始状态。"""
-        self.menuBar().hardware_mode_action.setChecked(self.use_real_hardware)
+        self._sync_hardware_mode_action()
 
     def _handle_hardware_mode_change(self, checked):
-        """当用户点击 'Use Real Hardware' 复选框时被调用。"""
-        # 检查新状态是否与当前状态不同
-        if checked != self.use_real_hardware:
+        """Handle hardware mode toggle from the menu."""
+        previous_mode = self.use_real_hardware
+        if checked != previous_mode:
             reply = QMessageBox.information(
                 self,
-                "需要重启",
-                "切换硬件模式需要重新启动应用程序。\n\n点击 'OK' 将返回到启动器。",
+                self.tr("Restart Required"),
+                self.tr("Switching hardware mode requires restarting the application.\n\nClick 'OK' to return to the launcher."),
                 QMessageBox.Ok | QMessageBox.Cancel,
                 QMessageBox.Ok
             )
 
             if reply == QMessageBox.Ok:
-                self._request_restart()  # 调用重启方法
+                self.use_real_hardware = checked
+                if self.use_real_hardware:
+                    self._hardware_mode_warning_shown = False
+                self._sync_hardware_mode_action()
+                self._request_restart()
             else:
-                # 如果用户取消，将复选框恢复到原始状态
-                menu_bar = self.menuBar()
-                menu_bar.hardware_mode_action.blockSignals(True)
-                menu_bar.hardware_mode_action.setChecked(self.use_real_hardware)
-                menu_bar.hardware_mode_action.blockSignals(False)
+                self._sync_hardware_mode_action()
 
     def _request_restart(self):
         if self.controller:
@@ -241,17 +301,23 @@ class AppWindow(QMainWindow):
             self.stacked_widget.setCurrentWidget(self.measurement_page)
 
     def connect_hardware(self):
-        self.controller = FX2000Controller.connect(use_real_hardware=self.use_real_hardware)
+        requested_mode = self.use_real_hardware
+        controller, fallback_attempted = self._establish_controller(requested_mode, allow_fallback=True)
+        self.controller = controller
         if not self.controller:
-            # 【新增】根据硬件模式显示不同的错误信息
-            if self.use_real_hardware:
-                # 这是你想要的提示信息
-                error_message = "连接真实硬件失败！\n\n请检查以下几点：\n1. 光谱仪是否已通过USB正确连接。\n2. 设备驱动是否已正确安装。"
+            if requested_mode and fallback_attempted:
+                error_message = self.tr(
+                    "Failed to initialize the spectrometer in both real-hardware and mock modes.\n"
+                    "Please verify the hardware connection and the mock API configuration."
+                )
+            elif requested_mode:
+                error_message = self.tr("Failed to connect to the real spectrometer.\n\nPlease verify:\n1. The device is connected via USB.\n2. The driver is installed correctly.")
             else:
-                error_message = "启动模拟API失败，请检查代码。"
+                error_message = self.tr("Failed to start the mock API. Please check the code.")
 
-            QMessageBox.critical(self, "硬件错误", error_message)
+            QMessageBox.critical(self, self.tr("Hardware Error"), error_message)
             return False
+
         return True
 
     def apply_styles(self):
@@ -691,34 +757,34 @@ class AppWindow(QMainWindow):
                 analysis_dialog.exec_()
 
     def _abort_batch_task(self):
-        """
-        中止批量采集任务，并执行一个完整的硬件断开重连周期来确保驱动状态被重置。
-        """
+        """Abort batch acquisition and fully reset the hardware controller."""
         print("正在中止批量采集任务...")
-        # 1. 像之前一样，先停止Python线程的循环
         if hasattr(self, 'batch_worker') and self.batch_worker:
-            self.batch_worker.stop()  # 这会设置标志位并调用 abort_endpoint_pipe
+            self.batch_worker.stop()
 
-        # 2. 【关键】完全断开与硬件的连接
         print("正在执行硬件控制器断开连接...")
         FX2000Controller.disconnect()
 
-        # 3. 等待一小段时间，给操作系统和驱动足够的时间来释放资源
         time.sleep(0.2)
 
-        # 4. 【关键】立即重新连接，获取一个全新的、干净的控制器实例
         print("正在重新连接硬件控制器...")
-        self.controller = FX2000Controller.connect(self.use_real_hardware)
+        requested_mode = self.use_real_hardware
+        controller, fallback_attempted = self._establish_controller(requested_mode, allow_fallback=True)
+        self.controller = controller
 
-        # 5. 检查重连是否成功，并更新软件中对控制器的引用
         if not self.controller:
-            QMessageBox.critical(self, "严重错误", "中止后重新连接硬件失败，程序可能不稳定，建议重启。")
+            if requested_mode and fallback_attempted:
+                message = self.tr("Hardware reconnection failed in both real and mock modes. Please restart the application.")
+            elif requested_mode:
+                message = self.tr("Hardware reconnection failed in real mode. Please restart the application.")
+            else:
+                message = self.tr("Mock API reconnection failed. Please restart the application.")
+            QMessageBox.critical(self, self.tr("Critical Error"), message)
             self.close()
         else:
-            # 更新测量页面和处理器持有的控制器实例
             self.measurement_page.controller = self.controller
             self.processor.wavelengths = self.controller.wavelengths
-            print("硬件重置并重新连接成功。")
+            print("硬件重置并重新连接成功")
 
     def _on_batch_acquisition_finished(self):
         """
