@@ -301,3 +301,6 @@ class KineticsAnalysisDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, self.tr("Database Error"),
                                  self.tr("An error occurred while saving to the database:\n{0}").format(str(e)))
+
+
+
