@@ -1,5 +1,6 @@
 # Qt Project File for Nanosense Translation (Comprehensive Version)
 
+
 # List all Python files that contain user-facing UI strings
 SOURCES = main.py \
           main_acquisition_loop.py \
