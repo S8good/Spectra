@@ -1,0 +1,16 @@
+# Core GUI and plotting stack
+PyQt5>=5.15
+pyqtgraph>=0.13
+
+# Numerical and scientific computing
+numpy>=1.23
+scipy>=1.9
+pandas>=1.5
+matplotlib>=3.6
+colour-science>=0.4
+
+# File formats and I/O
+openpyxl>=3.0
+
+# Hardware integration (IdeaOptics driver bridge)
+pythonnet>=3.0
