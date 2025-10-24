@@ -8,11 +8,16 @@ import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.exporters
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
-                             QPushButton, QComboBox,QFormLayout, QDoubleSpinBox, QLabel, QGroupBox,
-                             QMessageBox, QFileDialog, QInputDialog)
+                             QPushButton, QComboBox, QFormLayout, QDoubleSpinBox, QLabel, QGroupBox,
+                             QMessageBox, QFileDialog, QInputDialog, QScrollArea)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent
 
-from nanosense.algorithms.peak_analysis import calculate_fwhm
+from nanosense.algorithms.peak_analysis import (
+    calculate_fwhm,
+    PEAK_METHOD_KEYS,
+    PEAK_METHOD_LABELS,
+    estimate_peak_position,
+)
 from .collapsible_box import CollapsibleBox
 
 class SummaryReportWorker(QThread):
@@ -86,6 +91,7 @@ class AverageCalculator(QThread):
             self.finished.emit(None)
 
 DEFAULT_CURVES_TO_DISPLAY = 20
+AVERAGE_CURVE_KEY = "__average_curve__"
 
 class AnalysisWindow(QMainWindow):
 
@@ -144,8 +150,15 @@ class AnalysisWindow(QMainWindow):
         self.plot_widget.clear()
         self.plot_widget.addItem(self.main_peak_marker)
         self.plot_widget.addItem(self.region_selector)
+        self.main_peak_marker.clear()
+
+        if self.average_curve_item:
+            self.plot_widget.removeItem(self.average_curve_item)
+        self.average_curve_item = None
+        self.average_curve_data = None
         self.spectra.clear()
         self.spectra_list_widget.clear()
+        self.analysis_target_combo.blockSignals(True)
         self.analysis_target_combo.clear()
 
         self.total_spectra_count = len(spectra_list_of_dicts)
@@ -177,9 +190,16 @@ class AnalysisWindow(QMainWindow):
             self.spectra[key] = {'x': x, 'y': y, 'name': name, 'curve': curve_item, 'list_item': item}
             self.spectra_list_widget.addItem(item)
             self.analysis_target_combo.addItem(name)
+            self.analysis_target_combo.setItemData(self.analysis_target_combo.count() - 1, key)
 
         if spectra_list_of_dicts:
             self.analysis_target_combo.setCurrentIndex(0)
+        self.analysis_target_combo.blockSignals(False)
+
+        if spectra_list_of_dicts:
+            self.update_analysis_target(self.analysis_target_combo.currentText())
+        else:
+            self.main_spectrum_to_analyze = None
 
     def _update_display_count_and_title(self):
         """
@@ -195,9 +215,12 @@ class AnalysisWindow(QMainWindow):
         self._update_plot_title()  # 调用现有的标题更新方法
 
     def _create_control_panel(self):
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFixedWidth(450)
+
         panel_widget = QWidget()
         panel_layout = QVBoxLayout(panel_widget)
-        panel_widget.setFixedWidth(450)
         panel_layout.setSpacing(10)
         panel_layout.setContentsMargins(5, 5, 5, 5)
 
@@ -237,6 +260,9 @@ class AnalysisWindow(QMainWindow):
         analysis_form_layout = QFormLayout()
         self.analysis_target_combo = QComboBox()
         self.peak_method_combo = QComboBox()
+        for method_key in PEAK_METHOD_KEYS:
+            label = PEAK_METHOD_LABELS[method_key]
+            self.peak_method_combo.addItem(self.tr(label), userData=method_key)
         self.peak_height_spinbox = QDoubleSpinBox()
         self.peak_height_spinbox.setDecimals(4)
         self.peak_height_spinbox.setRange(-1000, 10000)
@@ -301,7 +327,8 @@ class AnalysisWindow(QMainWindow):
         self.processing_box.set_expanded(True)
         self.analysis_box.set_expanded(True)
         panel_layout.addStretch()
-        return panel_widget
+        scroll_area.setWidget(panel_widget)
+        return scroll_area
 
     def _create_plot_widget(self):
         # 创建一个主容器，用于容纳图表和下面的按钮
@@ -405,12 +432,18 @@ class AnalysisWindow(QMainWindow):
 
         self.export_button.setText(self.tr("Export Analysis Results"))
         self.auto_range_button.setText(self.tr("Auto Range"))
-        # 峰值算法下拉框
-        current_text = self.peak_method_combo.currentText()
-        self.peak_method_combo.clear()
-        self.peak_method_combo.addItem(self.tr('Highest Point'))
-        index = self.peak_method_combo.findText(current_text)
-        if index != -1: self.peak_method_combo.setCurrentIndex(index)
+
+        current_method_key = self.peak_method_combo.currentData()
+        for index, method_key in enumerate(PEAK_METHOD_KEYS):
+            self.peak_method_combo.setItemText(index, self.tr(PEAK_METHOD_LABELS[method_key]))
+        if current_method_key is not None:
+            restored_index = self.peak_method_combo.findData(current_method_key)
+            if restored_index != -1:
+                self.peak_method_combo.setCurrentIndex(restored_index)
+
+        avg_index = self.analysis_target_combo.findData(AVERAGE_CURVE_KEY)
+        if avg_index != -1:
+            self.analysis_target_combo.setItemText(avg_index, self.tr("Average Spectrum"))
 
         # 图表
         self._update_plot_title()
@@ -453,24 +486,31 @@ class AnalysisWindow(QMainWindow):
             self.average_curve_item = self.plot_widget.plot(x_data, average_y, pen=pen, name=avg_name)
         else:
             self.average_curve_item.setData(x_data, average_y, pen=pen)
-        if self.analysis_target_combo.findText(avg_name) == -1:
-            self.analysis_target_combo.addItem(avg_name)
-        self.analysis_target_combo.setCurrentText(avg_name)
+        avg_index = self.analysis_target_combo.findData(AVERAGE_CURVE_KEY)
+        if avg_index == -1:
+            self.analysis_target_combo.addItem(avg_name, userData=AVERAGE_CURVE_KEY)
+            avg_index = self.analysis_target_combo.count() - 1
+        else:
+            self.analysis_target_combo.setItemText(avg_index, avg_name)
+        self.analysis_target_combo.setCurrentIndex(avg_index)
 
     def clear_average_curve(self):
         if self.average_curve_item:
             self.plot_widget.removeItem(self.average_curve_item)
             self.average_curve_item = None
             self.average_curve_data = None
-            index = self.analysis_target_combo.findText(self.tr("Average Spectrum"))
-            if index != -1: self.analysis_target_combo.removeItem(index)
+            avg_index = self.analysis_target_combo.findData(AVERAGE_CURVE_KEY)
+            if avg_index != -1:
+                self.analysis_target_combo.removeItem(avg_index)
 
     def update_analysis_target(self, name):
-        avg_name = self.tr("Average Spectrum")
-        if name == avg_name and self.average_curve_data:
+        current_index = self.analysis_target_combo.currentIndex()
+        data_key = self.analysis_target_combo.itemData(current_index)
+
+        if data_key == AVERAGE_CURVE_KEY and self.average_curve_data:
             self.main_spectrum_to_analyze = self.average_curve_data
-        elif name in self.spectra:
-            self.main_spectrum_to_analyze = self.spectra[name]
+        elif data_key in self.spectra:
+            self.main_spectrum_to_analyze = self.spectra[data_key]
         else:
             self.main_spectrum_to_analyze = None
 
@@ -504,28 +544,36 @@ class AnalysisWindow(QMainWindow):
         y_subset = y_data[region_indices]
         # --- 修改结束 ---
 
-        # 3. 在裁切后的数据子集上执行寻峰
-        peak_index_in_subset = np.argmax(y_subset)
+        method_key = self.peak_method_combo.currentData() or 'highest_point'
+        subset_index, peak_wavelength = estimate_peak_position(x_subset, y_subset, method_key)
 
-        if y_subset[peak_index_in_subset] >= min_height:
-            # 4. 获取峰值在原始完整数据中的索引
-            peak_index_global = region_indices[peak_index_in_subset]
+        if peak_wavelength is None:
+            self.main_peak_wavelength_label.setText(self.tr("Not Found"))
+            self.main_peak_intensity_label.setText(self.tr("Not Found"))
+            print(self.tr("Main resonance peak not found with current settings in the selected region."))
+            return
 
-            peak_x = x_data[peak_index_global]
-            peak_y = y_data[peak_index_global]
+        if subset_index is None or subset_index < 0 or subset_index >= len(x_subset):
+            subset_index = int(np.argmin(np.abs(x_subset - peak_wavelength)))
+
+        peak_index_global = region_indices[subset_index]
+        peak_intensity = float(y_subset[subset_index])
+
+        if peak_intensity >= min_height:
+            peak_x = float(peak_wavelength)
+            peak_y = peak_intensity
 
             self.main_peak_marker.setData([peak_x], [peak_y])
             self.main_peak_wavelength_label.setText(f"{peak_x:.4f}")
             self.main_peak_intensity_label.setText(f"{peak_y:.4f}")
 
             try:
-                # 注意：FWHM需要用完整数据进行计算，以确保边界正确
                 fwhm_results = calculate_fwhm(x_data, y_data, [peak_index_global])
                 if fwhm_results:
                     self.main_peak_fwhm_label.setText(f"{fwhm_results[0]:.4f}")
                 else:
                     self.main_peak_fwhm_label.setText(self.tr("Calculation failed"))
-            except Exception as e:
+            except Exception:
                 self.main_peak_fwhm_label.setText(self.tr("Error"))
 
             print(self.tr("Found main resonance peak @ {0:.2f} nm, Intensity: {1:.2f}").format(peak_x, peak_y))

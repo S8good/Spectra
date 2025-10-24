@@ -4,6 +4,13 @@ import numpy as np
 from scipy.signal import find_peaks
 from scipy.optimize import curve_fit
 
+PEAK_METHOD_LABELS = {
+    'highest_point': 'Highest Point',
+    'centroid': 'Centroid',
+    'gaussian_fit': 'Gaussian Fit',
+}
+PEAK_METHOD_KEYS = tuple(PEAK_METHOD_LABELS.keys())
+
 
 def find_spectral_peaks(y_data, min_height=None, min_distance=None):
     """
@@ -186,3 +193,49 @@ def fit_peak_gaussian(wavelengths, intensities):
     except Exception as e:
         print(f"高斯拟合时发生错误: {e}")
         return None
+
+
+def estimate_peak_position(wavelengths, intensities, method='highest_point'):
+    """
+    根据指定方法估计峰位。
+
+    返回:
+    tuple: (approx_index, peak_wavelength)
+    """
+    if wavelengths is None or intensities is None:
+        return None, None
+
+    wavelengths_arr = np.asarray(wavelengths)
+    intensities_arr = np.asarray(intensities)
+
+    if wavelengths_arr.size == 0 or intensities_arr.size == 0:
+        return None, None
+
+    method_key = (method or 'highest_point').lower()
+    if method_key not in PEAK_METHOD_LABELS:
+        method_key = 'highest_point'
+
+    try:
+        if method_key == 'highest_point':
+            index = int(np.argmax(intensities_arr))
+            return index, float(wavelengths_arr[index])
+
+        if method_key == 'centroid':
+            center = calculate_centroid(wavelengths_arr, intensities_arr)
+            if center is None:
+                return None, None
+            approx_index = int(np.argmin(np.abs(wavelengths_arr - center)))
+            return approx_index, float(center)
+
+        if method_key == 'gaussian_fit':
+            fit_results = fit_peak_gaussian(wavelengths_arr, intensities_arr)
+            if not fit_results:
+                return None, None
+            center = float(fit_results['center'])
+            approx_index = int(np.argmin(np.abs(wavelengths_arr - center)))
+            return approx_index, center
+
+    except Exception as exc:
+        print(f"estimate_peak_position failed: {exc}")
+
+    return None, None

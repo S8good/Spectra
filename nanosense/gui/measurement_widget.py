@@ -18,8 +18,15 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushBut
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
 
 import pyqtgraph as pg
-from nanosense.algorithms.peak_analysis import find_spectral_peaks, find_main_resonance_peak, calculate_centroid, \
-    fit_peak_gaussian, gaussian, calculate_fwhm
+
+from nanosense.algorithms.peak_analysis import (
+    find_spectral_peaks,
+    find_main_resonance_peak,
+    calculate_fwhm,
+    PEAK_METHOD_KEYS,
+    PEAK_METHOD_LABELS,
+    estimate_peak_position,
+)
 from nanosense.core.controller import FX2000Controller
 from nanosense.utils.file_io import save_spectrum, load_spectrum, save_all_spectra_to_file
 from nanosense.core.spectrum_processor import SpectrumProcessor
@@ -156,10 +163,10 @@ class MeasurementWidget(QWidget):
         analysis_outer_layout = QVBoxLayout();
         analysis_outer_layout.setSpacing(10)
         self.analysis_form_layout = QFormLayout()
-        self.peak_method_combo = QComboBox();
-        self.peak_method_combo.addItem(self.tr('Highest Point'), userData='highest_point')
-        self.peak_method_combo.addItem(self.tr('Centroid'), userData='centroid')
-        self.peak_method_combo.addItem(self.tr('Gaussian Fit'), userData='gaussian_fit')
+        self.peak_method_combo = QComboBox()
+        for method_key in PEAK_METHOD_KEYS:
+            label = PEAK_METHOD_LABELS[method_key]
+            self.peak_method_combo.addItem(self.tr(label), userData=method_key)
         self.peak_height_spinbox = QDoubleSpinBox();
         self.peak_height_spinbox.setDecimals(4);
         self.peak_height_spinbox.setRange(-1000, 10000);
@@ -465,7 +472,11 @@ class MeasurementWidget(QWidget):
         """【需求变更】现在保存由寻峰范围选择器定义的数据区域。"""
         # 【修改】将数据源从 curve_data 改为 self.full_result_y
         if self.full_result_y is None:
-            QMessageBox.warning(self, "保存失败", "结果图中没有有效数据。")
+            QMessageBox.warning(
+                self,
+                self.tr("Save Failed"),
+                self.tr("There is no valid data in the result plot to save.")
+            )
             return
 
         full_x_data, full_y_data = self.full_result_x, self.full_result_y
@@ -585,11 +596,12 @@ class MeasurementWidget(QWidget):
         self.peak_markers.clear()
 
         self.mode_name = mode_name
+        display_name = self.tr(self.mode_name)
 
         # 【核心修改】简化并统一结果谱的内外标题
-        self.result_plot.setLabel('left', self.mode_name)
-        self.result_plot.setTitle(self.mode_name, color='#90A4AE', size='12pt')  # 设置内部标题
-        self.result_title_label.setText(self.mode_name)  # 设置外部标题
+        self.result_plot.setLabel('left', display_name)
+        self.result_plot.setTitle(display_name, color='#90A4AE', size='12pt')  # 设置内部标题
+        self.result_title_label.setText(display_name)  # 设置外部标题
 
         if self.mode_name in ["Reflectance", "Absorbance", "Transmission"]:
             self.capture_ref_button.show()
@@ -605,7 +617,7 @@ class MeasurementWidget(QWidget):
         self.result_curve.clear()
         self.background_curve.clear()
         self.reference_curve.clear()
-        print(self.tr("Measurement page switched to: {0}").format(self.mode_name))
+        print(self.tr("Measurement page switched to: {0}").format(display_name))
         self._toggle_acquisition(True)
 
     def update_plot(self):
@@ -825,21 +837,9 @@ class MeasurementWidget(QWidget):
         x_subset = self.wavelengths[region_indices]
         y_subset = y_data[region_indices]
 
-        selected_method_key = self.peak_method_combo.currentData()
-        peak_x = None
-
-        # 【修改】将算法名称的判断也改为英文，与UI保持一致
-        if selected_method_key == 'highest_point':
-            if y_subset.size > 0:
-                main_peak_index_subset = np.argmax(y_subset)
-                peak_x = x_subset[main_peak_index_subset]
-        elif selected_method_key == 'centroid':
-            peak_x = calculate_centroid(x_subset, y_subset)
-        elif selected_method_key == 'gaussian_fit':
-            fit_results = fit_peak_gaussian(x_subset, y_subset)
-            if fit_results:
-                peak_x = fit_results['center']
-        return peak_x
+        method_key = self.peak_method_combo.currentData() or 'highest_point'
+        _, peak_wavelength = estimate_peak_position(x_subset, y_subset, method_key)
+        return peak_wavelength
 
     def update_background_plot(self, wavelengths, spectrum):
         """Updates the display of the background spectrum chart."""
@@ -991,6 +991,13 @@ class MeasurementWidget(QWidget):
 
         self.analysis_form_layout.labelForField(self.peak_method_combo).setText(self.tr("Main Peak Algorithm:"))
         self.analysis_form_layout.labelForField(self.peak_height_spinbox).setText(self.tr("Minimum Peak Height:"))
+        current_method_key = self.peak_method_combo.currentData()
+        for index, method_key in enumerate(PEAK_METHOD_KEYS):
+            self.peak_method_combo.setItemText(index, self.tr(PEAK_METHOD_LABELS[method_key]))
+        if current_method_key is not None:
+            restored_index = self.peak_method_combo.findData(current_method_key)
+            if restored_index != -1:
+                self.peak_method_combo.setCurrentIndex(restored_index)
 
         self.range_layout_form.labelForField(self.range_start_spinbox).setText(self.tr("Start Position:"))
         self.range_layout_form.labelForField(self.range_end_spinbox).setText(self.tr("End Position:"))
@@ -1002,3 +1009,9 @@ class MeasurementWidget(QWidget):
         # --- 翻译所有 GroupBox 标题 ---
         self.range_group.setTitle(self.tr("Spectral Peak Find Range"))
         self.result_display_group.setTitle(self.tr("Analysis Results"))
+
+        # --- 根据当前模式更新结果图标题 ---
+        display_name = self.tr(self.mode_name)
+        self.result_plot.setLabel('left', display_name)
+        self.result_plot.setTitle(display_name, color='#90A4AE', size='12pt')
+        self.result_title_label.setText(display_name)

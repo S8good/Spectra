@@ -210,7 +210,11 @@ class DataAnalysisDialog(QDialog):
         if sample_df.shape[1] > 3:
             sample_intensity = sample_df.iloc[:, 3].values
         else:
-            QMessageBox.warning(self, "数据错误", "样本数据的列数不足4列，无法提取有效的吸收光谱进行预览。")
+            QMessageBox.warning(
+                self,
+                self.tr("Data Error"),
+                self.tr("Sample data must contain at least four columns to preview the absorbance trace.")
+            )
             return
         dialog = PreprocessingDialog(sample_wavelengths, sample_intensity, self.preprocessing_params, self)
         if dialog.exec_() == QDialog.Accepted:

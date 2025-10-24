@@ -36,10 +36,13 @@ class AppWindow(QMainWindow):
 
     def __init__(self, use_real_hardware=True):
         super().__init__()
-        self.setWindowTitle("Nanophotonics sensing detection data visualization analysis system")
+        self.setWindowTitle(self.tr("Nanophotonics sensing detection data visualization analysis system"))
         self.setGeometry(100, 100, 1280, 800)
 
         self.app_settings = load_settings()
+        self.translator = None
+        initial_language = self.app_settings.get('language', 'en')
+        self.current_language = self._load_translator(initial_language)
 
         # 保存硬件模式状态
         self.use_real_hardware = use_real_hardware
@@ -76,8 +79,6 @@ class AppWindow(QMainWindow):
 
         self.processor = SpectrumProcessor(self.controller.wavelengths)
 
-        self.translator = QTranslator()
-
         self._create_global_actions()
         self.init_ui()
         self.apply_styles()  # 保持你原有的样式加载
@@ -90,10 +91,18 @@ class AppWindow(QMainWindow):
         if db_path:
             self.db_manager = DatabaseManager(db_path)
         else:
-            print("警告：未在配置中找到数据库路径，数据库功能将不可用。")
-            QMessageBox.warning(self, "数据库警告",
-                                "未在配置文件中找到数据库路径。\n"
-                                "请通过 Settings -> Customize Parameters... 设置数据库文件路径以启用数据归档功能。")
+            warning_msg = self.tr(
+                "No database path was found in the configuration. Database features will be unavailable."
+            )
+            print(warning_msg)
+            QMessageBox.warning(
+                self,
+                self.tr("Database Warning"),
+                self.tr(
+                    "No database path was found in the configuration.\n"
+                    "Open Settings -> Customize Parameters... to set the database file path and enable data archiving."
+                )
+            )
     # 【新增】查找或创建默认项目
     def _find_or_create_default_project(self):
         if self.db_manager:
@@ -565,7 +574,7 @@ class AppWindow(QMainWindow):
         x_data, y_data, file_path = load_spectrum(self, default_load_path)
 
         if x_data is not None:
-            name = os.path.basename(file_path) if file_path else "Loaded Spectrum"
+            name = os.path.basename(file_path) if file_path else self.tr("Loaded Spectrum")
             single_spectrum_data = {'x': x_data, 'y': y_data, 'name': name}
             analysis_win = AnalysisWindow(spectra_data=single_spectrum_data, parent=self)
             self.analysis_windows.append(analysis_win)
@@ -587,7 +596,9 @@ class AppWindow(QMainWindow):
         # 【核心修复】获取并使用默认加载路径
         default_load_path = self.app_settings.get('default_load_path', '')
         dir_path = QFileDialog.getExistingDirectory(
-            self, "选择包含光谱文件的文件夹", default_load_path
+            self,
+            self.tr("Select Folder Containing Spectra Files"),
+            default_load_path
         )
         if not dir_path:
             return
@@ -595,19 +606,26 @@ class AppWindow(QMainWindow):
         spectra_list = load_spectra_from_path(dir_path, mode='folder')
 
         if spectra_list:
-            print(f"成功从文件夹加载了 {len(spectra_list)} 条光谱曲线。")
+            print(self.tr("Successfully loaded {0} spectra from the selected folder.").format(len(spectra_list)))
             win = AnalysisWindow(spectra_data=spectra_list, parent=self)
             self.analysis_windows.append(win)
             win.show()
         else:
-            QMessageBox.warning(self, "提示", "所选文件夹中未找到可加载的光谱文件。")
+            QMessageBox.warning(
+                self,
+                self.tr("Info"),
+                self.tr("No spectra were found in the selected folder.")
+            )
 
     def _trigger_import_multiple_from_file(self):
         """专门处理从单个多列文件导入的逻辑。"""
         # 【核心修复】获取并使用默认加载路径
         default_load_path = self.app_settings.get('default_load_path', '')
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择一个多列光谱文件", default_load_path, "Data Files (*.xlsx *.xls *.csv *.txt)"
+            self,
+            self.tr("Choose a multi-column spectra file"),
+            default_load_path,
+            self.tr("Data Files (*.xlsx *.xls *.csv *.txt)")
         )
         if not file_path:
             return
@@ -615,18 +633,22 @@ class AppWindow(QMainWindow):
         spectra_list = load_spectra_from_path(file_path, mode='file')
 
         if spectra_list:
-            print(f"成功从文件加载了 {len(spectra_list)} 条光谱曲线。")
+            print(self.tr("Successfully loaded {0} spectra from the selected file.").format(len(spectra_list)))
             win = AnalysisWindow(spectra_data=spectra_list, parent=self)
             self.analysis_windows.append(win)
             win.show()
         else:
-            QMessageBox.warning(self, "提示", "未能从所选文件中加载任何光谱数据。")
+            QMessageBox.warning(
+                self,
+                self.tr("Info"),
+                self.tr("No spectra could be loaded from the selected file.")
+            )
 
     def _trigger_find_peaks(self):
         if self.stacked_widget.currentWidget() is self.measurement_page:
             self.measurement_page._find_all_peaks()
         else:
-            print("请先进入测量页面再使用寻峰功能。")
+            print(self.tr("Please switch to the measurement page before using the peak finding feature."))
 
     def _open_data_analysis_dialog(self):
         dialog = DataAnalysisDialog(self)
@@ -650,7 +672,11 @@ class AppWindow(QMainWindow):
                 QMessageBox.information(self, self.tr("Info"), self.tr(
                     "Database connection has been updated. A restart may be required for all features to use the new database."))
 
-            QMessageBox.information(self, "成功", "默认路径设置已保存。")
+            QMessageBox.information(
+                self,
+                self.tr("Success"),
+                self.tr("Default paths have been saved.")
+            )
 
     def _open_sensitivity_dialog(self):
         dialog = SensitivityDialog(self)
@@ -689,7 +715,11 @@ class AppWindow(QMainWindow):
         dialog.exec_()
 
     def placeholder_function(self, feature_name):
-        QMessageBox.information(self, "提示", f"功能 '{feature_name}' 正在开发中！")
+        QMessageBox.information(
+            self,
+            self.tr("Info"),
+            self.tr("Feature '{feature_name}' is under development.").format(feature_name=feature_name)
+        )
 
     def _start_batch_acquisition(self):
         plate_setup_dialog = PlateSetupDialog(self)
@@ -707,7 +737,11 @@ class AppWindow(QMainWindow):
          is_auto_enabled, intra_well_interval, inter_well_interval) = batch_setup_dialog.get_settings()
 
         if not output_folder:
-            QMessageBox.warning(self, "错误", "必须选择一个有效的输出文件夹。")
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr("A valid output folder must be selected.")
+            )
             return
 
         self.run_dialog = BatchRunDialog(self)
@@ -730,7 +764,13 @@ class AppWindow(QMainWindow):
         self.batch_worker.finished.connect(self.batch_thread.quit)
         self.batch_worker.finished.connect(self.batch_worker.deleteLater)
         self.batch_thread.finished.connect(self.batch_thread.deleteLater)
-        self.batch_worker.error.connect(lambda msg: QMessageBox.critical(self, "错误", msg))
+        self.batch_worker.error.connect(
+            lambda msg: QMessageBox.critical(
+                self,
+                self.tr("Error"),
+                self.tr(msg) if isinstance(msg, str) else msg
+            )
+        )
         self.batch_worker.update_dialog.connect(self.run_dialog.update_state)
         self.batch_worker.live_preview_data.connect(self.run_dialog.update_all_plots)
 
@@ -747,10 +787,16 @@ class AppWindow(QMainWindow):
 
         # 如果任务不是被用户中止的，而是正常完成的
         if result == QDialog.Accepted and self.batch_worker._is_running:
-            reply = QMessageBox.question(self, '任务完成',
-                                         f"批量采集已完成，数据已保存在:\n{output_folder}\n\n"
-                                         "是否立即对这些数据进行批量分析？",
-                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            reply = QMessageBox.question(
+                self,
+                self.tr("Task Complete"),
+                self.tr(
+                    "Batch acquisition finished. Data saved to:\n{output_folder}\n\n"
+                    "Would you like to run batch analysis now?"
+                ).format(output_folder=output_folder),
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
 
             if reply == QMessageBox.Yes:
                 analysis_dialog = DataAnalysisDialog(self, initial_folder=output_folder)
@@ -800,10 +846,16 @@ class AppWindow(QMainWindow):
 
             output_folder = self.batch_worker.output_folder
 
-            reply = QMessageBox.question(self, '任务完成',
-                                         f"批量采集已完成，数据已保存在:\n{output_folder}\n\n"
-                                         "是否立即对这些数据进行批量分析？",
-                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            reply = QMessageBox.question(
+                self,
+                self.tr("Task Complete"),
+                self.tr(
+                    "Batch acquisition finished. Data saved to:\n{output_folder}\n\n"
+                    "Would you like to run batch analysis now?"
+                ).format(output_folder=output_folder),
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
 
             if reply == QMessageBox.Yes:
                 # 自动打开批量分析对话框
@@ -822,42 +874,46 @@ class AppWindow(QMainWindow):
         if "button_enabled" in status:
             self.run_dialog.action_button.setEnabled(status["button_enabled"])
 
-    def _switch_language(self, language):
+    def _load_translator(self, language: str) -> str:
         """
-        【已修复】加载并安装指定语言的翻译文件，并手动更新所有UI。
-        修复了翻译文件路径错误的问题。
+        Install translator for the requested language and return the language that was actually applied.
         """
         app = QApplication.instance()
+        if app is None:
+            return 'en'
 
-        # 1. 移除旧的翻译器实例 (如果存在)
-        if hasattr(self, 'translator'):
+        if self.translator:
             app.removeTranslator(self.translator)
 
-        # 2. 创建一个全新的、干净的翻译器实例
-        self.translator = QTranslator()
-
-        # 3. 如果目标语言是中文，则加载并安装新的翻译器
+        self.translator = None
         if language == 'zh':
-            # 【核心修复】修正了 .qm 文件的相对路径
             translation_path = os.path.join('nanosense', 'translations', 'chinese.qm')
-
-            if os.path.exists(translation_path) and self.translator.load(translation_path):
-                app.installTranslator(self.translator)
+            translator = QTranslator()
+            if os.path.exists(translation_path) and translator.load(translation_path):
+                app.installTranslator(translator)
+                self.translator = translator
                 print("Chinese translation loaded.")
-            else:
-                print(f"Warning: Chinese translation file not found or failed to load.")
-                language = 'en'  # 加载失败，强制退回英文
+                return 'zh'
+            print(f"Warning: Chinese translation file not found or failed to load from {translation_path}.")
+        return 'en'
 
-        # 4. 更新菜单项的勾选状态
-        is_chinese = (language == 'zh')
+    def _switch_language(self, language):
+        """
+        加载并安装指定语言的翻译文件，并手动更新所有UI。
+        """
+        applied_language = self._load_translator(language)
+
+        # Step 4: update language toggle state
+        is_chinese = (applied_language == "zh")
         self.menuBar().language_zh_action.setChecked(is_chinese)
         self.menuBar().language_en_action.setChecked(not is_chinese)
 
-        # 5. 保存设置
-        self.app_settings['language'] = language
+        # Step 5: persist selection
+        self.app_settings["language"] = applied_language
+        self.current_language = applied_language
         save_settings(self.app_settings)
 
-        # 6. 手动触发所有UI的文本刷新
+        # Step 6: refresh all visible UI
         self._retranslate_ui()
 
     def _retranslate_ui(self):
@@ -878,6 +934,13 @@ class AppWindow(QMainWindow):
         # 命令子页面也进行自我翻译
         if hasattr(self, 'measurement_page') and hasattr(self.measurement_page, '_retranslate_ui'):
             self.measurement_page._retranslate_ui()
+        if hasattr(self, 'colorimetry_page') and hasattr(self.colorimetry_page, '_retranslate_ui'):
+            self.colorimetry_page._retranslate_ui()
+        for window in getattr(self, 'analysis_windows', []):
+            if window and hasattr(window, '_retranslate_ui'):
+                window._retranslate_ui()
+        if getattr(self, 'db_explorer_window', None) and hasattr(self.db_explorer_window, '_retranslate_ui'):
+            self.db_explorer_window._retranslate_ui()
 
     def _setup_initial_language(self):
         """
