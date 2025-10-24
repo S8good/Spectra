@@ -2,6 +2,7 @@
 
 import os
 import traceback
+import re
 
 import numpy as np
 import pandas as pd
@@ -573,29 +574,194 @@ def export_data_custom(parent, experiments_data):
 
     QMessageBox.information(parent, parent.tr("Export Complete"), "\n\n".join(final_message))
 # 【新增】生成“详细数据”文件的辅助函数
+def _generate_unique_sheet_name(base_name, used_names):
+    """
+    生成符合 Excel 限制（长度 <= 31，不能包含 \\ / ? * : [ ] ）且不重复的工作表名称。
+    """
+    if not base_name:
+        base_name = "Sheet"
+
+    # 替换非法字符
+    sanitized = re.sub(r'[\\\/\?\*\:\[\]]', '_', base_name)
+    sanitized = sanitized.strip()
+    if not sanitized:
+        sanitized = "Sheet"
+
+    # 限制长度
+    sanitized = sanitized[:31]
+
+    unique_name = sanitized
+    counter = 1
+    while unique_name in used_names:
+        suffix = f"_{counter}"
+        unique_name = f"{sanitized[:31 - len(suffix)]}{suffix}"
+        counter += 1
+
+    used_names.add(unique_name)
+    return unique_name
+
+def _flatten_data_to_rows(data, prefix=""):
+    """
+    将嵌套的 dict/list 结构展开为 (key, value) 的序列，便于导出成表格。
+    """
+    if isinstance(data, np.generic):
+        data = data.item()
+    if isinstance(data, np.ndarray):
+        data = data.tolist()
+    if isinstance(data, pd.Series):
+        data = data.tolist()
+    if isinstance(data, pd.Timestamp):
+        data = data.isoformat()
+
+    rows = []
+
+    if isinstance(data, dict):
+        for key, value in data.items():
+            new_prefix = f"{prefix}.{key}" if prefix else str(key)
+            rows.extend(_flatten_data_to_rows(value, new_prefix))
+    elif isinstance(data, list):
+        for index, value in enumerate(data):
+            new_prefix = f"{prefix}[{index}]" if prefix else f"[{index}]"
+            rows.extend(_flatten_data_to_rows(value, new_prefix))
+    else:
+        key = prefix or "value"
+        rows.append((key, data))
+
+    return rows
+
 def _export_detailed_spectra(experiments_data, file_path):
     """
     导出文件1：每个“保存事件”一个sheet，包含其完整的四种光谱。
     """
     try:
+        used_sheet_names = set()
         with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
             sheet_counter = 1
             for exp_data in experiments_data:
                 for spectra_set in exp_data['spectra_sets']:
-                    if 'wavelengths' not in spectra_set: continue
+                    wavelengths = spectra_set.get('wavelengths')
+                    if wavelengths is None:
+                        continue
 
-                    df = pd.DataFrame({'Wavelength': spectra_set['wavelengths']})
-                    df['Signal'] = spectra_set.get('Signal')
-                    df['Background'] = spectra_set.get('Background')
-                    df['Reference'] = spectra_set.get('Reference')
+                    if isinstance(wavelengths, np.ndarray):
+                        wavelengths = wavelengths.tolist()
+                    if not isinstance(wavelengths, (list, tuple)) or len(wavelengths) == 0:
+                        continue
 
-                    # 查找结果光谱列（因为它的名字是动态的）
+                    df = pd.DataFrame({'Wavelength': wavelengths})
+                    data_columns_added = 0
+
+                    for column_key, column_name in [
+                        ('Signal', 'Signal'),
+                        ('Background', 'Background'),
+                        ('Reference', 'Reference')
+                    ]:
+                        values = spectra_set.get(column_key)
+                        if isinstance(values, np.ndarray):
+                            values = values.tolist()
+                        if isinstance(values, (list, tuple)) and len(values) == len(wavelengths):
+                            df[column_name] = values
+                            data_columns_added += 1
+
                     result_key = next((k for k in spectra_set if k.startswith('Result_')), None)
                     if result_key:
-                        df[result_key] = spectra_set.get(result_key)
+                        result_values = spectra_set.get(result_key)
+                        if isinstance(result_values, np.ndarray):
+                            result_values = result_values.tolist()
+                        if isinstance(result_values, (list, tuple)) and len(result_values) == len(wavelengths):
+                            df[result_key] = result_values
+                            data_columns_added += 1
 
-                    df.to_excel(writer, sheet_name=f'spectra{sheet_counter}', index=False)
+                    if data_columns_added == 0:
+                        continue
+
+                    sheet_name = _generate_unique_sheet_name(f'spectra{sheet_counter}', used_sheet_names)
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
                     sheet_counter += 1
+
+            # 为每个实验添加包含元数据与分析结果的工作表
+            for exp_data in experiments_data:
+                meta = exp_data.get('metadata', {})
+                exp_id = meta.get('experiment_id', 'Unknown')
+                summary_rows = []
+                kinetics_series_exports = []
+
+                # 基础元数据
+                basic_meta_items = [
+                    ('Experiment ID', meta.get('experiment_id')),
+                    ('Project ID', meta.get('project_id')),
+                    ('Experiment Name', meta.get('name')),
+                    ('Type', meta.get('type')),
+                    ('Timestamp', meta.get('timestamp')),
+                    ('Operator', meta.get('operator')),
+                    ('Notes', meta.get('notes'))
+                ]
+                for key, value in basic_meta_items:
+                    summary_rows.append({'Section': 'Metadata', 'Item': key, 'Value': value if value is not None else ''})
+
+                # 配置快照（如果存在）
+                config_snapshot = meta.get('config_snapshot') or {}
+                if config_snapshot:
+                    for key, value in _flatten_data_to_rows(config_snapshot, prefix='config_snapshot'):
+                        summary_rows.append({'Section': 'Metadata', 'Item': key, 'Value': value})
+
+                # 分析/动力学结果
+                for result in exp_data.get('results', []):
+                    analysis_type = result.get('type') or 'Analysis'
+                    data = result.get('data')
+                    if isinstance(data, dict) and analysis_type == 'Kinetics_Fit':
+                        time_series = data.get('time_series')
+                        if isinstance(time_series, list) and time_series:
+                            kinetics_series_exports.append({
+                                'analysis_type': analysis_type,
+                                'series': time_series
+                            })
+                            data = {k: v for k, v in data.items() if k != 'time_series'}
+                    flattened = _flatten_data_to_rows(data) if data is not None else []
+                    if flattened:
+                        for key, value in flattened:
+                            summary_rows.append({'Section': analysis_type, 'Item': key, 'Value': value})
+                    else:
+                        summary_rows.append({'Section': analysis_type, 'Item': 'value', 'Value': data})
+
+                if summary_rows:
+                    summary_df = pd.DataFrame(summary_rows, columns=['Section', 'Item', 'Value'])
+                    summary_df = summary_df.rename(columns={'Section': 'Category', 'Item': 'Parameter'})
+                    sheet_name = _generate_unique_sheet_name(f'Exp{exp_id}_Summary', used_sheet_names)
+                    summary_df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+                # 如果存在动力学时间序列，则为其创建独立工作表
+                for index, series_info in enumerate(kinetics_series_exports, start=1):
+                    series = series_info.get('series')
+                    if not isinstance(series, list) or not series:
+                        continue
+
+                    series_df = pd.DataFrame(series)
+                    if series_df.empty:
+                        continue
+
+                    rename_map = {}
+                    for column in series_df.columns:
+                        lower = str(column).lower()
+                        if 'time' in lower:
+                            rename_map[column] = 'Time (s)'
+                        elif 'peak' in lower:
+                            rename_map[column] = 'Peak Wavelength (nm)'
+                        else:
+                            rename_map[column] = column
+                    series_df = series_df.rename(columns=rename_map)
+
+                    preferred_order = [col for col in ['Time (s)', 'Peak Wavelength (nm)'] if col in series_df.columns]
+                    other_columns = [col for col in series_df.columns if col not in preferred_order]
+                    ordered_columns = preferred_order + other_columns
+                    series_df = series_df[ordered_columns]
+
+                    base_name = f"Exp{exp_id}_Kinetics"
+                    if len(kinetics_series_exports) > 1:
+                        base_name = f"{base_name}{index}"
+                    sheet_name = _generate_unique_sheet_name(base_name, used_sheet_names)
+                    series_df.to_excel(writer, sheet_name=sheet_name, index=False)
+
         return True, ""
     except Exception as e:
         return False, str(e)

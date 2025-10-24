@@ -142,88 +142,157 @@ class KineticsAnalysisDialog(QDialog):
         self.tabs.addTab(tab, "残差图")
 
     def _perform_analysis(self):
-        """核心分析函数：选择数据->拟合->计算->显示结果"""
-        # 1. 获取用户选择的区域和参数
-        assoc_start_t = self.assoc_start_line.value()
-        assoc_end_t = self.assoc_end_line.value()
-        dissoc_start_t = self.dissoc_start_line.value()
-        dissoc_end_t = self.dissoc_end_line.value()
+        """执行拟合流程：选区 -> 拟合 -> 计算 -> 显示结果"""
+        try:
+            # 1. 复制并清洗原始数据，避免后续过程修改 self.time_data / self.y_data
+            time_data = np.array(self.time_data, dtype=float)
+            response_data = np.array(self.y_data, dtype=float)
 
-        assoc_mask = (self.time_data >= assoc_start_t) & (self.time_data <= assoc_end_t)
-        dissoc_mask = (self.time_data >= dissoc_start_t) & (self.time_data <= dissoc_end_t)
+            finite_mask = np.isfinite(time_data) & np.isfinite(response_data)
+            if not np.all(finite_mask):
+                time_data = time_data[finite_mask]
+                response_data = response_data[finite_mask]
 
-        if np.sum(assoc_mask) < 3 or np.sum(dissoc_mask) < 3:
-            # 使用 tr() 进行翻译
-            print(
-                self.tr("Error: Selected association or dissociation region has fewer than 3 data points, cannot fit."))
-            return
+            if time_data.size < 5 or response_data.size < 5:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Insufficient Data"),
+                    self.tr("Not enough valid data points to perform kinetic analysis. Please collect more measurements.")
+                )
+                self.save_to_db_button.setEnabled(False)
+                return
 
-        # 2. 对解离区进行拟合，计算 kd
-        dissoc_time = self.time_data[dissoc_mask] - dissoc_start_t
-        dissoc_y = self.y_data[dissoc_mask]
-        dissoc_fit_results = fit_kinetics_curve(dissoc_time, dissoc_y)
+            order = np.argsort(time_data)
+            time_data = time_data[order]
+            response_data = response_data[order]
 
-        # 使用 tr() 进行翻译
-        if dissoc_fit_results is None:
-            self.k_d_label.setText(self.tr("Fit Failed"))
+            assoc_start_t = self.assoc_start_line.value()
+            assoc_end_t = self.assoc_end_line.value()
+            dissoc_start_t = self.dissoc_start_line.value()
+            dissoc_end_t = self.dissoc_end_line.value()
+
+            if assoc_start_t >= assoc_end_t or dissoc_start_t >= dissoc_end_t:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Invalid Region"),
+                    self.tr("Please make sure the association and dissociation vertical markers define valid ranges (start < end).")
+                )
+                self.save_to_db_button.setEnabled(False)
+                return
+
+            assoc_mask = (time_data >= assoc_start_t) & (time_data <= assoc_end_t)
+            dissoc_mask = (time_data >= dissoc_start_t) & (time_data <= dissoc_end_t)
+
+            if np.sum(assoc_mask) < 3 or np.sum(dissoc_mask) < 3:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Insufficient Data"),
+                    self.tr("Selected association or dissociation region has fewer than 3 points. Please adjust the vertical markers.")
+                )
+                self.save_to_db_button.setEnabled(False)
+                return
+
+            dissoc_time = time_data[dissoc_mask] - dissoc_start_t
+            dissoc_y = response_data[dissoc_mask]
+            dissoc_fit_results = fit_kinetics_curve(dissoc_time, dissoc_y)
+            if dissoc_fit_results is None:
+                self.k_d_label.setText(self.tr("Fit Failed"))
+                self.save_to_db_button.setEnabled(False)
+                QMessageBox.warning(
+                    self,
+                    self.tr("Fit Failed"),
+                    self.tr("Unable to fit the dissociation segment. Try widening the time window or smoothing the data.")
+                )
+                return
+
+            k_d = abs(dissoc_fit_results['b'])
+            self.k_d_label.setText(f"{k_d:.4e}")
+            self.dissoc_fit_curve.setData(
+                dissoc_time + dissoc_start_t,
+                mono_exponential_decay(dissoc_time, **dissoc_fit_results)
+            )
+
+            assoc_time = time_data[assoc_mask] - assoc_start_t
+            assoc_y = response_data[assoc_mask]
+            assoc_y_inverted = assoc_y.max() - assoc_y
+            assoc_fit_results = fit_kinetics_curve(assoc_time, assoc_y_inverted)
+            if assoc_fit_results is None:
+                self.k_obs_label.setText(self.tr("Fit Failed"))
+                self.save_to_db_button.setEnabled(False)
+                QMessageBox.warning(
+                    self,
+                    self.tr("Fit Failed"),
+                    self.tr("Unable to fit the association segment. Please adjust the markers or check the signal quality.")
+                )
+                return
+
+            k_obs = abs(assoc_fit_results['b'])
+            self.k_obs_label.setText(f"{k_obs:.4e}")
+            fitted_y_inverted = mono_exponential_decay(assoc_time, **assoc_fit_results)
+            self.assoc_fit_curve.setData(assoc_time + assoc_start_t, assoc_y.max() - fitted_y_inverted)
+
+            concentration_M = self.concentration_input.value() * 1e-9
+            if concentration_M == 0:
+                self.k_a_label.setText(self.tr("Concentration cannot be zero"))
+                self.KD_label.setText(self.tr("Calculation Error"))
+                self.save_to_db_button.setEnabled(False)
+                QMessageBox.warning(
+                    self,
+                    self.tr("Invalid Concentration"),
+                    self.tr("Analyte concentration cannot be zero when calculating kinetic constants.")
+                )
+                return
+
+            if k_obs <= k_d:
+                self.k_a_label.setText(self.tr("Calculation Error (k_obs <= k_d)"))
+                self.KD_label.setText(self.tr("Calculation Error"))
+                self.save_to_db_button.setEnabled(False)
+                QMessageBox.warning(
+                    self,
+                    self.tr("Calculation Error"),
+                    self.tr("k_obs must be greater than k_d. Adjust the association window or verify the data.")
+                )
+                return
+
+            k_a = (k_obs - k_d) / concentration_M
+            KD = k_d / k_a
+            self.k_a_label.setText(f"{k_a:.4e}")
+            self.KD_label.setText(f"{KD:.4e}")
+            self.save_to_db_button.setEnabled(True)
+
+            delta_y = np.diff(response_data)
+            delta_t = np.diff(time_data)
+            if len(delta_t) == 0 or np.allclose(delta_t, 0):
+                derivative = np.zeros_like(delta_t)
+            else:
+                derivative = delta_y / (delta_t + 1e-9)
+
+            if len(derivative) > 0:
+                self.dev_curve.setData(time_data[:-1], derivative)
+
+            y_range = response_data.max() - response_data.min()
+            if y_range > 0 and len(response_data) > 1:
+                normalized_y = (response_data - response_data.min()) / y_range
+                self.exp_points.setData(normalized_y[:-1], derivative)
+
+            assoc_residuals = calculate_residuals(assoc_time, assoc_y_inverted, assoc_fit_results)
+            dissoc_residuals = calculate_residuals(dissoc_time, dissoc_y, dissoc_fit_results)
+            self.res_points.setData(
+                np.concatenate([assoc_time + assoc_start_t, dissoc_time + dissoc_start_t]),
+                np.concatenate([assoc_residuals, dissoc_residuals])
+            )
+
+        except Exception as exc:
             self.save_to_db_button.setEnabled(False)
-            return
-        k_d = abs(dissoc_fit_results['b'])
-        self.k_d_label.setText(f"{k_d:.4e}")
-        self.dissoc_fit_curve.setData(dissoc_time + dissoc_start_t,
-                                      mono_exponential_decay(dissoc_time, **dissoc_fit_results))
-
-        # 3. 对结合区进行拟合，计算 k_obs
-        assoc_time = self.time_data[assoc_mask] - assoc_start_t
-        assoc_y = self.y_data[assoc_mask]
-        assoc_y_inverted = assoc_y.max() - assoc_y
-        assoc_fit_results = fit_kinetics_curve(assoc_time, assoc_y_inverted)
-
-        # 使用 tr() 进行翻译
-        if assoc_fit_results is None:
-            self.k_obs_label.setText(self.tr("Fit Failed"))
-            return
-        k_obs = abs(assoc_fit_results['b'])
-        self.k_obs_label.setText(f"{k_obs:.4e}")
-        fitted_y_inverted = mono_exponential_decay(assoc_time, **assoc_fit_results)
-        self.assoc_fit_curve.setData(assoc_time + assoc_start_t, assoc_y.max() - fitted_y_inverted)
-
-        # 4. 根据公式计算 ka 和 KD
-        concentration_M = self.concentration_input.value() * 1e-9
-        if concentration_M == 0:
-            # 使用 tr() 进行翻译
-            self.k_a_label.setText(self.tr("Concentration cannot be zero"))
-            return
-
-        if k_obs <= k_d:
-            # 使用 tr() 进行翻译
-            self.k_a_label.setText(self.tr("Calculation Error (k_obs <= kd)"))
-            self.KD_label.setText(self.tr("Calculation Error"))
-            return
-
-        k_a = (k_obs - k_d) / concentration_M
-        KD = k_d / k_a
-        self.k_a_label.setText(f"{k_a:.4e}")
-        self.KD_label.setText(f"{KD:.4e}")
-        self.save_to_db_button.setEnabled(True)
-
-        # --- 5. 计算并更新辅助图表 ---
-        delta_y = np.diff(self.y_data)
-        delta_t = np.diff(self.time_data)
-        derivative = delta_y / (delta_t + 1e-9)
-        self.dev_curve.setData(self.time_data[:-1], derivative)
-
-        y_range = self.y_data.max() - self.y_data.min()
-        if y_range > 0:
-            normalized_y = (self.y_data - self.y_data.min()) / y_range
-            self.exp_points.setData(normalized_y[:-1], derivative)
-
-        assoc_residuals = calculate_residuals(assoc_time, assoc_y_inverted, assoc_fit_results)
-        dissoc_residuals = calculate_residuals(dissoc_time, dissoc_y, dissoc_fit_results)
-        self.res_points.setData(
-            np.concatenate([assoc_time + assoc_start_t, dissoc_time + dissoc_start_t]),
-            np.concatenate([assoc_residuals, dissoc_residuals])
-        )
+            self.k_obs_label.setText(self.tr("N/A"))
+            self.k_d_label.setText(self.tr("N/A"))
+            self.k_a_label.setText(self.tr("N/A"))
+            self.KD_label.setText(self.tr("N/A"))
+            QMessageBox.critical(
+                self,
+                self.tr("Unexpected Error"),
+                self.tr("An unexpected error occurred during kinetic analysis:\n{0}").format(str(exc))
+            )
 
     def changeEvent(self, event):
         if event.type() == QEvent.LanguageChange:
@@ -266,12 +335,26 @@ class KineticsAnalysisDialog(QDialog):
             return
 
         try:
-            # 1. 确保有一个有效的实验会话
             experiment_id = self.main_window.get_or_create_current_experiment_id()
             if experiment_id is None:
-                return  # 用户取消了命名实验
+                return
 
-            # 2. 从界面标签中收集结果数据
+            time_data = np.array(self.time_data, dtype=float)
+            response_data = np.array(self.y_data, dtype=float)
+
+            finite_mask = np.isfinite(time_data) & np.isfinite(response_data)
+            if not np.all(finite_mask):
+                time_data = time_data[finite_mask]
+                response_data = response_data[finite_mask]
+
+            if time_data.size == 0 or response_data.size == 0:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Insufficient Data"),
+                    self.tr("No valid kinetics data is available to save. Please recompute the kinetics first.")
+                )
+                return
+
             results_data = {
                 'k_obs': self.k_obs_label.text(),
                 'k_d': self.k_d_label.text(),
@@ -280,23 +363,43 @@ class KineticsAnalysisDialog(QDialog):
                 'Analyte_Concentration_nM': self.concentration_input.value()
             }
 
-            # 检查是否有拟合失败的标记
+            time_series = []
+            time_values = time_data.tolist()
+            wavelength_values = response_data.tolist()
+            for t, wl in zip(time_values, wavelength_values):
+                try:
+                    time_value = float(t)
+                except (TypeError, ValueError):
+                    continue
+
+                peak_value = None
+                if wl is not None:
+                    try:
+                        wl_float = float(wl)
+                        if np.isfinite(wl_float):
+                            peak_value = wl_float
+                    except (TypeError, ValueError):
+                        peak_value = None
+
+                time_series.append({'time_s': time_value, 'peak_nm': peak_value})
+
+            if time_series:
+                results_data['time_series'] = time_series
+
             if self.tr("Fit Failed") in results_data.values() or self.tr("Calculation Error") in results_data.values():
                 QMessageBox.warning(self, self.tr("Warning"),
                                     self.tr("Cannot save, the calculation has failed or contains errors."))
                 return
 
-            # 3. 调用数据库管理器来保存
             self.main_window.db_manager.save_analysis_result(
                 experiment_id=experiment_id,
-                analysis_type='Kinetics_Fit',  # 定义一个清晰的类型
+                analysis_type='Kinetics_Fit',
                 result_data=results_data
             )
 
-            # 4. 给予用户反馈
             QMessageBox.information(self, self.tr("Success"),
                                     self.tr("Kinetics analysis results have been saved to the database."))
-            self.save_to_db_button.setEnabled(False)  # 保存后禁用，防止重复保存
+            self.save_to_db_button.setEnabled(False)
 
         except Exception as e:
             QMessageBox.critical(self, self.tr("Database Error"),

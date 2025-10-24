@@ -581,7 +581,7 @@ Please verify:
         <source>Switching hardware mode requires restarting the application.
 
 Click &apos;OK&apos; to return to the launcher.</source>
-        <translation>切换硬件模式需要重新启动应用程序。点击 'OK' 将返回到启动器。</translation>
+        <translation>切换硬件模式需要重新启动应用程序。点击 &apos;OK&apos; 将返回到启动器。</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="823"/>
@@ -677,7 +677,7 @@ Open Settings -&gt; Customize Parameters... to set the database file path and en
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="718"/>
         <source>Feature &apos;{feature_name}&apos; is under development.</source>
-        <translation>功能 '{feature_name}' 正在开发中。</translation>
+        <translation>功能 &apos;{feature_name}&apos; 正在开发中。</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="767"/>
@@ -1707,221 +1707,312 @@ This action cannot be undone.</source>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="157"/>
         <source>Error: Selected association or dissociation region has fewer than 3 data points, cannot fit.</source>
-        <translation>错误：选择的结合区或解离区数据点少于3个，无法拟合。</translation>
+        <translation type="obsolete">错误：选择的结合区或解离区数据点少于3个，无法拟合。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="284"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="389"/>
         <source>Fit Failed</source>
         <translation>拟合失败</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="195"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="236"/>
         <source>Concentration cannot be zero</source>
         <translation>浓度不能为0</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="200"/>
         <source>Calculation Error (k_obs &lt;= kd)</source>
-        <translation>计算错误 (k_obs &lt;= kd)</translation>
+        <translation type="obsolete">计算错误 (k_obs &lt;= kd)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="284"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="389"/>
         <source>Calculation Error</source>
         <translation>计算错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="234"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="303"/>
         <source>Kinetics and Affinity Analysis</source>
         <translation>动力学与亲和力分析</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="236"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="305"/>
         <source>Experiment Parameters</source>
         <translation>实验参数</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="237"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="306"/>
         <source>Analyte Concentration [A] (nM):</source>
         <translation>分析物浓度 [A] (nM):</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="238"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="307"/>
         <source>Kinetics Calculation Results</source>
         <translation>动力学计算结果</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="239"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="308"/>
         <source>k_obs (1/s):</source>
         <translation>k_obs (1/s):</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="240"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="309"/>
         <source>k_d (1/s):</source>
         <translation>k_d (1/s):</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="241"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="310"/>
         <source>k_a (1/M·s):</source>
         <translation>k_a (1/M·s):</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="242"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="311"/>
         <source>KD (M):</source>
         <translation>KD (M):</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="243"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="312"/>
         <source>Calculate Kinetic Constants</source>
         <translation>计算动力学常数</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="245"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="314"/>
         <source>OK</source>
         <translation>确定</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="248"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="317"/>
         <source>Main Fit Plot</source>
         <translation>主拟合图</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="258"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="327"/>
         <source>Deviation Plot</source>
         <translation>偏差图</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="260"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="329"/>
         <source>Self-Exponent Plot</source>
         <translation>自指数图</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="259"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="328"/>
         <source>Residual Plot</source>
         <translation>残差图</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="253"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="322"/>
         <source>Drag vertical lines to select Association (green) &amp; Dissociation (red) regions</source>
         <translation>请拖拽竖线选择 结合(绿) 与 解离(红) 区域</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="255"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="324"/>
         <source>Time (s)</source>
         <translation>时间 (s)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="256"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="325"/>
         <source>Response (nm)</source>
         <translation>响应值 (nm)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="244"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="313"/>
         <source>Save Results to Database</source>
         <translation>保存结果到数据库</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="265"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="334"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="265"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="334"/>
         <source>Database is not available.</source>
         <translation>数据库不可用。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="285"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="390"/>
         <source>Warning</source>
         <translation>警告</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="285"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="390"/>
         <source>Cannot save, the calculation has failed or contains errors.</source>
         <translation>无法保存，计算失败或包含错误。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="297"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="400"/>
         <source>Success</source>
         <translation>成功</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="297"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="400"/>
         <source>Kinetics analysis results have been saved to the database.</source>
         <translation>动力学分析结果已保存到数据库。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="302"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="405"/>
         <source>Database Error</source>
         <translation>数据库错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="302"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="405"/>
         <source>An error occurred while saving to the database:
 {0}</source>
         <translation>保存到数据库时发生错误：{0}</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="351"/>
+        <source>Insufficient Data</source>
+        <translation>数据不足</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="157"/>
+        <source>Not enough valid data points to perform kinetic analysis. Please collect more measurements.</source>
+        <translation>没有足够的有效数据点来进行动力学分析。请采集更多测量数据。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="175"/>
+        <source>Invalid Region</source>
+        <translation>区域无效</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="175"/>
+        <source>Please make sure the association and dissociation vertical markers define valid ranges (start &lt; end).</source>
+        <translation>请确保结合相与解离相的垂直标记定义了有效的范围 (开始 &lt; 结束)。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="187"/>
+        <source>Selected association or dissociation region has fewer than 3 points. Please adjust the vertical markers.</source>
+        <translation>错误：选择的结合区或解离区数据点少于3个，无法拟合。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="201"/>
+        <source>Unable to fit the dissociation segment. Try widening the time window or smoothing the data.</source>
+        <translation>无法拟合解离曲线。请尝试放宽时间窗口或平滑数据。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="222"/>
+        <source>Unable to fit the association segment. Please adjust the markers or check the signal quality.</source>
+        <translation>无法拟合结合曲线。请调整标记或检查信号质量。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="239"/>
+        <source>Invalid Concentration</source>
+        <translation>浓度无效</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="239"/>
+        <source>Analyte concentration cannot be zero when calculating kinetic constants.</source>
+        <translation>计算动力学常数时，分析物浓度不能为零。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="247"/>
+        <source>Calculation Error (k_obs &lt;= k_d)</source>
+        <translation>计算错误 (k_obs &lt;= kd)</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="250"/>
+        <source>k_obs must be greater than k_d. Adjust the association window or verify the data.</source>
+        <translation>k_obs 必须大于 k_d。请调整结合相窗口或检验数据。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="290"/>
+        <source>N/A</source>
+        <translation>N/A</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="291"/>
+        <source>Unexpected Error</source>
+        <translation>意外错误</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="291"/>
+        <source>An unexpected error occurred during kinetic analysis:
+{0}</source>
+        <translation>动力学分析期间发生意外错误: {0}</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_analysis_dialog.py" line="351"/>
+        <source>No valid kinetics data is available to save. Please recompute the kinetics first.</source>
+        <translation>没有可供保存的有效动力学数据。请先重新计算。</translation>
     </message>
 </context>
 <context>
     <name>KineticsWindow</name>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="96"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="293"/>
         <source>Real-time Kinetics Analysis</source>
         <translation>实时动力学分析</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="99"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="296"/>
         <source>Kinetics Analysis</source>
         <translation>动力学分析</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="100"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="297"/>
         <source>Clear Kinetics Data</source>
         <translation>清除动力学数据</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="101"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="298"/>
         <source>Drift Correction</source>
         <translation>漂移校正</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="102"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="299"/>
         <source>Analyze Kinetics Curve</source>
         <translation>分析动力学曲线</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="105"/>
         <source>Real-time Result Spectrum</source>
-        <translation>实时结果谱</translation>
+        <translation type="obsolete">实时结果谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="110"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="303"/>
         <source>Wavelength (nm)</source>
         <translation>波长 (nm)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="111"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="304"/>
         <source>Absorbance</source>
         <translation>吸收光谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="109"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="310"/>
         <source>Accumulated Results</source>
         <translation>累积结果汇总</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="113"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="311"/>
         <source>Kinetics Curve (Sensorgram)</source>
         <translation>动力学曲线 (Sensorgram)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="114"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="307"/>
         <source>Time (s)</source>
         <translation>时间 (s)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="115"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="308"/>
         <source>Peak Wavelength (nm)</source>
         <translation>峰值波长 (nm)</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="315"/>
+        <source>Reset Summary View</source>
+        <translation>重置汇总视图</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="316"/>
+        <source>Reset Sensorgram View</source>
+        <translation>重置传感图视图</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="313"/>
+        <source>Open in New Window</source>
+        <translation>在独立窗口中打开</translation>
     </message>
 </context>
 <context>
@@ -2441,7 +2532,7 @@ This action cannot be undone.</source>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/measurement_widget.py" line="792"/>
         <source>Comparison spectrum &apos;{0}&apos; loaded and displayed.</source>
-        <translation>对比光谱 '{0}' 已加载并显示。</translation>
+        <translation>对比光谱 &apos;{0}&apos; 已加载并显示。</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/measurement_widget.py" line="977"/>
@@ -3593,6 +3684,14 @@ Experiment ID: {0}</source>
     </message>
 </context>
 <context>
+    <name>SummaryPopoutWindow</name>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/kinetics_window.py" line="108"/>
+        <source>Reset View</source>
+        <translation>重置视图</translation>
+    </message>
+</context>
+<context>
     <name>ThreeFileImportDialog</name>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/three_file_import_dialog.py" line="111"/>
@@ -3746,112 +3845,112 @@ Experiment ID: {0}</source>
 <context>
     <name>parent</name>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="266"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="267"/>
         <source>Load XY Data</source>
         <translation>加载XY数据</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="266"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="267"/>
         <source>All Supported Files (*.xlsx *.xls *.csv *.txt);;Excel Files (*.xlsx *.xls);;CSV/Text Files (*.csv *.txt)</source>
         <translation>所有支持的文件 (*.xlsx *.xls *.csv *.txt);;Excel 文件 (*.xlsx *.xls);;CSV/文本文件 (*.csv *.txt)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="295"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="296"/>
         <source>Load Failed</source>
         <translation>加载失败</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="295"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="296"/>
         <source>Could not parse the XY data file:
 {0}</source>
         <translation>无法解析XY数据文件:\n{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="26"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="27"/>
         <source>Save Spectrum Data</source>
         <translation>保存光谱数据</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="55"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="56"/>
         <source>Excel Files (*.xlsx);;CSV Files (*.csv);;Text Files (*.txt)</source>
         <translation>Excel 文件 (.xlsx);;CSV 文件 (.csv);;文本文件 (*.txt)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="82"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="83"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="82"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="83"/>
         <source>An error occurred while saving the file: {0}</source>
         <translation>保存文件时发生错误: {0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="55"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="56"/>
         <source>Save All Spectra</source>
         <translation>保存全部光谱数据</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="77"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="78"/>
         <source>Success</source>
         <translation>成功</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="77"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="78"/>
         <source>All spectral data successfully saved to:
 {0}</source>
         <translation>全部光谱数据已成功保存到:\n{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="243"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="244"/>
         <source>Load Spectrum Data</source>
         <translation>加载光谱数据</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="256"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="257"/>
         <source>Could not parse the file:
 {0}</source>
         <translation>无法解析文件:\n{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="539"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="540"/>
         <source>Export Experiment Data - Choose a base name</source>
         <translation>导出实验数据 - 选择一个基础名称</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="539"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="540"/>
         <source>Excel Files (*.xlsx)</source>
         <translation>Excel 文件 (.xlsx)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="561"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="562"/>
         <source>Detailed report saved to:
 {0}</source>
         <translation>详细报告已保存至:\n{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="563"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="564"/>
         <source>Failed to save detailed report: {0}</source>
         <translation>保存详细报告失败: {0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="566"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="567"/>
         <source>Aggregated report saved to:
 {0}</source>
         <translation>聚合报告已保存至:\n{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="570"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="571"/>
         <source>Aggregated report was not generated: {0}</source>
         <translation>聚合报告未生成: {0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="572"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="573"/>
         <source>Failed to save aggregated report.</source>
         <translation>保存聚合报告失败。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="574"/>
+        <location filename="../../../25.10.23 - ����/nanosense/utils/file_io.py" line="575"/>
         <source>Export Complete</source>
         <translation>导出完成</translation>
     </message>
