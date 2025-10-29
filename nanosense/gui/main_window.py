@@ -1,4 +1,4 @@
-# nanosense/gui/main_window.py
+﻿# nanosense/gui/main_window.py
 import json
 import os
 import time
@@ -786,7 +786,7 @@ class AppWindow(QMainWindow):
         result = self.run_dialog.exec_()
 
         # 如果任务不是被用户中止的，而是正常完成的
-        if result == QDialog.Accepted and self.batch_worker._is_running:
+        if result == QDialog.Accepted and getattr(self.batch_worker, 'run_status', None) == 'completed':
             reply = QMessageBox.question(
                 self,
                 self.tr("Task Complete"),
@@ -842,7 +842,7 @@ class AppWindow(QMainWindow):
 
         # 2. 检查任务是否是正常完成的（即用户没有点击中止）
         # self.batch_worker 此时可能已经被 deleteLater 清理，需要检查
-        if hasattr(self, 'batch_worker') and self.batch_worker and self.batch_worker._is_running:
+        if hasattr(self, 'batch_worker') and self.batch_worker and getattr(self.batch_worker, 'run_status', None) == 'completed':
 
             output_folder = self.batch_worker.output_folder
 
@@ -1001,3 +1001,6 @@ class AppWindow(QMainWindow):
         analysis_win = AnalysisWindow(spectra_data=spectra_list, parent=self)
         self.analysis_windows.append(analysis_win)
         analysis_win.show()
+
+
+

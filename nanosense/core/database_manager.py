@@ -1,10 +1,14 @@
-# nanosense/core/database_manager.py
+﻿# nanosense/core/database_manager.py
 import sqlite3
 import os
 import json
 import time
+import hashlib
 import numpy as np
 from collections import defaultdict
+
+from .migration_runner import run_migrations
+from typing import Any, Dict, List, Optional, Tuple
 
 class DatabaseManager:
     _instance = None
@@ -22,8 +26,10 @@ class DatabaseManager:
             self.conn = None
             self._connect()
             self._create_tables()
+            self._run_pending_migrations()
+            self._create_compatibility_views()
             self._init_complete = True
-            print(f"数据库已连接并初始化于: {db_path}")
+            print(f"数据库已连接并初始化: {db_path}")
 
     def _connect(self):
         try:
@@ -95,6 +101,463 @@ class DatabaseManager:
         except Exception as e:
             print(f"创建数据表失败: {e}")
 
+    def _create_compatibility_views(self):
+        if not self.conn:
+            return
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+            CREATE VIEW IF NOT EXISTS legacy_spectrum_sets_view AS
+            SELECT
+                ss.spectrum_set_id,
+                ss.experiment_id,
+                CASE
+                    WHEN ss.spectrum_role = 'Result' AND ss.result_variant IS NOT NULL
+                        THEN 'Result_' || ss.result_variant
+                    ELSE COALESCE(ss.capture_label, ss.spectrum_role, 'Unknown')
+                END AS type,
+                ss.captured_at AS timestamp,
+                CASE WHEN sd.storage_format = 'json' THEN CAST(sd.wavelengths_blob AS TEXT) ELSE NULL END AS wavelengths,
+                CASE WHEN sd.storage_format = 'json' THEN CAST(sd.intensities_blob AS TEXT) ELSE NULL END AS intensities,
+                sd.storage_format
+            FROM spectrum_sets ss
+            JOIN spectrum_data sd ON sd.data_id = ss.data_id
+            """)
+
+            cursor.execute("""
+            CREATE VIEW IF NOT EXISTS legacy_analysis_runs_view AS
+            SELECT
+                ar.analysis_run_id,
+                ar.experiment_id,
+                ar.analysis_type,
+                ar.started_at AS timestamp,
+                am.metric_key,
+                am.metric_value,
+                am.unit,
+                ar.input_context
+            FROM analysis_runs ar
+            LEFT JOIN analysis_metrics am ON am.analysis_run_id = ar.analysis_run_id
+            """)
+
+            self.conn.commit()
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e):
+                print("兼容视图创建被跳过，等待迁移完成后重新初始化。")
+            else:
+                print(f"创建兼容视图失败: {e}")
+        except Exception as e:
+            print(f"创建兼容视图失败: {e}")
+
+    def _run_pending_migrations(self):
+        if not self.conn:
+            return
+        try:
+            run_migrations(self.conn, logger=self._log_migration)
+        except Exception as e:
+            print(f"数据库迁移失败: {e}")
+            raise
+
+    @staticmethod
+    def _log_migration(message):
+        print(f"[Database] {message}")
+
+    def _fetch_structured_spectra(self, experiment_id: int) -> Optional[List[Dict[str, Any]]]:
+        if not self.conn:
+            return None
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                SELECT spectrum_set_id, type, timestamp, wavelengths, intensities
+                FROM legacy_spectrum_sets_view
+                WHERE experiment_id = ?
+                ORDER BY timestamp, spectrum_set_id
+                """, (experiment_id,) )
+            rows = cursor.fetchall()
+            if not rows:
+                return None
+            spectra_by_timestamp: Dict[str, Dict[str, Any]] = defaultdict(dict)
+            for _set_id, spec_type, timestamp_value, wl_json, int_json in rows:
+                try:
+                    wavelengths = json.loads(wl_json or '[]')
+                except json.JSONDecodeError:
+                    wavelengths = []
+                try:
+                    intensities = json.loads(int_json or '[]')
+                except json.JSONDecodeError:
+                    intensities = []
+                bucket = spectra_by_timestamp.setdefault(timestamp_value, {})
+                if 'wavelengths' not in bucket:
+                    bucket['wavelengths'] = wavelengths
+                normalized_type = spec_type or 'Unknown'
+                bucket[normalized_type] = intensities
+            return list(spectra_by_timestamp.values())
+        except sqlite3.OperationalError:
+            return None
+        except Exception as e:
+            print(f"读取结构化光谱数据失败: {e}")
+            return None
+
+    def _coerce_metric_value(self, raw_value: Optional[str]) -> Any:
+        if raw_value is None:
+            return None
+        value = raw_value.strip()
+        if not value:
+            return None
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+
+    def _fetch_structured_analysis(self, experiment_id: int) -> Optional[List[Dict[str, Any]]]:
+        if not self.conn:
+            return None
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                SELECT analysis_run_id, analysis_type, timestamp, metric_key, metric_value, unit, input_context
+                FROM legacy_analysis_runs_view
+                WHERE experiment_id = ?
+                ORDER BY timestamp, analysis_run_id
+                """, (experiment_id,) )
+            rows = cursor.fetchall()
+            if not rows:
+                return None
+            runs: Dict[int, Dict[str, Any]] = {}
+            for run_id, analysis_type, timestamp_value, metric_key, metric_value, unit, input_context in rows:
+                entry = runs.setdefault(run_id, {'type': analysis_type or 'Unknown', 'timestamp': timestamp_value, 'data': {}})
+                if metric_key:
+                    coerced = self._coerce_metric_value(metric_value)
+                    entry['data'][metric_key] = coerced
+                if input_context is not None:
+                    entry.setdefault('_input_context', input_context)
+            results: List[Dict[str, Any]] = []
+            for payload in runs.values():
+                data = payload['data']
+                raw_context = payload.get('_input_context')
+                if not data and raw_context:
+                    try:
+                        context_obj = json.loads(raw_context)
+                        raw_payload = context_obj.get('raw_result_data')
+                        if isinstance(raw_payload, str):
+                            try:
+                                parsed_raw = json.loads(raw_payload)
+                            except json.JSONDecodeError:
+                                parsed_raw = {'raw': raw_payload}
+                            if isinstance(parsed_raw, dict):
+                                data.update(parsed_raw)
+                            else:
+                                data['value'] = parsed_raw
+                    except json.JSONDecodeError:
+                        data['raw_payload'] = raw_context
+                results.append({'type': payload['type'], 'data': data})
+            return results
+        except sqlite3.OperationalError:
+            return None
+        except Exception as e:
+            print(f"读取结构化分析结果失败: {e}")
+            return None
+
+    @staticmethod
+    def _normalize_spectrum_role(spec_type: Optional[str]) -> Tuple[str, str, Optional[str]]:
+        spec_type = (spec_type or 'Unknown').strip()
+        if spec_type.lower() in {'signal', 'background', 'reference'}:
+            return spec_type.capitalize(), spec_type.capitalize(), None
+        if spec_type.startswith('Result_'):
+            variant = spec_type.split('Result_', 1)[1] or None
+            return spec_type, 'Result', variant
+        return spec_type, spec_type, None
+
+    def _store_structured_spectrum(
+        self,
+        cursor: sqlite3.Cursor,
+        experiment_id: int,
+        spec_type: Optional[str],
+        timestamp: str,
+        wavelengths: List[float],
+        intensities: List[float],
+    ) -> Optional[int]:
+        try:
+            wave_blob = json.dumps(wavelengths, separators=(',', ':')).encode('utf-8')
+            inten_blob = json.dumps(intensities, separators=(',', ':')).encode('utf-8')
+            checksum = hashlib.sha256(wave_blob + b'|' + inten_blob).hexdigest()
+
+            cursor.execute(
+                """
+                INSERT INTO spectrum_data (wavelengths_blob, intensities_blob, points_count, hash, storage_format, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (sqlite3.Binary(wave_blob), sqlite3.Binary(inten_blob), len(wavelengths), checksum, 'json', timestamp),
+            )
+            data_id = cursor.lastrowid
+
+            capture_label, spectrum_role, result_variant = self._normalize_spectrum_role(spec_type)
+            cursor.execute(
+                """
+                INSERT INTO spectrum_sets (
+                    experiment_id,
+                    batch_run_item_id,
+                    capture_label,
+                    spectrum_role,
+                    result_variant,
+                    data_id,
+                    instrument_state_id,
+                    processing_config_id,
+                    captured_at,
+                    created_at,
+                    region_start_nm,
+                    region_end_nm,
+                    note,
+                    quality_flag
+                ) VALUES (?, NULL, ?, ?, ?, ?, NULL, NULL, ?, ?, NULL, NULL, NULL, ?)
+                """,
+                (experiment_id, capture_label, spectrum_role, result_variant, data_id, timestamp, timestamp, 'good'),
+            )
+            return cursor.lastrowid
+        except sqlite3.OperationalError:
+            return None
+        except Exception as e:
+            print(f"写入结构化光谱失败: {e}")
+            return None
+
+    @staticmethod
+    def _stringify_metric_value(value: Any) -> str:
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, ensure_ascii=False)
+        return str(value)
+
+    def _store_structured_analysis(
+        self,
+        cursor: sqlite3.Cursor,
+        *,
+        result_id: int,
+        experiment_id: int,
+        analysis_type: Optional[str],
+        timestamp: str,
+        result_data: Any,
+        source_ids: List[Any],
+    ) -> Optional[int]:
+        try:
+            analysis_type = analysis_type or 'Unknown'
+            context = {
+                'legacy_result_id': result_id,
+                'source_spectrum_ids': source_ids,
+                'raw_result_data': result_data,
+            }
+            input_context = json.dumps(context, ensure_ascii=False)
+
+            cursor.execute(
+                """
+                INSERT INTO analysis_runs (
+                    experiment_id,
+                    batch_run_item_id,
+                    analysis_type,
+                    algorithm_version,
+                    status,
+                    started_at,
+                    finished_at,
+                    initiated_by,
+                    input_context
+                ) VALUES (?, NULL, ?, ?, ?, ?, ?, NULL, ?)
+                """,
+                (experiment_id, analysis_type, 'legacy', 'completed', timestamp, timestamp, input_context),
+            )
+            run_id = cursor.lastrowid
+
+            metrics_written = False
+            if isinstance(result_data, dict):
+                primary_assigned = False
+                for key, value in result_data.items():
+                    metric_str = self._stringify_metric_value(value)
+                    is_numeric = isinstance(value, (int, float))
+                    cursor.execute(
+                        """
+                        INSERT INTO analysis_metrics (analysis_run_id, metric_key, metric_value, unit, is_primary)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (run_id, str(key), metric_str, None, 1 if is_numeric and not primary_assigned else 0),
+                    )
+                    if is_numeric and not primary_assigned:
+                        primary_assigned = True
+                    metrics_written = True
+            else:
+                metric_str = self._stringify_metric_value(result_data)
+                cursor.execute(
+                    """
+                    INSERT INTO analysis_metrics (analysis_run_id, metric_key, metric_value, unit, is_primary)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (run_id, 'value', metric_str, None, 1),
+                )
+                metrics_written = True
+
+            if not metrics_written:
+                cursor.execute(
+                    """
+                    INSERT INTO analysis_metrics (analysis_run_id, metric_key, metric_value, unit, is_primary)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (run_id, 'raw_payload', json.dumps(result_data, ensure_ascii=False), None, 0),
+                )
+
+            cursor.execute(
+                "UPDATE analysis_results SET analysis_run_id = ? WHERE result_id = ?",
+                (run_id, result_id),
+            )
+            return run_id
+        except sqlite3.OperationalError:
+            return None
+        except Exception as e:
+            print(f"写入结构化分析结果失败: {e}")
+            return None
+
+    def create_batch_run(self, project_id: int, name: str, layout_reference: str = "",
+                         operator: str = "", notes: str = "") -> Optional[int]:
+        if not self.conn:
+            return None
+        try:
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            cursor = self.conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO batch_runs (
+                    project_id,
+                    name,
+                    layout_reference,
+                    operator,
+                    start_time,
+                    status,
+                    notes,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    project_id,
+                    name,
+                    layout_reference,
+                    operator,
+                    timestamp,
+                    "in_progress",
+                    notes,
+                    timestamp,
+                    timestamp,
+                ),
+            )
+            self.conn.commit()
+            return cursor.lastrowid
+        except Exception as e:
+            print(f"创建批量运行记录失败: {e}")
+            return None
+
+    def update_batch_run(self, batch_run_id: int, status: Optional[str] = None,
+                         end_time: Optional[str] = None) -> bool:
+        if not self.conn:
+            return False
+        fields = []
+        params: List[Any] = []
+        if status:
+            fields.append("status = ?")
+            params.append(status)
+        if end_time:
+            fields.append("end_time = ?")
+            params.append(end_time)
+        elif status in {"completed", "failed", "aborted"}:
+            fields.append("end_time = ?")
+            params.append(time.strftime("%Y-%m-%d %H:%M:%S"))
+        fields.append("updated_at = ?")
+        params.append(time.strftime("%Y-%m-%d %H:%M:%S"))
+        params.append(batch_run_id)
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                f"UPDATE batch_runs SET {', '.join(fields)} WHERE batch_run_id = ?",
+                params,
+            )
+            self.conn.commit()
+            return True
+        except Exception as e:
+            print(f"更新批量运行状态失败: {e}")
+            return False
+
+    def create_batch_items(self, batch_run_id: int, layout_data: Dict[str, Dict[str, Any]]) -> Dict[str, int]:
+        mapping: Dict[str, int] = {}
+        if not self.conn:
+            return mapping
+        try:
+            cursor = self.conn.cursor()
+            for sequence_no, (position_label, meta) in enumerate(sorted(layout_data.items()), start=1):
+                metadata = json.dumps(meta, ensure_ascii=False)
+                cursor.execute(
+                    """
+                    INSERT INTO batch_run_items (
+                        batch_run_id,
+                        position_label,
+                        sequence_no,
+                        sample_id,
+                        planned_stage,
+                        actual_stage,
+                        experiment_id,
+                        capture_count,
+                        status,
+                        last_captured_at,
+                        metadata_json
+                    ) VALUES (?, ?, ?, NULL, 'pending', NULL, NULL, 0, 'pending', NULL, ?)
+                    """,
+                    (batch_run_id, position_label, sequence_no, metadata),
+                )
+                mapping[position_label] = cursor.lastrowid
+            self.conn.commit()
+        except Exception as e:
+            print(f"创建批量运行明细失败: {e}")
+        return mapping
+
+    def attach_experiment_to_batch_item(self, item_id: int, experiment_id: int):
+        if not self.conn:
+            return
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                """
+                UPDATE batch_run_items
+                SET experiment_id = ?, status = 'in_progress'
+                WHERE item_id = ?
+                """,
+                (experiment_id, item_id),
+            )
+            self.conn.commit()
+        except Exception as e:
+            print(f"关联批量明细与实验失败: {e}")
+
+    def update_batch_item_progress(self, item_id: int, capture_count: Optional[int] = None,
+                                   status: Optional[str] = None):
+        if not self.conn:
+            return
+        fields = []
+        params: List[Any] = []
+        if capture_count is not None:
+            fields.append("capture_count = ?")
+            params.append(capture_count)
+        if status:
+            fields.append("status = ?")
+            params.append(status)
+            fields.append("actual_stage = ?")
+            params.append(status)
+        fields.append("last_captured_at = ?")
+        params.append(time.strftime("%Y-%m-%d %H:%M:%S"))
+        params.append(item_id)
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                f"UPDATE batch_run_items SET {', '.join(fields)} WHERE item_id = ?",
+                params,
+            )
+            self.conn.commit()
+        except Exception as e:
+            print(f"更新批量明细进度失败: {e}")
+
+    def finalize_batch_item(self, item_id: int, status: str = "completed"):
+        self.update_batch_item_progress(item_id, status=status)
+
     def find_or_create_project(self, name, description=""):
         if not self.conn: return None
         try:
@@ -140,35 +603,67 @@ class DatabaseManager:
             return None
 
     def save_spectrum(self, experiment_id, spec_type, timestamp, wavelengths, intensities):
-        if not self.conn: return None
+        if not self.conn:
+            return None
         try:
             cursor = self.conn.cursor()
-            wl_str = json.dumps(wavelengths.tolist())
-            int_str = json.dumps(intensities.tolist())
-            cursor.execute("""
+            wavelengths_array = np.asarray(wavelengths)
+            intensities_array = np.asarray(intensities)
+            wl_list = wavelengths_array.tolist()
+            int_list = intensities_array.tolist()
+
+            # 结构化入库（失败时不中断旧表写入）
+            self._store_structured_spectrum(cursor, experiment_id, spec_type, timestamp, wl_list, int_list)
+
+            wl_str = json.dumps(wl_list)
+            int_str = json.dumps(int_list)
+            cursor.execute(
+                """
                 INSERT INTO spectra (experiment_id, type, timestamp, wavelengths, intensities)
                 VALUES (?, ?, ?, ?, ?)
-            """, (experiment_id, spec_type, timestamp, wl_str, int_str))
+                """,
+                (experiment_id, spec_type, timestamp, wl_str, int_str)
+            )
             self.conn.commit()
             return cursor.lastrowid
         except Exception as e:
+            self.conn.rollback()
             print(f"保存光谱数据失败: {e}")
             return None
 
-    def save_analysis_result(self, experiment_id, analysis_type, result_data, source_spectrum_ids=[]):
-        if not self.conn: return None
+    def save_analysis_result(self, experiment_id, analysis_type, result_data, source_spectrum_ids=None):
+        if not self.conn:
+            return None
         try:
             cursor = self.conn.cursor()
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+            source_spectrum_ids = source_spectrum_ids or []
+
             result_str = json.dumps(result_data)
             source_ids_str = json.dumps(source_spectrum_ids)
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO analysis_results (experiment_id, analysis_type, timestamp, result_data, source_spectrum_ids)
                 VALUES (?, ?, ?, ?, ?)
-            """, (experiment_id, analysis_type, timestamp, result_str, source_ids_str))
+                """,
+                (experiment_id, analysis_type, timestamp, result_str, source_ids_str)
+            )
+            result_id = cursor.lastrowid
+
+            self._store_structured_analysis(
+                cursor,
+                result_id=result_id,
+                experiment_id=experiment_id,
+                analysis_type=analysis_type,
+                timestamp=timestamp,
+                result_data=result_data,
+                source_ids=source_spectrum_ids,
+            )
+
             self.conn.commit()
-            return cursor.lastrowid
+            return result_id
         except Exception as e:
+            self.conn.rollback()
             print(f"保存分析结果失败: {e}")
             return None
 
@@ -329,28 +824,34 @@ class DatabaseManager:
                 'results': []  # 分析结果部分不变
             }
 
-            # 2. 【核心重构】获取所有关联的光谱，并按时间戳分组
-            cursor.execute(
-                "SELECT type, wavelengths, intensities, timestamp FROM spectra WHERE experiment_id = ? ORDER BY timestamp",
-                (experiment_id,))
+            # 2. 使用新的光谱结构（如已生成）优先返回
+            structured_spectra = self._fetch_structured_spectra(experiment_id)
+            if structured_spectra:
+                exp_data['spectra_sets'] = structured_spectra
+            else:
+                cursor.execute(
+                    "SELECT type, wavelengths, intensities, timestamp FROM spectra WHERE experiment_id = ? ORDER BY timestamp",
+                    (experiment_id,))
 
-            spectra_by_timestamp = defaultdict(dict)
-            for spec_type, wl_json, int_json, timestamp in cursor.fetchall():
-                # 使用时间戳作为分组的键
-                spectra_by_timestamp[timestamp]['wavelengths'] = json.loads(wl_json)
-                spectra_by_timestamp[timestamp][spec_type] = json.loads(int_json)
+                spectra_by_timestamp = defaultdict(dict)
+                for spec_type, wl_json, int_json, timestamp in cursor.fetchall():
+                    spectra_by_timestamp[timestamp]['wavelengths'] = json.loads(wl_json)
+                    spectra_by_timestamp[timestamp][spec_type] = json.loads(int_json)
 
-            # 将分组后的字典转换为列表
-            exp_data['spectra_sets'] = list(spectra_by_timestamp.values())
+                exp_data['spectra_sets'] = list(spectra_by_timestamp.values())
 
-            # 3. 获取所有关联的分析结果 (不变)
-            cursor.execute("SELECT analysis_type, result_data FROM analysis_results WHERE experiment_id = ?",
-                           (experiment_id,))
-            for analysis_type, result_json in cursor.fetchall():
-                exp_data['results'].append({
-                    'type': analysis_type,
-                    'data': json.loads(result_json)
-                })
+            # 3. 使用结构化分析结果（如已生成）
+            structured_analysis = self._fetch_structured_analysis(experiment_id)
+            if structured_analysis:
+                exp_data['results'] = structured_analysis
+            else:
+                cursor.execute("SELECT analysis_type, result_data FROM analysis_results WHERE experiment_id = ?",
+                               (experiment_id,))
+                for analysis_type, result_json in cursor.fetchall():
+                    exp_data['results'].append({
+                        'type': analysis_type,
+                        'data': json.loads(result_json)
+                    })
 
             return exp_data
 
@@ -362,3 +863,6 @@ class DatabaseManager:
         if self.conn:
             self.conn.close()
             self.conn = None
+
+
+

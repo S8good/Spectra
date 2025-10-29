@@ -1,4 +1,5 @@
-# nanosense/core/batch_acquisition.py (最终预览版)
+﻿# nanosense/core/batch_acquisition.py (最终预览版)
+import json
 import queue
 import time
 import os
@@ -9,6 +10,7 @@ from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar, QPushBut
     QHBoxLayout, QWidget, QToolButton
 from PyQt5.QtCore import QObject, pyqtSignal, QThread, Qt, QEvent
 from collections import defaultdict
+from typing import Dict, List, Optional
 import pandas as pd
 from .controller import FX2000Controller
 from ..utils.file_io import save_batch_spectrum_data
@@ -402,7 +404,9 @@ class BatchAcquisitionWorker(QObject):
 
     def __init__(self, controller: FX2000Controller, layout_data: dict, output_folder: str, file_extension: str,
                  points_per_well: int = 16, crop_start_wl=None, crop_end_wl=None,
-                 is_auto_enabled=False, intra_well_interval=2.0, inter_well_interval=10.0):  # <--【修改】接收新参数
+                 is_auto_enabled=False, intra_well_interval=2.0, inter_well_interval=10.0,
+                 db_manager=None, project_id=None, batch_run_id=None, batch_item_map=None,
+                 operator: str = ""):  # <--【修改】接收新参数
         super().__init__()
         self.controller = controller
         self.layout_data = layout_data
@@ -418,10 +422,21 @@ class BatchAcquisitionWorker(QObject):
         self.inter_well_interval = inter_well_interval
 
         self._is_running = True
+        self.run_status = 'pending'
         self.command_queue = queue.Queue(maxsize=1)
         self.tasks = []
         self.task_index = 0
         self.collected_data = defaultdict(lambda: {"signals": {}, "absorbance": {}})
+
+        self.db_manager = db_manager
+        self.project_id = project_id
+        self.batch_run_id = batch_run_id
+        self.batch_item_map = batch_item_map or {}
+        self.operator = operator or ""
+        self.well_experiments: Dict[str, int] = {}
+        self.spectrum_registry = defaultdict(lambda: defaultdict(list))
+        self.capture_counts = defaultdict(int)
+        self.completed_wells = set()
 
         self.wavelengths = np.array(self.controller.wavelengths)
         if self.crop_start_wl is not None and self.crop_end_wl is not None:
@@ -536,6 +551,96 @@ class BatchAcquisitionWorker(QObject):
 
         return last_spectrum, command
 
+    def _ensure_well_experiment(self, well_id: str) -> Optional[int]:
+        if not self.db_manager or self.project_id is None:
+            return None
+        if well_id in self.well_experiments:
+            return self.well_experiments[well_id]
+
+        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        concentration = self.layout_data.get(well_id, {}).get('concentration')
+        notes = f"Batch well {well_id}"
+        if concentration is not None:
+            notes += f", concentration={concentration}"
+        config_snapshot = json.dumps({
+            'mode': 'batch',
+            'points_per_well': self.points_per_well,
+            'crop_start': self.crop_start_wl,
+            'crop_end': self.crop_end_wl,
+            'auto_enabled': self.is_auto_enabled
+        }, ensure_ascii=False)
+
+        experiment_name = f"Batch-{well_id}-{timestamp}"
+        exp_id = self.db_manager.create_experiment(
+            project_id=self.project_id,
+            name=experiment_name,
+            exp_type='Batch Measurement',
+            timestamp=timestamp,
+            operator=self.operator,
+            notes=notes,
+            config_snapshot=config_snapshot
+        )
+        if exp_id:
+            self.well_experiments[well_id] = exp_id
+            item_id = self.batch_item_map.get(well_id)
+            if item_id:
+                self.db_manager.attach_experiment_to_batch_item(item_id, exp_id)
+        return exp_id
+
+    def _save_spectrum_to_db(self, well_id: str, spec_label: str, wavelengths, intensities) -> Optional[int]:
+        if not self.db_manager:
+            return None
+        exp_id = self._ensure_well_experiment(well_id)
+        if exp_id is None:
+            return None
+        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        if isinstance(wavelengths, np.ndarray):
+            wl_list = wavelengths.tolist()
+        else:
+            wl_list = list(wavelengths)
+        if isinstance(intensities, np.ndarray):
+            int_list = intensities.tolist()
+        else:
+            int_list = list(intensities)
+        try:
+            spectrum_id = self.db_manager.save_spectrum(exp_id, spec_label, timestamp, wl_list, int_list)
+            if spectrum_id:
+                bucket = 'Result' if spec_label.startswith('Result') else (
+                    'Signal' if spec_label.startswith('Signal') else spec_label.capitalize()
+                )
+                self.spectrum_registry[well_id][bucket].append(spectrum_id)
+            return spectrum_id
+        except Exception as e:
+            print(f"保存批量光谱到数据库失败: {e}")
+            return None
+
+    def _record_batch_capture(self, well_id: str, status: Optional[str] = None):
+        if not self.db_manager:
+            return
+        item_id = self.batch_item_map.get(well_id)
+        if not item_id:
+            return
+        capture_count = self.capture_counts.get(well_id)
+        self.db_manager.update_batch_item_progress(item_id, capture_count=capture_count, status=status)
+
+    def _finalize_batch_item(self, well_id: str, status: str = 'completed'):
+        if not self.db_manager:
+            return
+        item_id = self.batch_item_map.get(well_id)
+        if item_id:
+            self.db_manager.finalize_batch_item(item_id, status=status)
+            if status == 'completed':
+                self.completed_wells.add(well_id)
+
+    def _finalize_batch_run(self, status: str):
+        if not self.db_manager or not self.batch_run_id:
+            return
+        # 标记未完成的明细
+        for well_id, item_id in self.batch_item_map.items():
+            if well_id not in self.completed_wells:
+                self.db_manager.finalize_batch_item(item_id, status=status)
+        self.db_manager.update_batch_run(self.batch_run_id, status=status)
+
     def _generate_tasks(self):
         # (此函数无变化)
         well_ids = sorted(self.layout_data.keys())
@@ -547,7 +652,7 @@ class BatchAcquisitionWorker(QObject):
             self.tasks.append({'type': 'save', 'well_id': well_id})
 
     def run(self):
-        """【最终架构版】基于指令队列的主循环"""
+        self.run_status = "in_progress"
         try:
             folder_timestamp = time.strftime("%Y%m%d-%H%M%S")
             run_output_folder = os.path.join(self.output_folder, f"BatchRun_{folder_timestamp}")
@@ -612,17 +717,26 @@ class BatchAcquisitionWorker(QObject):
                         command = 'FORWARD'
 
                 if command == 'STOP' or not self._is_running:
+                    if command == 'STOP' and self.run_status == 'in_progress':
+                        self.run_status = 'aborted'
                     break
 
                 # 3. 根据收到的指令处理状态 (此部分逻辑不变)
                 if command == 'FORWARD':
+                    self._ensure_well_experiment(well_id)
                     if task_type == 'background':
                         self.collected_data[well_id]['background'] = spectrum
+                        self._save_spectrum_to_db(well_id, "Background", self.wavelengths, spectrum)
+                        self._record_batch_capture(well_id, status='collecting')
                     elif task_type == 'reference':
                         self.collected_data[well_id]['reference'] = spectrum
+                        self._save_spectrum_to_db(well_id, "Reference", self.wavelengths, spectrum)
+                        self._record_batch_capture(well_id, status='collecting')
                     elif task_type == 'signal':
                         point_num = task['point_num']
                         self.collected_data[well_id]['signals'][point_num] = spectrum
+                        self._save_spectrum_to_db(well_id, f"Signal_Point_{point_num}", self.wavelengths, spectrum)
+                        self.capture_counts[well_id] += 1
                         bg = self.collected_data[well_id].get('background')
                         ref = self.collected_data[well_id].get('reference')
                         if self.wavelength_mask is not None:
@@ -637,13 +751,16 @@ class BatchAcquisitionWorker(QObject):
                         absorbance = _calculate_absorbance(signal_cropped, bg_cropped, ref_cropped)
                         if absorbance is not None:
                             self.collected_data[well_id]['absorbance'][point_num] = absorbance
+                            wl_result = self.cropped_wavelengths if self.wavelength_mask is not None else self.wavelengths
+                            self._save_spectrum_to_db(well_id, f"Result_Point_{point_num}", wl_result, absorbance)
+                        self._record_batch_capture(well_id, status='collecting')
                     elif task_type == 'save':
                         well_data = self.collected_data[well_id]
                         signals_list = [well_data['signals'][k] for k in sorted(well_data['signals'])]
                         absorbance_list = [well_data['absorbance'][k] for k in sorted(well_data['absorbance'])]
                         concentration = self.layout_data[well_id].get('concentration', 0.0)
-                        timestamp = time.strftime("%Y%m%d-%H%M%S")
-                        filename = f"{timestamp}_{well_id}_{concentration}nM{self.file_extension}"
+                        timestamp_file = time.strftime('%Y%m%d-%H%M%S')
+                        filename = f"{timestamp_file}_{well_id}_{concentration}nM{self.file_extension}"
                         output_path = os.path.join(run_output_folder, filename)
                         save_batch_spectrum_data(
                             file_path=output_path,
@@ -655,6 +772,28 @@ class BatchAcquisitionWorker(QObject):
                             crop_start_wl=self.crop_start_wl,
                             crop_end_wl=self.crop_end_wl
                         )
+                        exp_id = self._ensure_well_experiment(well_id)
+                        if self.db_manager and exp_id:
+                            serial_signals = [np.asarray(sig).tolist() if sig is not None else None for sig in signals_list]
+                            serial_absorbance = [np.asarray(val).tolist() if val is not None else None for val in absorbance_list]
+                            source_ids: List[int] = []
+                            registry = self.spectrum_registry[well_id]
+                            for bucket in ('Background', 'Reference', 'Signal', 'Result'):
+                                source_ids.extend(registry.get(bucket, []))
+                            summary_payload = {
+                                'concentration': concentration,
+                                'signals': serial_signals,
+                                'absorbance': serial_absorbance,
+                                'points_collected': len([s for s in serial_signals if s is not None])
+                            }
+                            self.db_manager.save_analysis_result(
+                                experiment_id=exp_id,
+                                analysis_type='BatchSummary',
+                                result_data=summary_payload,
+                                source_spectrum_ids=source_ids
+                            )
+                        self._record_batch_capture(well_id, status='completed')
+                        self._finalize_batch_item(well_id, status='completed')
                     self.task_index += 1
                 elif command == 'BACKWARD':
                     if self.task_index > 0:
@@ -719,10 +858,18 @@ class BatchAcquisitionWorker(QObject):
                         print("未收集到任何结果光谱，跳过生成最终汇总文件。")
 
             except Exception as e:
+                self.run_status = 'failed'
                 print(f"生成最终结果汇总文件时发生严重错误: {e}")
                 self.error.emit(f"Failed to generate final summary file: {e}")
         except Exception as e:
+            self.run_status = 'failed'
             self.error.emit(str(e))
         finally:
+            if self.run_status == 'pending':
+                self.run_status = 'aborted'
+            self._finalize_batch_run(self.run_status)
             self._is_running = False
             self.finished.emit()
+
+
+
