@@ -13,6 +13,9 @@ from PyQt5.QtCore import QObject, pyqtSignal, QThread, Qt, QEvent
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
+from .controller import FX2000Controller
+from ..utils.file_io import save_batch_spectrum_data
+
 def _calculate_absorbance(signal, background, reference):
 
 

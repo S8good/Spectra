@@ -890,7 +890,8 @@ class MeasurementWidget(QWidget):
             self.kinetics_interval_spinbox.setEnabled(False)
 
             # 顶层非模态窗口：parent=None，保证弹出
-            self.kinetics_window = KineticsWindow(parent=None)
+            parent_window = getattr(self, 'main_window', None)
+            self.kinetics_window = KineticsWindow(parent=parent_window)
             self.kinetics_window.baseline_changed.connect(self._on_kinetics_baseline_changed)
             if self.kinetics_baseline_value is not None:
                 self.kinetics_window.set_baseline_peak_wavelength(self.kinetics_baseline_value)
