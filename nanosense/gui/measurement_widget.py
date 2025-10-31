@@ -475,6 +475,45 @@ class MeasurementWidget(QWidget):
         self.popout_windows = [item for item in self.popout_windows if item['window'] is not window_instance]
         print(self.tr("A pop-out plot window has been closed."))
 
+    def _build_instrument_metadata(self):
+        info = {
+            'device_serial': getattr(self.controller, 'serial_number', None) if self.controller else None,
+            'integration_time_ms': float(self.integration_time_spinbox.value()) if hasattr(self, 'integration_time_spinbox') else None,
+            'averaging': getattr(self.controller, 'scans_to_average', None) if self.controller else None,
+            'config': {
+                'spectrometer_name': getattr(self.controller, 'name', None) if self.controller else None,
+                'mode': self.mode_name,
+            }
+        }
+        config = {key: value for key, value in info.get('config', {}).items() if value is not None}
+        if config:
+            info['config'] = config
+        else:
+            info.pop('config', None)
+        if all(info.get(key) is None for key in ('device_serial', 'integration_time_ms', 'averaging', 'temperature')) and 'config' not in info:
+            return None
+        return info
+
+    def _build_processing_metadata(self, spectrum_role=None):
+        parameters = {
+            'mode': self.mode_name,
+            'smoothing_method': self.smooth_method_combo.currentText() if hasattr(self, 'smooth_method_combo') else None,
+            'smoothing_window': int(self.smoothing_window_spinbox.value()) if hasattr(self, 'smoothing_window_spinbox') else None,
+            'peak_method': self.peak_method_combo.currentData() if hasattr(self, 'peak_method_combo') and self.peak_method_combo.currentData() else (self.peak_method_combo.currentText() if hasattr(self, 'peak_method_combo') else None),
+            'peak_height_threshold': float(self.peak_height_spinbox.value()) if hasattr(self, 'peak_height_spinbox') else None,
+            'region_start_nm': float(self.range_start_spinbox.value()) if hasattr(self, 'range_start_spinbox') else None,
+            'region_end_nm': float(self.range_end_spinbox.value()) if hasattr(self, 'range_end_spinbox') else None,
+            'baseline_defined': self.kinetics_baseline_value is not None
+        }
+        if spectrum_role:
+            parameters['spectrum_role'] = spectrum_role
+        parameters = {key: value for key, value in parameters.items() if value is not None}
+        return {
+            'name': 'measurement_widget',
+            'version': '1.0',
+            'parameters': parameters
+        }
+
     def _save_result_spectrum(self):
         """保存由寻峰范围选择器定义的数据区域。"""
         if self.full_result_y is None:
@@ -499,17 +538,47 @@ class MeasurementWidget(QWidget):
                 experiment_id = self.main_window.get_or_create_current_experiment_id()
                 if experiment_id:
                     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                    self.db_manager.save_spectrum(experiment_id, f"Result_{self.mode_name}",
-                                                  timestamp, full_x_data, full_y_data)
+                    instrument_info = self._build_instrument_metadata()
+
+                    self.db_manager.save_spectrum(
+                        experiment_id,
+                        f"Result_{self.mode_name}",
+                        timestamp,
+                        full_x_data,
+                        full_y_data,
+                        instrument_info=instrument_info,
+                        processing_info=self._build_processing_metadata('Result'),
+                    )
                     if self.processor.latest_signal_spectrum is not None:
-                        self.db_manager.save_spectrum(experiment_id, "Signal", timestamp,
-                                                      self.wavelengths, self.processor.latest_signal_spectrum)
+                        self.db_manager.save_spectrum(
+                            experiment_id,
+                            "Signal",
+                            timestamp,
+                            self.wavelengths,
+                            self.processor.latest_signal_spectrum,
+                            instrument_info=instrument_info,
+                            processing_info=self._build_processing_metadata('Signal'),
+                        )
                     if self.processor.background_spectrum is not None:
-                        self.db_manager.save_spectrum(experiment_id, "Background", timestamp,
-                                                      self.wavelengths, self.processor.background_spectrum)
+                        self.db_manager.save_spectrum(
+                            experiment_id,
+                            "Background",
+                            timestamp,
+                            self.wavelengths,
+                            self.processor.background_spectrum,
+                            instrument_info=instrument_info,
+                            processing_info=self._build_processing_metadata('Background'),
+                        )
                     if self.processor.reference_spectrum is not None:
-                        self.db_manager.save_spectrum(experiment_id, "Reference", timestamp,
-                                                      self.wavelengths, self.processor.reference_spectrum)
+                        self.db_manager.save_spectrum(
+                            experiment_id,
+                            "Reference",
+                            timestamp,
+                            self.wavelengths,
+                            self.processor.reference_spectrum,
+                            instrument_info=instrument_info,
+                            processing_info=self._build_processing_metadata('Reference'),
+                        )
                     print(f"光谱数据已同步保存到数据库，实验ID: {experiment_id}")
                     QMessageBox.information(self, self.tr("Database Sync"),
                                             self.tr("Spectrum data has been successfully saved to file and database.\n"

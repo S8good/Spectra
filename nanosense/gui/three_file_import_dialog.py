@@ -172,8 +172,15 @@ class ThreeFileImportDialog(QDialog):
 
     def get_data(self):
         return {
-            'result': self.result_data, 'signal': self.signal_data,
-            'background': self.background_data, 'reference': self.reference_data
+            'result': self.result_data,
+            'signal': self.signal_data,
+            'background': self.background_data,
+            'reference': self.reference_data,
+            'source_paths': {
+                'signal': self.signal_path_edit.text(),
+                'background': self.bg_path_edit.text(),
+                'reference': self.ref_path_edit.text()
+            }
         }
 
     def closeEvent(self, event):
