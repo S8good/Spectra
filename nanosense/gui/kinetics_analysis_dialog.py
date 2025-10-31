@@ -4,7 +4,7 @@ import numpy as np
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QDialogButtonBox,
                              QGroupBox, QFormLayout, QLabel, QDoubleSpinBox, QTabWidget, QWidget,
                              QMessageBox)  # 导入 QTabWidget
-from PyQt5.QtCore import QEvent # 导入 QEvent
+from PyQt5.QtCore import Qt, QEvent # 导入 QEvent
 import pyqtgraph as pg
 
 # 导入所有需要的算法
@@ -15,12 +15,15 @@ class KineticsAnalysisDialog(QDialog):
     def __init__(self, time_data, y_data, parent=None):
         super().__init__(parent)
         self.main_window = parent
+        self.setObjectName("KineticsAnalysisDialog")
+        self.setAttribute(Qt.WA_StyledBackground, True)
         self.setGeometry(200, 200, 900, 600)
 
         self.time_data = np.array(time_data)
         self.y_data = np.array(y_data)
 
         self._init_ui()
+        self._apply_theme()
         self.calculate_button.clicked.connect(self._perform_analysis)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
@@ -32,7 +35,9 @@ class KineticsAnalysisDialog(QDialog):
         main_layout = QHBoxLayout(self)
 
         # --- 左侧：控制与结果面板 (保持不变) ---
-        left_panel = QWidget();
+        left_panel = QWidget()
+        left_panel.setObjectName("kineticsAnalysisSidePanel")
+        left_panel.setAttribute(Qt.WA_StyledBackground, True)
         left_panel.setFixedWidth(300)
         left_layout = QVBoxLayout(left_panel)
 
@@ -55,6 +60,8 @@ class KineticsAnalysisDialog(QDialog):
         self.k_a_label = QLabel("N/A")
         self.KD_label_title = QLabel()  # <--- 新增
         self.KD_label = QLabel("N/A")
+        for label in (self.k_obs_label, self.k_d_label, self.k_a_label, self.KD_label):
+            label.setObjectName("analysisValueLabel")
         self.result_layout.addRow(self.k_obs_label_title, self.k_obs_label)  # <--- 修改
         self.result_layout.addRow(self.k_d_label_title, self.k_d_label)  # <--- 修改
         self.result_layout.addRow(self.k_a_label_title, self.k_a_label)  # <--- 修改
@@ -76,6 +83,7 @@ class KineticsAnalysisDialog(QDialog):
 
         # --- 【已重构】右侧：使用 QTabWidget 容纳多个图表 ---
         self.tabs = QTabWidget()
+        self.tabs.setObjectName("kineticsAnalysisTabs")
 
         # 1. 主拟合图
         self._create_main_fit_tab()
@@ -91,6 +99,8 @@ class KineticsAnalysisDialog(QDialog):
 
     def _create_main_fit_tab(self):
         tab = QWidget()
+        tab.setObjectName("kineticsAnalysisTab")
+        tab.setAttribute(Qt.WA_StyledBackground, True)
         layout = QVBoxLayout(tab)
         self.plot_widget = pg.PlotWidget()
         self.plot_widget.setTitle("请拖拽竖线选择 结合(绿) 与 解离(红) 区域")
@@ -108,11 +118,14 @@ class KineticsAnalysisDialog(QDialog):
         self.plot_widget.addItem(self.dissoc_end_line);
         self.assoc_fit_curve = self.plot_widget.plot(pen=pg.mkPen('c', width=2));
         self.dissoc_fit_curve = self.plot_widget.plot(pen=pg.mkPen('y', width=2))
+        self._style_plot(self.plot_widget)
         layout.addWidget(self.plot_widget)
         self.tabs.addTab(tab, "主拟合图")
 
     def _create_deviation_tab(self):
         tab = QWidget()
+        tab.setObjectName("kineticsAnalysisTab")
+        tab.setAttribute(Qt.WA_StyledBackground, True)
         layout = QVBoxLayout(tab)
         self.dev_plot = pg.PlotWidget(title="偏差图 (Deviation Plot)");
         self.dev_plot.setLabel('bottom', 'Time (s)');
@@ -123,23 +136,151 @@ class KineticsAnalysisDialog(QDialog):
 
     def _create_self_exponent_tab(self):
         tab = QWidget()
+        tab.setObjectName("kineticsAnalysisTab")
+        tab.setAttribute(Qt.WA_StyledBackground, True)
         layout = QVBoxLayout(tab)
         self.exp_plot = pg.PlotWidget(title="自指数图 (Self-Exponent Plot)");
         self.exp_plot.setLabel('bottom', 'Normalized Response');
         self.exp_plot.setLabel('left', 'ΔResponse / Δt')
         self.exp_points = self.exp_plot.plot(pen=None, symbol='o', symbolSize=5);
+        self._style_plot(self.exp_plot)
         layout.addWidget(self.exp_plot)
         self.tabs.addTab(tab, "自指数图")
 
     def _create_residual_tab(self):
         tab = QWidget()
+        tab.setObjectName("kineticsAnalysisTab")
+        tab.setAttribute(Qt.WA_StyledBackground, True)
         layout = QVBoxLayout(tab)
         self.res_plot = pg.PlotWidget(title="残差图 (Residual Plot)");
         self.res_plot.setLabel('bottom', 'Time (s)');
         self.res_plot.setLabel('left', 'Residual (Actual - Fit)')
         self.res_points = self.res_plot.plot(pen=None, symbol='o', symbolSize=5);
+        self._style_plot(self.res_plot)
         layout.addWidget(self.res_plot)
         self.tabs.addTab(tab, "残差图")
+
+    def _style_plot(self, plot_widget):
+        plot_widget.setBackground("#1F2735")
+        axis_pen = pg.mkPen("#4D5A6D", width=1)
+        text_pen = pg.mkPen("#E2E8F0")
+        for axis in ("left", "bottom"):
+            axis_item = plot_widget.getPlotItem().getAxis(axis)
+            axis_item.setPen(axis_pen)
+            axis_item.setTextPen(text_pen)
+            axis_item.setStyle(tickLength=6)
+        plot_widget.getPlotItem().showGrid(x=True, y=True, alpha=0.15)
+        plot_widget.getViewBox().setBorder(pg.mkPen("#39475A", width=1))
+
+    def _apply_theme(self):
+        self.setStyleSheet("""
+#KineticsAnalysisDialog {
+    background-color: #1A202C;
+    color: #E2E8F0;
+    font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    font-size: 13px;
+}
+#kineticsAnalysisSidePanel {
+    background-color: #2D3748;
+    border: 1px solid #4A5568;
+    border-radius: 12px;
+    padding: 16px;
+}
+#kineticsAnalysisSidePanel QGroupBox {
+    background-color: #1F2735;
+    border: 1px solid #39475A;
+    border-radius: 10px;
+    margin-top: 12px;
+    padding: 16px;
+}
+#kineticsAnalysisSidePanel QGroupBox::title {
+    color: #E2E8F0;
+    subcontrol-origin: margin;
+    left: 16px;
+    padding: 0 4px;
+    font-weight: 600;
+}
+#kineticsAnalysisSidePanel QLabel {
+    color: #E2E8F0;
+}
+QLabel#analysisValueLabel {
+    color: #63B3ED;
+    font-weight: 600;
+}
+QPushButton {
+    background-color: #3182CE;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #FFFFFF;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background-color: #2B6CB0;
+}
+QPushButton:pressed {
+    background-color: #245A86;
+}
+QPushButton:disabled {
+    background-color: #4A5568;
+    color: #A0AEC0;
+}
+QDialogButtonBox QPushButton {
+    min-width: 90px;
+}
+QDoubleSpinBox {
+    background-color: #1F2735;
+    border: 1px solid #39475A;
+    border-radius: 6px;
+    padding: 6px;
+    color: #E2E8F0;
+}
+QDoubleSpinBox::up-button,
+QDoubleSpinBox::down-button {
+    background-color: #2D3748;
+    border: none;
+    width: 16px;
+}
+QTabWidget#kineticsAnalysisTabs::pane {
+    background-color: #1F2735;
+    border: 1px solid #39475A;
+    border-radius: 12px;
+    padding: 12px;
+}
+QTabWidget#kineticsAnalysisTabs QWidget {
+    background-color: transparent;
+}
+QTabBar::tab {
+    background-color: #2D3748;
+    color: #E2E8F0;
+    padding: 8px 18px;
+    border: 1px solid #39475A;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    margin-right: 6px;
+}
+QTabBar::tab:selected {
+    background-color: #3182CE;
+    color: #FFFFFF;
+    border-color: #2B6CB0;
+}
+QTabBar::tab:hover {
+    background-color: #2B6CB0;
+}
+QMessageBox {
+    background-color: #2D3748;
+    color: #E2E8F0;
+}
+QMessageBox QLabel {
+    color: #E2E8F0;
+}
+QMessageBox QPushButton {
+    background-color: #3182CE;
+    padding: 6px 18px;
+    border-radius: 6px;
+}
+        """)
 
     def _perform_analysis(self):
         """执行拟合流程：选区 -> 拟合 -> 计算 -> 显示结果"""

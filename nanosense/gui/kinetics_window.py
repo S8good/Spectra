@@ -370,6 +370,14 @@ class KineticsWindow(QMainWindow):
     background-color: #2D3748;
     border: 1px solid #4A5568;
     border-radius: 12px;
+    color: #E2E8F0;
+}
+#kineticsControlPanel QWidget {
+    background-color: transparent;
+    color: #E2E8F0;
+}
+#kineticsControlPanel QLabel {
+    color: #E2E8F0;
 }
 #kineticsPlotsPanel {
     background-color: #2D3748;
@@ -403,6 +411,16 @@ class KineticsWindow(QMainWindow):
 QLabel#baselineStatusLabel {
     color: #A0AEC0;
 }
+CollapsibleBox {
+    background-color: transparent;
+}
+CollapsibleBox > QScrollArea {
+    background-color: transparent;
+    border: none;
+}
+CollapsibleBox > QScrollArea > QWidget {
+    background-color: transparent;
+}
 QPushButton {
     background-color: #3182CE;
     border: none;
@@ -434,9 +452,27 @@ QDoubleSpinBox::down-button {
     border: none;
     width: 16px;
 }
+#kineticsControlPanel QPushButton {
+    background-color: #3182CE;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #FFFFFF;
+    font-weight: 600;
+}
+#kineticsControlPanel QPushButton:hover {
+    background-color: #2B6CB0;
+}
+#kineticsControlPanel QPushButton:pressed {
+    background-color: #245A86;
+}
+#kineticsControlPanel QPushButton:disabled {
+    background-color: #4A5568;
+    color: #A0AEC0;
+}
 CollapsibleBox > QToolButton {
-    background-color: #1F2735;
-    border: 1px solid #39475A;
+    background-color: #2D3748;
+    border: 1px solid #4A5568;
     border-radius: 6px;
     padding: 10px 12px;
     color: #E2E8F0;
