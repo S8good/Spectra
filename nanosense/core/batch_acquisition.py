@@ -18,8 +18,9 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QWidget,
     QToolButton,
+    QSizePolicy,
 )
-from PyQt5.QtCore import QObject, pyqtSignal, QThread, Qt, QEvent
+from PyQt5.QtCore import QObject, pyqtSignal, QThread, Qt, QEvent, QSize
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 from .controller import FX2000Controller
@@ -142,6 +143,10 @@ class BatchRunDialog(QDialog):
                 os.path.dirname(__file__), "..", "gui", "assets", "icons", "zoom.png"
             )
             popout_button.setIcon(pg.QtGui.QIcon(icon_path))
+            popout_button.setIconSize(QSize(18, 18))
+            popout_button.setFixedSize(26, 26)
+            popout_button.setAutoRaise(True)
+            popout_button.setStyleSheet("border: none; padding: 0px;")
             popout_button.setToolTip(self.tr("Open in New Window"))
             popout_button.clicked.connect(popout_handler)
             header_layout.addWidget(title_label)
@@ -236,13 +241,24 @@ class BatchRunDialog(QDialog):
         progress_layout.addWidget(self.point_progress_bar, 1, 1)
         main_layout.addLayout(progress_layout)
         button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 10, 0, 0)
+        button_layout.setSpacing(12)
         self.back_button = QPushButton()
         self.action_button = QPushButton()
+        for button in (self.back_button, self.action_button):
+            button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            button.setFixedHeight(36)
+            button.setMinimumWidth(160)
+        button_layout.addStretch()
         button_layout.addWidget(self.back_button)
         button_layout.addWidget(self.action_button)
+        button_layout.addStretch()
         main_layout.addLayout(button_layout)
         self.abort_button = QPushButton()
-        main_layout.addWidget(self.abort_button)
+        self.abort_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.abort_button.setFixedHeight(32)
+        self.abort_button.setMinimumWidth(160)
+        main_layout.addWidget(self.abort_button, alignment=Qt.AlignCenter)
 
     def _connect_signals(self):
         self.action_button.clicked.connect(self.action_triggered.emit)
