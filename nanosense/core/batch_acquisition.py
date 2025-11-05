@@ -18,7 +18,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QWidget,
     QToolButton,
-    QSizePolicy,
+    QSizePolicy, QStyle,
 )
 from PyQt5.QtCore import QObject, pyqtSignal, QThread, Qt, QEvent, QSize
 from collections import defaultdict
@@ -122,6 +122,41 @@ class BatchRunDialog(QDialog):
         font.setPointSize(14)
         self.instruction_label.setFont(font)
         self.instruction_label.setAlignment(Qt.AlignCenter)
+
+        topbar = QWidget()
+        topbar_layout = QHBoxLayout(topbar)
+        topbar_layout.setContentsMargins(8, 4, 8, 4)
+        topbar_layout.setSpacing(8)
+
+        self.tb_back = QToolButton();
+        self.tb_back.setAutoRaise(True)
+        self.tb_back.setIcon(self.style().standardIcon(QStyle.SP_ArrowBack))
+        self.tb_back.setIconSize(QSize(18, 18));
+        self.tb_back.setFixedSize(26, 26)
+        self.tb_back.setToolTip(self.tr("Previous Step"))
+
+        self.tb_action = QToolButton();
+        self.tb_action.setAutoRaise(True)
+        self.tb_action.setIconSize(QSize(18, 18));
+        self.tb_action.setFixedSize(26, 26)
+        self.tb_action.setToolTip(self.tr("Start"))
+
+        self.tb_abort = QToolButton();
+        self.tb_abort.setAutoRaise(True)
+        self.tb_abort.setIcon(self.style().standardIcon(QStyle.SP_BrowserStop))
+        self.tb_abort.setIconSize(QSize(18, 18));
+        self.tb_abort.setFixedSize(26, 26)
+        self.tb_abort.setToolTip(self.tr("Abort Task"))
+
+        topbar_layout.addWidget(self.tb_back)
+        topbar_layout.addWidget(self.tb_action)
+        topbar_layout.addStretch(1)
+        topbar_layout.addWidget(self.instruction_label, alignment=Qt.AlignCenter)
+        topbar_layout.addStretch(1)
+        topbar_layout.addWidget(self.tb_abort)
+
+        main_layout.addWidget(topbar)
+
         main_layout.addWidget(self.instruction_label)
         plots_container = QWidget()
         plots_layout = QVBoxLayout(plots_container)
@@ -260,12 +295,42 @@ class BatchRunDialog(QDialog):
         self.abort_button.setMinimumWidth(160)
         main_layout.addWidget(self.abort_button, alignment=Qt.AlignCenter)
 
+        self.back_button.setVisible(False)
+        self.action_button.setVisible(False)
+        self.abort_button.setVisible(False)
+
     def _connect_signals(self):
         self.action_button.clicked.connect(self.action_triggered.emit)
         self.back_button.clicked.connect(self.back_triggered.emit)
         self.abort_button.clicked.connect(self._confirm_abort)
+        self.tb_action.clicked.connect(self.action_button.click)
+        self.tb_back.clicked.connect(self.back_button.click)
+        self.tb_abort.clicked.connect(self.abort_button.click)
         self.toggle_summary_button.toggled.connect(self._toggle_summary_pause)
         self.clear_summary_button.clicked.connect(self._clear_summary_plot)
+
+    def _set_action_icon_by_key(self, key: str):
+        style = self.style()
+        pix = QStyle.SP_MediaPlay
+        if key == "Collect Background":
+            pix = QStyle.SP_DialogOpenButton
+        elif key == "Collect Reference":
+            pix = QStyle.SP_ArrowUp
+        elif key in ("Collect this Point", "Start"):
+            pix = QStyle.SP_BrowserReload
+            self.tb_action.setStyleSheet("QToolButton { color: blue; }")
+        elif key in ("Done",):
+            pix = QStyle.SP_DialogApplyButton
+        self.tb_action.setIcon(style.standardIcon(pix))
+        try:
+            self.tb_action.setToolTip(self.tr(key))
+        except Exception:
+            pass
+
+    def _sync_topbar_enabled_states(self):
+        self.tb_action.setEnabled(self.action_button.isEnabled())
+        self.tb_back.setEnabled(self.back_button.isEnabled())
+        self.tb_abort.setEnabled(self.abort_button.isEnabled())
 
     def changeEvent(self, event):
         """处理语言变化事件"""
@@ -277,6 +342,15 @@ class BatchRunDialog(QDialog):
         """重新翻译所有UI文本，包括新的图表标题和按钮。"""
         self.setWindowTitle(self.tr("Batch Acquisition in Progress..."))
         self.instruction_label.setText(self.tr("Initializing..."))
+
+        if hasattr(self, 'tb_back'):
+            self.tb_back.setToolTip(self.tr("Previous Step"))
+        if hasattr(self, 'tb_abort'):
+            self.tb_abort.setToolTip(self.tr("Abort Task"))
+        if hasattr(self, 'tb_action'):
+            self._set_action_icon_by_key("Start")
+
+
         # 图表标题
         title_style = {"color": "#90A4AE", "size": "12pt"}
         self.signal_plot.setTitle(self.tr("Live Signal"), **title_style)
@@ -459,10 +533,14 @@ class BatchRunDialog(QDialog):
             self.point_progress_bar.setValue(status["point_progress"])
         if "button_text_key" in status:
             self.action_button.setText(self.tr(status["button_text_key"]))
+            self._set_action_icon_by_key(status["button_text_key"])
+
         if "button_enabled" in status:
             self.action_button.setEnabled(status["button_enabled"])
         if "back_button_enabled" in status:
             self.back_button.setEnabled(status["back_button_enabled"])
+
+        self._sync_topbar_enabled_states()
 
 
 class BatchAcquisitionWorker(QObject):
