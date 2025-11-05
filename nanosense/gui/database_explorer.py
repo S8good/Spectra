@@ -1,6 +1,6 @@
 ﻿# nanosense/gui/database_explorer.py
 import os
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from PyQt5.QtWidgets import (
     QDialog,
