@@ -13362,6 +13362,9 @@ class BatchAcquisitionWorker(QObject):
 
         self.operator = operator or ""
 
+        if self.db_manager and self.project_id is not None:
+            self._initialize_batch_records()
+
 
 
 
@@ -18160,6 +18163,64 @@ class BatchAcquisitionWorker(QObject):
 
 
 
+    def _initialize_batch_records(self) -> None:
+
+        if not self.db_manager or self.project_id is None:
+            return
+
+        layout_reference = ""
+
+        if self.layout_data:
+            try:
+                layout_reference = json.dumps(
+                    {"wells": sorted(self.layout_data.keys())},
+                    ensure_ascii=False,
+                )
+            except Exception:
+                layout_reference = f"{len(self.layout_data)} wells"
+
+        if not self.batch_run_id:
+            run_name = time.strftime("Batch-%Y%m%d-%H%M%S")
+
+            notes = f"Auto-generated batch run ({len(self.layout_data)} wells)"
+
+            try:
+                self.batch_run_id = self.db_manager.create_batch_run(
+                    self.project_id,
+                    run_name,
+                    layout_reference=layout_reference,
+                    operator=self.operator or "",
+                    notes=notes,
+                )
+            except Exception as exc:
+                print(f"初始化批量运行失败: {exc}")
+                self.batch_run_id = None
+
+        if not self.batch_run_id:
+            return
+
+        if self.batch_item_map:
+            return
+
+        try:
+            item_payload: Dict[str, Dict[str, Any]] = {}
+            for position_label, meta in (self.layout_data or {}).items():
+                payload: Dict[str, Any] = {}
+                if isinstance(meta, dict):
+                    payload.update(meta)
+                elif meta is not None:
+                    payload["label"] = str(meta)
+                payload.setdefault("expected_points", self.points_per_well)
+                item_payload[position_label] = payload
+
+            self.batch_item_map = self.db_manager.create_batch_items(
+                self.batch_run_id,
+                item_payload,
+            )
+        except Exception as exc:
+            print(f"创建批量孔位明细失败: {exc}")
+            self.batch_item_map = {}
+
     def _ensure_well_experiment(self, well_id: str) -> Optional[int]:
 
 
@@ -19778,6 +19839,8 @@ class BatchAcquisitionWorker(QObject):
 
         try:
 
+            item_id = self.batch_item_map.get(well_id) if self.batch_item_map else None
+
 
 
 
@@ -19887,6 +19950,8 @@ class BatchAcquisitionWorker(QObject):
 
 
 
+
+                batch_run_item_id=item_id,
 
                 instrument_info=self.instrument_info,
 

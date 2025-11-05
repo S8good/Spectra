@@ -1,0 +1,11 @@
+# Bytecode caches
+__pycache__/
+*.py[cod]
+
+# Local databases / generated data
+*.db
+
+# Generated reports and temporary exports
+docs/reports/
+temp_utf8.txt
+

@@ -1,0 +1,48 @@
+name: migration-validation
+
+on:
+  push:
+    paths:
+      - "scripts/validate_migration.py"
+      - "tests/**"
+      - "docs/validation/**"
+      - ".github/workflows/validation.yml"
+  pull_request:
+    paths:
+      - "scripts/validate_migration.py"
+      - "tests/**"
+      - "docs/validation/**"
+      - ".github/workflows/validation.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/test_data_access.py tests/test_validate_migration.py
+
+      - name: Run migration validation
+        run: |
+          python scripts/validate_migration.py --db "data/nanosense_data.db" --max-latency 600 --batch-status --sample-rate 0 --strict --report-file docs/reports/validation_summary.txt --history-file docs/reports/validation_history.csv
+
+      - name: Upload validation summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-summary
+          path: docs/reports/validation_summary.txt

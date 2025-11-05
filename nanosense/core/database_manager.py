@@ -17,6 +17,11 @@ from collections import defaultdict
 
 
 from .migration_runner import run_migrations
+from .snapshot_utils import (
+    canonicalize_instrument_info,
+    canonicalize_processing_info,
+    serialize_payload,
+)
 
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -560,25 +565,13 @@ class DatabaseManager:
 
         temperature = instrument_info.get('temperature')
 
-        extras = instrument_info.get('config') or {}
+        signature = canonicalize_instrument_info(instrument_info)
 
+        if not signature:
 
+            signature = {}
 
-        signature = {
-
-            'device_serial': device_serial,
-
-            'integration_time_ms': integration_time,
-
-            'averaging': averaging,
-
-            'temperature': temperature,
-
-            'config': extras,
-
-        }
-
-        config_json = json.dumps(signature, ensure_ascii=False, sort_keys=True)
+        config_json = serialize_payload(signature)
 
 
 
@@ -592,7 +585,7 @@ class DatabaseManager:
 
                 FROM instrument_states
 
-                WHERE config_json = ?
+                WHERE config_json = ? AND is_active = 1
 
                 LIMIT 1
 
@@ -672,19 +665,15 @@ class DatabaseManager:
 
         version = processing_info.get('version') or '1.0'
 
-        parameters = processing_info.get('parameters')
+        normalized_info = dict(processing_info)
 
-        if parameters is None:
+        normalized_info['name'] = name
 
-            parameters = {
+        normalized_info['version'] = version
 
-                key: value
+        canonical = canonicalize_processing_info(normalized_info)
 
-                for key, value in processing_info.items()
-
-                if key not in {'name', 'version'}
-
-            }
+        parameters = canonical.get('parameters', {})
 
         parameters_json = json.dumps(parameters, ensure_ascii=False, sort_keys=True)
 
@@ -700,7 +689,7 @@ class DatabaseManager:
 
                 FROM processing_snapshots
 
-                WHERE name = ? AND version = ? AND parameters_json = ?
+                WHERE name = ? AND version = ? AND parameters_json = ? AND is_active = 1
 
                 LIMIT 1
 
@@ -771,6 +760,10 @@ class DatabaseManager:
         wavelengths: List[float],
 
         intensities: List[float],
+
+        *,
+
+        batch_run_item_id: Optional[int] = None,
 
         instrument_info: Optional[Dict[str, Any]] = None,
 
@@ -846,13 +839,15 @@ class DatabaseManager:
 
                     quality_flag
 
-                ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?)
 
                 """,
 
                 (
 
                     experiment_id,
+
+                    batch_run_item_id,
 
                     capture_label,
 
@@ -1408,6 +1403,21 @@ class DatabaseManager:
 
 
 
+
+    def get_distinct_experiment_statuses(self):
+
+        if not self.conn:
+            return []
+
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT DISTINCT status FROM experiments WHERE status IS NOT NULL ORDER BY status")
+            return [row[0] for row in cursor.fetchall() if row[0]]
+        except Exception as e:
+            print(f"获取实验状态列表失败: {e}")
+            return []
+
+
     def get_all_projects(self):
 
         if not self.conn: return []
@@ -1472,6 +1482,8 @@ class DatabaseManager:
 
         *,
 
+        batch_run_item_id: Optional[int] = None,
+
         instrument_info: Optional[Dict[str, Any]] = None,
 
         processing_info: Optional[Dict[str, Any]] = None,
@@ -1511,6 +1523,8 @@ class DatabaseManager:
                 wl_list,
 
                 int_list,
+
+                batch_run_item_id=batch_run_item_id,
 
                 instrument_info=instrument_info,
 
@@ -1617,7 +1631,19 @@ class DatabaseManager:
 
 
 
-    def search_experiments(self, project_id=-1, name_filter="", start_date="", end_date="", type_filter=""):
+    def search_experiments(
+        self,
+        project_id=-1,
+        name_filter="",
+        start_date="",
+        end_date="",
+        type_filter="",
+        limit=None,
+        sort_by="created_at",
+        sort_desc=True,
+        status_filter="",
+        operator_filter="",
+    ):
 
         """
 
@@ -1641,7 +1667,7 @@ class DatabaseManager:
 
             query = """
 
-                SELECT e.experiment_id, p.name, e.name, e.type, e.timestamp, e.operator
+                SELECT e.experiment_id, p.name, e.name, e.type, COALESCE(e.created_at, e.timestamp) AS created_at, e.operator, e.status
 
                 FROM experiments e
 
@@ -1677,7 +1703,7 @@ class DatabaseManager:
 
             if start_date:
 
-                conditions.append("DATE(e.timestamp) >= ?")
+                conditions.append("DATE(COALESCE(e.created_at, e.timestamp)) >= ?")
 
                 params.append(start_date)
 
@@ -1685,7 +1711,7 @@ class DatabaseManager:
 
             if end_date:
 
-                conditions.append("DATE(e.timestamp) <= ?")
+                conditions.append("DATE(COALESCE(e.created_at, e.timestamp)) <= ?")
 
                 params.append(end_date)
 
@@ -1699,13 +1725,45 @@ class DatabaseManager:
 
 
 
+            if status_filter:
+
+                conditions.append("e.status = ?")
+
+                params.append(status_filter)
+
+
+
+            if operator_filter:
+
+                conditions.append("e.operator LIKE ?")
+
+                params.append(f"%{operator_filter}%")
+
+
+
             if conditions:
 
                 query += " WHERE " + " AND ".join(conditions)
 
 
 
-            query += " ORDER BY e.experiment_id DESC"
+            order_map = {
+
+                "experiment_id": "e.experiment_id",
+
+                "created_at": "COALESCE(e.created_at, e.timestamp)",
+
+            }
+
+            order_expr = order_map.get(sort_by, "COALESCE(e.created_at, e.timestamp)")
+
+            direction = "DESC" if sort_desc else "ASC"
+
+            query += f" ORDER BY {order_expr} {direction}"
+
+            if limit:
+                query += " LIMIT ?"
+                params.append(limit)
 
 
 
