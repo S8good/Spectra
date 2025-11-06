@@ -23,6 +23,8 @@ from PyQt5.QtWidgets import (
     QFileDialog,
 )
 from PyQt5.QtCore import QObject, pyqtSignal, QThread, Qt, QEvent, QSize
+from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
+from PyQt5.QtSvg import QSvgRenderer
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 from .controller import FX2000Controller
@@ -130,28 +132,50 @@ class BatchRunDialog(QDialog):
         self.instruction_label.setFont(font)
         self.instruction_label.setAlignment(Qt.AlignCenter)
 
-        button_icon_size = QSize(20, 20)
-        button_box_size = QSize(34, 34)
+        button_icon_size = QSize(22, 22)
+        button_box_size = QSize(36, 36)
+        icons_dir = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "gui",
+            "assets",
+            "icons",
+        )
 
-        def _make_tool_button(icon: QStyle.StandardPixmap, *, checkable: bool = False) -> QToolButton:
+        def _render_svg(icon_filename: str, color: QColor) -> QPixmap:
+            icon_path = os.path.join(icons_dir, icon_filename)
+            renderer = QSvgRenderer(icon_path)
+            pixmap = QPixmap(button_icon_size)
+            pixmap.fill(Qt.transparent)
+            painter = QPainter(pixmap)
+            renderer.render(painter)
+            painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+            painter.fillRect(pixmap.rect(), color)
+            painter.end()
+            return pixmap
+
+        def _make_tool_button(icon_filename: str) -> QToolButton:
             btn = QToolButton()
             btn.setAutoRaise(True)
-            btn.setIcon(self.style().standardIcon(icon))
+            enabled_pixmap = _render_svg(icon_filename, QColor(255, 255, 255))
+            disabled_pixmap = _render_svg(icon_filename, QColor(140, 140, 140, 180))
+            icon = QIcon()
+            icon.addPixmap(enabled_pixmap, QIcon.Normal, QIcon.Off)
+            icon.addPixmap(enabled_pixmap, QIcon.Active, QIcon.Off)
+            icon.addPixmap(disabled_pixmap, QIcon.Disabled, QIcon.Off)
+            btn.setIcon(icon)
             btn.setIconSize(button_icon_size)
             btn.setFixedSize(button_box_size)
             btn.setToolButtonStyle(Qt.ToolButtonIconOnly)
-            btn.setCheckable(checkable)
-            if checkable:
-                btn.setChecked(False)
             return btn
 
-        self.tb_back = _make_tool_button(QStyle.SP_ArrowBack)
-        self.tb_background_collect = _make_tool_button(QStyle.SP_MediaPlay)
-        self.tb_background_import = _make_tool_button(QStyle.SP_DialogOpenButton)
-        self.tb_reference_collect = _make_tool_button(QStyle.SP_ArrowUp)
-        self.tb_reference_import = _make_tool_button(QStyle.SP_FileDialogStart)
-        self.tb_signal_collect = _make_tool_button(QStyle.SP_DialogApplyButton)
-        self.tb_abort = _make_tool_button(QStyle.SP_BrowserStop)
+        self.tb_back = _make_tool_button("tool_prev.svg")
+        self.tb_background_collect = _make_tool_button("tool_collect_background.svg")
+        self.tb_background_import = _make_tool_button("tool_import_background.svg")
+        self.tb_reference_collect = _make_tool_button("tool_collect_reference.svg")
+        self.tb_reference_import = _make_tool_button("tool_import_reference.svg")
+        self.tb_signal_collect = _make_tool_button("tool_collect_point.svg")
+        self.tb_abort = _make_tool_button("tool_abort.svg")
 
         topbar = QWidget()
         topbar_layout = QHBoxLayout(topbar)
@@ -181,21 +205,6 @@ class BatchRunDialog(QDialog):
         self.signal_collect_button = self.tb_signal_collect
         self.abort_button = self.tb_abort
 
-        # Improve visibility for background collection button.
-        self.background_collect_button.setStyleSheet(
-            """
-            QToolButton {
-                background-color: rgba(255, 255, 255, 0.18);
-                border-radius: 4px;
-            }
-            QToolButton:hover {
-                background-color: rgba(255, 255, 255, 0.30);
-            }
-            QToolButton:disabled {
-                background-color: transparent;
-            }
-            """
-        )
 
         plots_container = QWidget()
         plots_layout = QVBoxLayout(plots_container)
