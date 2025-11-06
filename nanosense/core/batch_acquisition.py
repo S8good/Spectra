@@ -1,4 +1,4 @@
-# nanosense/core/batch_acquisition.py (最终预览版)
+﻿# nanosense/core/batch_acquisition.py (鏈€缁堥瑙堢増)
 import json
 import queue
 import time
@@ -18,18 +18,20 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QWidget,
     QToolButton,
-    QSizePolicy, QStyle,
+    QSizePolicy,
+    QStyle,
+    QFileDialog,
 )
 from PyQt5.QtCore import QObject, pyqtSignal, QThread, Qt, QEvent, QSize
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from .controller import FX2000Controller
-from ..utils.file_io import save_batch_spectrum_data
+from ..utils.file_io import save_batch_spectrum_data, load_spectrum_from_path
 from ..gui.single_plot_window import SinglePlotWindow
 
 
 def _calculate_absorbance(signal, background, reference):
-    """根据信号、背景和参考光谱计算吸收率"""
+    """Compute absorbance from signal, background, and reference spectra."""
     if signal is None or background is None or reference is None:
         return None
     signal, background, reference = (
@@ -72,16 +74,20 @@ class MultiCurvePlotWindow(pg.QtWidgets.QMainWindow):
         super().closeEvent(event)
 
 
-class BatchRunDialog(QDialog):
-    """【已升级和国际化】状态对话框，增加了实时光谱预览图表"""
 
-    action_triggered = pyqtSignal()
+class BatchRunDialog(QDialog):
+    """Dialog that presents batch acquisition controls and live preview plots."""
+
+    background_collect_requested = pyqtSignal()
+    background_import_requested = pyqtSignal(dict)
+    reference_collect_requested = pyqtSignal()
+    reference_import_requested = pyqtSignal(dict)
+    signal_collect_requested = pyqtSignal()
     back_triggered = pyqtSignal()
     abort_mission = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # 【核心修改】设置窗口标志以允许最大化、最小化和调整大小
         self.setWindowFlags(
             self.windowFlags()
             | Qt.WindowMinimizeButtonHint
@@ -89,33 +95,34 @@ class BatchRunDialog(QDialog):
             | Qt.WindowSystemMenuHint
             | Qt.WindowCloseButtonHint
         )
-        self.resize(1300, 800)  # 【修改】使用resize代替setMinimumSize以允许窗口自由缩小
+        self.resize(1300, 800)
         self.setModal(True)
         self.summary_curves = []
         self.is_summary_paused = False
         self.popout_windows = []
         self._allow_close = False
+        self._current_phase: Optional[str] = None
+        self._last_import_dir = ""
+        self._dummy_strings_for_translator()
         self._init_ui()
         self._connect_signals()
         self._retranslate_ui()
 
-    def _dummy_strings_for_translator(self):
-        self.tr(
-            "Please place [Background] for well {well_id}\n(Live preview active...)"
-        )
+    def _dummy_strings_for_translator(self) -> None:
+        self.tr("Please place [Background] for well {well_id}\n(Live preview active...)")
         self.tr("Collect Background")
+        self.tr("Import Background")
         self.tr("Please place [Reference] for well {well_id}\n(Live preview active...)")
         self.tr("Collect Reference")
-        self.tr(
-            "Please move to well {well_id}, point {point_num}/{total_points}\n(Live preview active...)"
-        )
+        self.tr("Import Reference")
+        self.tr("Please move to well {well_id}, point {point_num}/{total_points}\n(Live preview active...)")
         self.tr("Collect this Point")
         self.tr("Calculating absorbance for {well_id}...")
         self.tr("Saving data for {well_id}...")
         self.tr("Batch acquisition complete!")
         self.tr("Done")
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
         self.instruction_label = QLabel()
         font = self.instruction_label.font()
@@ -123,47 +130,108 @@ class BatchRunDialog(QDialog):
         self.instruction_label.setFont(font)
         self.instruction_label.setAlignment(Qt.AlignCenter)
 
+        button_icon_size = QSize(20, 20)
+        button_box_size = QSize(34, 34)
+
+        def _make_tool_button(icon: QStyle.StandardPixmap, *, checkable: bool = False) -> QToolButton:
+            btn = QToolButton()
+            btn.setAutoRaise(True)
+            btn.setIcon(self.style().standardIcon(icon))
+            btn.setIconSize(button_icon_size)
+            btn.setFixedSize(button_box_size)
+            btn.setToolButtonStyle(Qt.ToolButtonIconOnly)
+            btn.setCheckable(checkable)
+            if checkable:
+                btn.setChecked(False)
+            return btn
+
+        self.tb_back = _make_tool_button(QStyle.SP_ArrowBack)
+        self.tb_background_collect = _make_tool_button(QStyle.SP_MediaPlay)
+        self.tb_background_import = _make_tool_button(QStyle.SP_DialogOpenButton)
+        self.tb_reference_collect = _make_tool_button(QStyle.SP_ArrowUp)
+        self.tb_reference_import = _make_tool_button(QStyle.SP_FileDialogStart)
+        self.tb_signal_collect = _make_tool_button(QStyle.SP_DialogApplyButton)
+        self.tb_abort = _make_tool_button(QStyle.SP_BrowserStop)
+
         topbar = QWidget()
         topbar_layout = QHBoxLayout(topbar)
         topbar_layout.setContentsMargins(8, 4, 8, 4)
-        topbar_layout.setSpacing(8)
-
-        self.tb_back = QToolButton();
-        self.tb_back.setAutoRaise(True)
-        self.tb_back.setIcon(self.style().standardIcon(QStyle.SP_ArrowBack))
-        self.tb_back.setIconSize(QSize(18, 18));
-        self.tb_back.setFixedSize(26, 26)
-        self.tb_back.setToolTip(self.tr("Previous Step"))
-
-        self.tb_action = QToolButton();
-        self.tb_action.setAutoRaise(True)
-        self.tb_action.setIconSize(QSize(18, 18));
-        self.tb_action.setFixedSize(26, 26)
-        self.tb_action.setToolTip(self.tr("Start"))
-
-        self.tb_abort = QToolButton();
-        self.tb_abort.setAutoRaise(True)
-        self.tb_abort.setIcon(self.style().standardIcon(QStyle.SP_BrowserStop))
-        self.tb_abort.setIconSize(QSize(18, 18));
-        self.tb_abort.setFixedSize(26, 26)
-        self.tb_abort.setToolTip(self.tr("Abort Task"))
-
+        topbar_layout.setSpacing(6)
         topbar_layout.addWidget(self.tb_back)
-        topbar_layout.addWidget(self.tb_action)
-        topbar_layout.addStretch(1)
-        topbar_layout.addWidget(self.instruction_label, alignment=Qt.AlignCenter)
+        topbar_layout.addSpacing(4)
+        topbar_layout.addWidget(self.tb_background_collect)
+        topbar_layout.addWidget(self.tb_background_import)
+        topbar_layout.addSpacing(4)
+        topbar_layout.addWidget(self.tb_reference_collect)
+        topbar_layout.addWidget(self.tb_reference_import)
+        topbar_layout.addSpacing(4)
+        topbar_layout.addWidget(self.tb_signal_collect)
         topbar_layout.addStretch(1)
         topbar_layout.addWidget(self.tb_abort)
 
         main_layout.addWidget(topbar)
-
         main_layout.addWidget(self.instruction_label)
+
+        # Primary action buttons row (text buttons for clarity)
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 12, 0, 0)
+        button_layout.setSpacing(12)
+
+        self.back_button = QPushButton()
+        self.back_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.back_button.setFixedHeight(36)
+        self.back_button.setMinimumWidth(140)
+
+        def configure_action_button(button: QPushButton) -> None:
+            button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            button.setFixedHeight(32)
+            button.setMinimumWidth(150)
+
+        self.background_collect_button = QPushButton()
+        self.background_import_button = QPushButton()
+        self.reference_collect_button = QPushButton()
+        self.reference_import_button = QPushButton()
+        self.signal_collect_button = QPushButton()
+
+        for btn in (
+            self.background_collect_button,
+            self.background_import_button,
+            self.reference_collect_button,
+            self.reference_import_button,
+            self.signal_collect_button,
+        ):
+            configure_action_button(btn)
+
+        button_layout.addStretch()
+        button_layout.addWidget(self.back_button)
+        button_layout.addSpacing(18)
+        button_layout.addWidget(self.background_collect_button)
+        button_layout.addWidget(self.background_import_button)
+        button_layout.addSpacing(12)
+        button_layout.addWidget(self.reference_collect_button)
+        button_layout.addWidget(self.reference_import_button)
+        button_layout.addSpacing(12)
+        button_layout.addWidget(self.signal_collect_button)
+        button_layout.addStretch()
+        main_layout.addLayout(button_layout)
+
+        self.abort_button = QPushButton()
+        self.abort_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.abort_button.setFixedHeight(32)
+        self.abort_button.setMinimumWidth(160)
+        main_layout.addWidget(self.abort_button, alignment=Qt.AlignCenter)
+
         plots_container = QWidget()
         plots_layout = QVBoxLayout(plots_container)
         plots_layout.setContentsMargins(0, 0, 0, 0)
+        plots_layout.setSpacing(12)
 
-        # --- 辅助函数：创建带放大按钮的图表容器 ---
-        def create_plot_container(plot_widget, title_key, popout_handler):
+        top_row = QHBoxLayout()
+        top_row.setSpacing(12)
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(12)
+
+        def create_plot_container(plot_widget: pg.PlotWidget, title_key: str, popout_handler) -> QWidget:
             container = QWidget()
             layout = QVBoxLayout(container)
             layout.setContentsMargins(0, 0, 0, 0)
@@ -175,13 +243,18 @@ class BatchRunDialog(QDialog):
             title_label.setStyleSheet("color: #90A4AE; font-size: 12pt;")
             popout_button = QToolButton()
             icon_path = os.path.join(
-                os.path.dirname(__file__), "..", "gui", "assets", "icons", "zoom.png"
+                os.path.dirname(__file__),
+                "..",
+                "gui",
+                "assets",
+                "icons",
+                "zoom.png",
             )
             popout_button.setIcon(pg.QtGui.QIcon(icon_path))
             popout_button.setIconSize(QSize(18, 18))
             popout_button.setFixedSize(26, 26)
             popout_button.setAutoRaise(True)
-            popout_button.setStyleSheet("border: none; padding: 0px;")
+            popout_button.setStyleSheet("border: none; padding: 0;")
             popout_button.setToolTip(self.tr("Open in New Window"))
             popout_button.clicked.connect(popout_handler)
             header_layout.addWidget(title_label)
@@ -189,11 +262,10 @@ class BatchRunDialog(QDialog):
             header_layout.addWidget(popout_button)
             layout.addWidget(header_widget)
             layout.addWidget(plot_widget)
-            plot_widget.setTitle("")  # 清除pyqtgraph的默认标题
+            plot_widget.setTitle("")
             plot_widget.showGrid(x=True, y=True, alpha=0.3)
             return container
 
-        # --- 创建图表 ---
         self.signal_plot = pg.PlotWidget()
         self.signal_curve = self.signal_plot.plot(pen="c")
         self.background_plot = pg.PlotWidget()
@@ -203,7 +275,7 @@ class BatchRunDialog(QDialog):
         self.result_plot = pg.PlotWidget()
         self.result_curve = self.result_plot.plot(pen="y")
         self.summary_plot = pg.PlotWidget()
-        # --- 将图表放入带按钮的容器中 ---
+
         signal_container = create_plot_container(
             self.signal_plot, "Live Signal", lambda: self._open_popout_window("signal")
         )
@@ -227,35 +299,18 @@ class BatchRunDialog(QDialog):
             "Accumulated Results Summary",
             lambda: self._open_popout_window("summary"),
         )
-        # --- 布局 ---
-        # 【核心修改】将主绘图区的布局从 QVBoxLayout 改为 QGridLayout
-        # 我们将整个区域想象成一个 2行6列 的网格
-        plots_container = QWidget()
-        plots_layout = QGridLayout(plots_container)  # <--- 改为 QGridLayout
-        plots_layout.setContentsMargins(0, 0, 0, 0)
-        # 将顶部三个图表分别放入网格的第0行，各自占据2列
-        plots_layout.addWidget(
-            signal_container, 0, 0, 1, 2
-        )  # (第0行, 第0列, 占1行, 占2列)
-        plots_layout.addWidget(
-            background_container, 0, 2, 1, 2
-        )  # (第0行, 第2列, 占1行, 占2列)
-        plots_layout.addWidget(
-            reference_container, 0, 4, 1, 2
-        )  # (第0行, 第4列, 占1行, 占2列)
-        # 将底部两个图表放入网格的第1行，各自占据3列
-        plots_layout.addWidget(
-            result_container, 1, 0, 1, 3
-        )  # (第1行, 第0列, 占1行, 占3列)
-        plots_layout.addWidget(
-            summary_container, 1, 3, 1, 3
-        )  # (第1行, 第3列, 占1行, 占3列)
-        # 【核心修改】设置行的拉伸因子来控制高度比例 (4:3)
-        # 这会让顶部图表获得更多的高度
-        plots_layout.setRowStretch(0, 1)  # 第0行（顶部）的拉伸因子为1
-        plots_layout.setRowStretch(1, 1)  # 第1行（底部）的拉伸因子为1
+
+        top_row.addWidget(signal_container, 1)
+        top_row.addWidget(background_container, 1)
+        top_row.addWidget(reference_container, 1)
+
+        bottom_row.addWidget(result_container, 1)
+        bottom_row.addWidget(summary_container, 1)
+
+        plots_layout.addLayout(top_row, 1)
+        plots_layout.addLayout(bottom_row, 1)
         main_layout.addWidget(plots_container)
-        # --- 汇总图控制 ---
+
         summary_controls_layout = QHBoxLayout()
         self.toggle_summary_button = QPushButton()
         self.toggle_summary_button.setCheckable(True)
@@ -264,8 +319,9 @@ class BatchRunDialog(QDialog):
         summary_controls_layout.addWidget(self.toggle_summary_button)
         summary_controls_layout.addWidget(self.clear_summary_button)
         main_layout.addLayout(summary_controls_layout)
-        # --- 进度条和主按钮 ---
-        progress_layout = QGridLayout()
+
+        self.progress_panel = QWidget()
+        progress_layout = QGridLayout(self.progress_panel)
         self.total_progress_bar = QProgressBar()
         self.point_progress_bar = QProgressBar()
         self.total_progress_label = QLabel()
@@ -274,105 +330,150 @@ class BatchRunDialog(QDialog):
         progress_layout.addWidget(self.total_progress_bar, 0, 1)
         progress_layout.addWidget(self.point_progress_label, 1, 0)
         progress_layout.addWidget(self.point_progress_bar, 1, 1)
-        main_layout.addLayout(progress_layout)
-        button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(0, 10, 0, 0)
-        button_layout.setSpacing(12)
-        self.back_button = QPushButton()
-        self.action_button = QPushButton()
-        for button in (self.back_button, self.action_button):
-            button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            button.setFixedHeight(36)
-            button.setMinimumWidth(160)
-        button_layout.addStretch()
-        button_layout.addWidget(self.back_button)
-        button_layout.addWidget(self.action_button)
-        button_layout.addStretch()
-        main_layout.addLayout(button_layout)
-        self.abort_button = QPushButton()
-        self.abort_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.abort_button.setFixedHeight(32)
-        self.abort_button.setMinimumWidth(160)
-        main_layout.addWidget(self.abort_button, alignment=Qt.AlignCenter)
+        main_layout.addWidget(self.progress_panel)
 
-        self.back_button.setVisible(False)
-        self.action_button.setVisible(False)
-        self.abort_button.setVisible(False)
+        for btn in (
+            self.background_collect_button,
+            self.background_import_button,
+            self.reference_collect_button,
+            self.reference_import_button,
+            self.signal_collect_button,
+        ):
+            btn.setEnabled(False)
+        self.back_button.setEnabled(False)
+        self._sync_tool_buttons()
 
-    def _connect_signals(self):
-        self.action_button.clicked.connect(self.action_triggered.emit)
+    def _connect_signals(self) -> None:
+        self.background_collect_button.clicked.connect(self.background_collect_requested.emit)
+        self.background_import_button.clicked.connect(lambda: self._prompt_import("background"))
+        self.reference_collect_button.clicked.connect(self.reference_collect_requested.emit)
+        self.reference_import_button.clicked.connect(lambda: self._prompt_import("reference"))
+        self.signal_collect_button.clicked.connect(self.signal_collect_requested.emit)
         self.back_button.clicked.connect(self.back_triggered.emit)
         self.abort_button.clicked.connect(self._confirm_abort)
-        self.tb_action.clicked.connect(self.action_button.click)
-        self.tb_back.clicked.connect(self.back_button.click)
-        self.tb_abort.clicked.connect(self.abort_button.click)
         self.toggle_summary_button.toggled.connect(self._toggle_summary_pause)
         self.clear_summary_button.clicked.connect(self._clear_summary_plot)
+        self.tb_back.clicked.connect(self.back_button.click)
+        self.tb_background_collect.clicked.connect(self.background_collect_button.click)
+        self.tb_background_import.clicked.connect(self.background_import_button.click)
+        self.tb_reference_collect.clicked.connect(self.reference_collect_button.click)
+        self.tb_reference_import.clicked.connect(self.reference_import_button.click)
+        self.tb_signal_collect.clicked.connect(self.signal_collect_button.click)
+        self.tb_abort.clicked.connect(self.abort_button.click)
 
-    def _set_action_icon_by_key(self, key: str):
-        style = self.style()
-        pix = QStyle.SP_MediaPlay
-        if key == "Collect Background":
-            pix = QStyle.SP_DialogOpenButton
-        elif key == "Collect Reference":
-            pix = QStyle.SP_ArrowUp
-        elif key in ("Collect this Point", "Start"):
-            pix = QStyle.SP_BrowserReload
-            self.tb_action.setStyleSheet("QToolButton { color: blue; }")
-        elif key in ("Done",):
-            pix = QStyle.SP_DialogApplyButton
-        self.tb_action.setIcon(style.standardIcon(pix))
-        try:
-            self.tb_action.setToolTip(self.tr(key))
-        except Exception:
-            pass
-
-    def _sync_topbar_enabled_states(self):
-        self.tb_action.setEnabled(self.action_button.isEnabled())
+    def _sync_tool_buttons(self) -> None:
         self.tb_back.setEnabled(self.back_button.isEnabled())
+        self.tb_background_collect.setEnabled(self.background_collect_button.isEnabled())
+        self.tb_background_import.setEnabled(self.background_import_button.isEnabled())
+        self.tb_reference_collect.setEnabled(self.reference_collect_button.isEnabled())
+        self.tb_reference_import.setEnabled(self.reference_import_button.isEnabled())
+        self.tb_signal_collect.setEnabled(self.signal_collect_button.isEnabled())
         self.tb_abort.setEnabled(self.abort_button.isEnabled())
 
-    def changeEvent(self, event):
-        """处理语言变化事件"""
+    def _prompt_import(self, spectrum_type: str) -> None:
+        start_dir = self._last_import_dir or os.path.expanduser("~")
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Select Spectrum File"),
+            start_dir,
+            self.tr(
+                "All Supported Files (*.xlsx *.xls *.csv *.txt);;Excel Files (*.xlsx *.xls);;CSV/Text Files (*.csv *.txt)"
+            ),
+        )
+        if not file_path:
+            return
+        wavelengths, intensities = load_spectrum_from_path(file_path)
+        if wavelengths is None or intensities is None:
+            QMessageBox.critical(
+                self,
+                self.tr("Import Failed"),
+                self.tr("Could not load spectrum data from:\n{0}").format(file_path),
+            )
+            return
+        if len(wavelengths) != len(intensities):
+            QMessageBox.critical(
+                self,
+                self.tr("Import Failed"),
+                self.tr("Loaded data has mismatched wavelength and intensity lengths."),
+            )
+            return
+        self._last_import_dir = os.path.dirname(file_path)
+        payload = {
+            "type": spectrum_type,
+            "file_path": file_path,
+            "wavelengths": wavelengths,
+            "spectrum": intensities,
+        }
+        if spectrum_type == "background":
+            self.background_import_requested.emit(payload)
+        else:
+            self.reference_import_requested.emit(payload)
+
+    def _apply_phase_controls(
+        self,
+        phase: Optional[str],
+        collect_enabled: bool,
+        import_enabled: Optional[bool],
+    ) -> None:
+        mapping = {
+            "background": (self.background_collect_button, self.background_import_button),
+            "reference": (self.reference_collect_button, self.reference_import_button),
+            "signal": (self.signal_collect_button, None),
+        }
+        for key, (collect_btn, import_btn) in mapping.items():
+            active = key == phase
+            collect_btn.setChecked(active and collect_btn.isCheckable())
+            collect_btn.setEnabled(collect_enabled if active else False)
+            if import_btn is not None:
+                allow_import = collect_enabled if import_enabled is None else import_enabled
+                import_btn.setEnabled(allow_import if active else False)
+        self._current_phase = phase
+        self._sync_tool_buttons()
+
+    def changeEvent(self, event: QEvent) -> None:
         if event.type() == QEvent.LanguageChange:
             self._retranslate_ui()
         super().changeEvent(event)
 
-    def _retranslate_ui(self):
-        """重新翻译所有UI文本，包括新的图表标题和按钮。"""
+    def _retranslate_ui(self) -> None:
         self.setWindowTitle(self.tr("Batch Acquisition in Progress..."))
         self.instruction_label.setText(self.tr("Initializing..."))
+        self.tb_back.setToolTip(self.tr("Previous Step"))
+        self.tb_background_collect.setToolTip(self.tr("Collect Background"))
+        self.tb_background_import.setToolTip(self.tr("Import Background"))
+        self.tb_reference_collect.setToolTip(self.tr("Collect Reference"))
+        self.tb_reference_import.setToolTip(self.tr("Import Reference"))
+        self.tb_signal_collect.setToolTip(self.tr("Collect this Point"))
+        self.tb_abort.setToolTip(self.tr("Abort Task"))
+        self.back_button.setToolTip(self.tr("Previous Step"))
+        self.background_collect_button.setToolTip(self.tr("Collect Background"))
+        self.background_import_button.setToolTip(self.tr("Import Background"))
+        self.reference_collect_button.setToolTip(self.tr("Collect Reference"))
+        self.reference_import_button.setToolTip(self.tr("Import Reference"))
+        self.signal_collect_button.setToolTip(self.tr("Collect this Point"))
+        self.abort_button.setToolTip(self.tr("Abort Task"))
 
-        if hasattr(self, 'tb_back'):
-            self.tb_back.setToolTip(self.tr("Previous Step"))
-        if hasattr(self, 'tb_abort'):
-            self.tb_abort.setToolTip(self.tr("Abort Task"))
-        if hasattr(self, 'tb_action'):
-            self._set_action_icon_by_key("Start")
-
-
-        # 图表标题
         title_style = {"color": "#90A4AE", "size": "12pt"}
         self.signal_plot.setTitle(self.tr("Live Signal"), **title_style)
         self.background_plot.setTitle(self.tr("Current Background"), **title_style)
         self.reference_plot.setTitle(self.tr("Current Reference"), **title_style)
         self.result_plot.setTitle(self.tr("Live Result (Absorbance)"), **title_style)
-        self.summary_plot.setTitle(
-            self.tr("Accumulated Results Summary"), **title_style
-        )
-        # 进度条标签
+        self.summary_plot.setTitle(self.tr("Accumulated Results Summary"), **title_style)
+
         self.total_progress_label.setText(self.tr("Total Well Progress:"))
         self.point_progress_label.setText(self.tr("Current Point Progress:"))
-        # 主按钮
-        self.action_button.setText(self.tr("Start"))
+
         self.back_button.setText(self.tr("Previous Step"))
+        self.background_collect_button.setText(self.tr("Collect Background"))
+        self.background_import_button.setText(self.tr("Import Background"))
+        self.reference_collect_button.setText(self.tr("Collect Reference"))
+        self.reference_import_button.setText(self.tr("Import Reference"))
+        self.signal_collect_button.setText(self.tr("Collect this Point"))
         self.abort_button.setText(self.tr("Abort Task"))
-        # 新增的汇总控制按钮
         self.toggle_summary_button.setText(self.tr("Pause Overlay"))
         self.clear_summary_button.setText(self.tr("Clear Summary Plot"))
 
-    def _open_popout_window(self, plot_type):
-        # 检查是否已有同类型的窗口打开
+    def _open_popout_window(self, plot_type: str) -> None:
         for item in self.popout_windows:
             if item["type"] == plot_type:
                 item["window"].activateWindow()
@@ -385,120 +486,97 @@ class BatchRunDialog(QDialog):
             "summary": self.tr("Accumulated Results Summary"),
         }
         title = title_map.get(plot_type, "Plot")
-        win = None
         if plot_type == "summary":
             win = MultiCurvePlotWindow(title, self)
         else:
             win = SinglePlotWindow(title, parent=self)
-        if win:
-            self.popout_windows.append({"type": plot_type, "window": win})
-            win.closed.connect(self._on_popout_closed)
-            win.show()  # 使用 .show() 创建非模态窗口
+        self.popout_windows.append({"type": plot_type, "window": win})
+        win.closed.connect(self._on_popout_closed)
+        win.show()
 
-    def _on_popout_closed(self, window_instance):
+    def _on_popout_closed(self, window_instance: QWidget) -> None:
         self.popout_windows = [
-            item
-            for item in self.popout_windows
-            if item["window"] is not window_instance
+            item for item in self.popout_windows if item["window"] is not window_instance
         ]
-        print(f"Pop-out window '{window_instance.windowTitle()}' closed.")
 
-    def update_all_plots(self, data_package):
-        # 【修改】获取全范围和裁切后的数据
+    def update_all_plots(self, data_package: Dict[str, Any]) -> None:
         full_wavelengths = data_package.get("full_wavelengths")
         result_wavelengths = data_package.get("result_wavelengths")
         if full_wavelengths is None:
             return
-        live_signal = data_package.get("live_signal", [])
-        bg_spec = data_package.get("background")
-        ref_spec = data_package.get("reference")
+        live_signal = data_package.get("live_signal")
+        background = data_package.get("background")
+        reference = data_package.get("reference")
         all_results = data_package.get("all_results", [])
-        # 1. 更新使用全范围数据的图表 (主界面和弹出窗口)
-        self.signal_curve.setData(full_wavelengths, live_signal)
-        self.background_curve.setData(
-            full_wavelengths, bg_spec if bg_spec is not None else []
-        )
-        self.reference_curve.setData(
-            full_wavelengths, ref_spec if ref_spec is not None else []
-        )
-        # 2. 计算实时吸收光谱 (裁切后)
+
+        live_signal_series = live_signal if live_signal is not None else []
+        background_series = background if background is not None else []
+        reference_series = reference if reference is not None else []
+
+        self.signal_curve.setData(full_wavelengths, live_signal_series)
+        self.background_curve.setData(full_wavelengths, background_series)
+        self.reference_curve.setData(full_wavelengths, reference_series)
+
         current_result = None
+        result_series: Any = []
         if result_wavelengths is not None:
-            # 创建掩码
+            live_signal_np = np.array(live_signal) if live_signal is not None else None
+            background_np = np.array(background) if background is not None else None
+            reference_np = np.array(reference) if reference is not None else None
             mask = np.isin(full_wavelengths, result_wavelengths)
-            # 【修复】将列表转换为Numpy数组以使用布尔掩码进行索引
-            live_signal_np = np.array(live_signal)
-            bg_spec_np = np.array(bg_spec) if bg_spec is not None else None
-            ref_spec_np = np.array(ref_spec) if ref_spec is not None else None
-            # 裁切用于计算的数据
-            live_signal_cropped = live_signal_np[mask] if len(live_signal) > 0 else None
-            bg_spec_cropped = bg_spec_np[mask] if bg_spec_np is not None else None
-            ref_spec_cropped = ref_spec_np[mask] if ref_spec_np is not None else None
+            signal_cropped = live_signal_np[mask] if live_signal_np is not None else None
+            background_cropped = background_np[mask] if background_np is not None else None
+            reference_cropped = reference_np[mask] if reference_np is not None else None
             current_result = _calculate_absorbance(
-                live_signal_cropped, bg_spec_cropped, ref_spec_cropped
+                signal_cropped, background_cropped, reference_cropped
             )
-        # 3. 更新使用裁切后数据的图表
-        self.result_curve.setData(
-            result_wavelengths, current_result if current_result is not None else []
-        )
+            result_series = current_result if current_result is not None else []
+            self.result_curve.setData(result_wavelengths, result_series)
+        else:
+            self.result_curve.setData([], [])
+
         if not self.is_summary_paused and len(all_results) != len(self.summary_curves):
             self._redraw_summary_plot(result_wavelengths, all_results)
-        # 4. 【修改】更新所有打开的弹出窗口
+
         for item in self.popout_windows:
             win = item["window"]
-            plot_type = item["type"]
-            if plot_type == "signal":
-                win.update_data(
-                    full_wavelengths, live_signal, self.signal_curve.opts["pen"]
-                )
-            elif plot_type == "background":
-                win.update_data(
-                    full_wavelengths, bg_spec, self.background_curve.opts["pen"]
-                )
-            elif plot_type == "reference":
-                win.update_data(
-                    full_wavelengths, ref_spec, self.reference_curve.opts["pen"]
-                )
-            elif plot_type == "result":
-                win.update_data(
-                    result_wavelengths, current_result, self.result_curve.opts["pen"]
-                )
-            elif plot_type == "summary":
+            window_type = item["type"]
+            if window_type == "signal":
+                win.update_data(full_wavelengths, live_signal_series, self.signal_curve.opts["pen"])
+            elif window_type == "background":
+                win.update_data(full_wavelengths, background_series, self.background_curve.opts["pen"])
+            elif window_type == "reference":
+                win.update_data(full_wavelengths, reference_series, self.reference_curve.opts["pen"])
+            elif window_type == "result":
+                win.update_data(result_wavelengths, result_series, self.result_curve.opts["pen"])
+            elif window_type == "summary":
                 win.update_data(result_wavelengths, all_results)
 
-    def _redraw_summary_plot(self, wavelengths, all_results):
+    def _redraw_summary_plot(self, wavelengths, all_results) -> None:
         self.summary_plot.clear()
         self.summary_curves.clear()
-        for i, spectrum in enumerate(all_results):
-            # 使用带透明度的颜色
-            color = pg.intColor(i, hues=len(all_results), alpha=150)
+        if wavelengths is None:
+            return
+        for index, spectrum in enumerate(all_results or []):
+            color = pg.intColor(index, hues=len(all_results), alpha=150)
             curve = self.summary_plot.plot(wavelengths, spectrum, pen=pg.mkPen(color))
             self.summary_curves.append(curve)
 
-    def _toggle_summary_pause(self, paused):
+    def _toggle_summary_pause(self, paused: bool) -> None:
         self.is_summary_paused = paused
-        if paused:
-            self.toggle_summary_button.setText(self.tr("Resume Overlay"))
-        else:
-            self.toggle_summary_button.setText(self.tr("Pause Overlay"))
+        self.toggle_summary_button.setText(
+            self.tr("Resume Overlay") if paused else self.tr("Pause Overlay")
+        )
 
-    def _clear_summary_plot(self):
-        # 这个函数只清除前端显示，worker中的历史数据不受影响
+    def _clear_summary_plot(self) -> None:
         self.summary_plot.clear()
         self.summary_curves.clear()
-        # 如果用户在暂停时点击清除，清除后应该保持暂停状态
-        # 如果是在运行时点击清除，下一次更新会自动重绘所有历史曲线，等于刷新
-        if not self.is_summary_paused:
-            # 强制下一次更新重绘
-            pass  # 逻辑上，下一次worker发送的数据会自动重绘
 
-    def _confirm_abort(self):
+    def _confirm_abort(self) -> None:
         reply = QMessageBox.question(
             self,
             self.tr("Confirm"),
-            self.tr(
-                "Are you sure you want to abort the current batch acquisition task?"
-            ),
+            self.tr("Are you sure you want to abort the current batch acquisition task?"),
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
@@ -506,13 +584,11 @@ class BatchRunDialog(QDialog):
             self.abort_mission.emit()
             self.reject()
 
-    def closeEvent(self, event):
+    def closeEvent(self, event) -> None:
         reply = QMessageBox.question(
             self,
             self.tr("Confirm"),
-            self.tr(
-                "Are you sure you want to abort the current batch acquisition task?"
-            ),
+            self.tr("Are you sure you want to abort the current batch acquisition task?"),
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
@@ -522,29 +598,28 @@ class BatchRunDialog(QDialog):
         else:
             event.ignore()
 
-    def update_state(self, status: dict):
-        if "instruction_key" in status:
-            key = status["instruction_key"]
+    def update_state(self, status: Dict[str, Any]) -> None:
+        instruction_key = status.get("instruction_key")
+        if instruction_key:
             params = status.get("params", {})
-            self.instruction_label.setText(self.tr(key).format(**params))
+            self.instruction_label.setText(self.tr(instruction_key).format(**params))
         if "total_progress" in status:
             self.total_progress_bar.setValue(status["total_progress"])
         if "point_progress" in status:
             self.point_progress_bar.setValue(status["point_progress"])
-        if "button_text_key" in status:
-            self.action_button.setText(self.tr(status["button_text_key"]))
-            self._set_action_icon_by_key(status["button_text_key"])
 
-        if "button_enabled" in status:
-            self.action_button.setEnabled(status["button_enabled"])
+        phase = status.get("phase", self._current_phase)
+        collect_enabled = status.get("button_enabled", False)
+        import_enabled = status.get("import_enabled")
+        self._apply_phase_controls(phase, collect_enabled, import_enabled)
+
         if "back_button_enabled" in status:
             self.back_button.setEnabled(status["back_button_enabled"])
+        self._sync_tool_buttons()
 
-        self._sync_topbar_enabled_states()
-
-
+# --------------------------------------------------------------------------------
 class BatchAcquisitionWorker(QObject):
-    """【最终架构版】采用指令队列(Queue)解决线程安全问题"""
+    """Thread-safe batch acquisition worker that processes commands from a queue."""
 
     finished = pyqtSignal()
     error = pyqtSignal(str)
@@ -645,42 +720,48 @@ class BatchAcquisitionWorker(QObject):
             self.wavelength_mask = None
             self.cropped_wavelengths = self.wavelengths
 
-    def trigger_action(self):
-        """由“采集”按钮触发，向队列发送 FORWARD 指令"""
+
+    def request_collect(self):
+        """Queue a collect command for the current acquisition phase."""
         if self.command_queue.empty():
-            self.command_queue.put("FORWARD")
+            self.command_queue.put(("COLLECT", None))
+
+    def trigger_action(self):
+        """Legacy alias preserved for backwards compatibility."""
+        self.request_collect()
 
     def stop(self):
         self._is_running = False
         if self.command_queue.empty():
-            self.command_queue.put("STOP")
+            self.command_queue.put(("STOP", None))
         if self.controller:
             self.controller.abort_endpoint_pipe()
 
     def go_back(self):
-        """由“上一步”按钮触发，向队列发送 BACKWARD 指令"""
+        """Queue a request to move back to the previous task."""
         if self.task_index > 0 and self.command_queue.empty():
-            self.command_queue.put("BACKWARD")
+            self.command_queue.put(("BACKWARD", None))
+
+    def request_import(self, payload: Dict[str, Any]):
+        """Queue an import command for the current background or reference step."""
+        if not payload or "type" not in payload or "spectrum" not in payload:
+            return
+        if self.command_queue.empty():
+            self.command_queue.put(("IMPORT", payload))
 
     def _timed_preview_wait(self, duration):
-        """
-        【新增】在指定的持续时间内等待，并持续发送预览数据。
-        如果用户中止，则返回False。
-        """
+        """Wait for a duration while publishing preview spectra."""
         start_time = time.time()
-        # 为预览获取当前上下文
         current_task = self.tasks[self.task_index]
         current_well_id = current_task["well_id"]
         current_well_data = self.collected_data.get(current_well_id, {})
         all_completed_results = []
         for well_id, data in self.collected_data.items():
             all_completed_results.extend(data["absorbance"].values())
-        # 在延时期间循环刷新预览
         while (time.time() - start_time) < duration:
-            if not self._is_running:  # 允许在等待期间中止
+            if not self._is_running:
                 return False
             _, spectrum = self.controller.get_spectrum()
-            # 发射预览信号
             data_package = {
                 "full_wavelengths": self.wavelengths,
                 "live_signal": spectrum,
@@ -690,51 +771,43 @@ class BatchAcquisitionWorker(QObject):
                 "all_results": all_completed_results,
             }
             self.live_preview_data.emit(data_package)
-            QThread.msleep(50)  # 控制刷新率，让出CPU
-        return True  # 等待成功完成
+            QThread.msleep(50)
+        return True
 
     def _get_command_while_previewing(self):
-        """
-        【已重构和修复】在工作线程内直接运行预览循环，不再创建独立的子线程。
-        这可以避免对象生命周期冲突导致的 RuntimeError。
-        """
+        """Poll the command queue while streaming preview data."""
         self.command_queue.queue.clear()
         last_spectrum = None
-        # 获取当前任务的上下文，用于预览
         current_task = self.tasks[self.task_index]
         current_well_id = current_task["well_id"]
         current_well_data = self.collected_data.get(current_well_id, {})
-        # 收集所有已完成的结果谱用于汇总图
         all_completed_results = []
         for well_id, data in self.collected_data.items():
             all_completed_results.extend(data["absorbance"].values())
-        # 在worker线程中直接循环，直到收到指令或任务停止
         while self.command_queue.empty() and self._is_running:
-            # 1. 获取光谱
             _, spectrum = self.controller.get_spectrum()
             last_spectrum = spectrum
-            # 2. 发射预览信号
             data_package = {
-                "full_wavelengths": self.wavelengths,  # 用于原始信号图
+                "full_wavelengths": self.wavelengths,
                 "live_signal": spectrum,
                 "background": current_well_data.get("background"),
                 "reference": current_well_data.get("reference"),
-                "result_wavelengths": self.cropped_wavelengths,  # 用于结果和汇总图
-                "all_results": all_completed_results,  # 结果数据本身已是裁切后的
+                "result_wavelengths": self.cropped_wavelengths,
+                "all_results": all_completed_results,
             }
             self.live_preview_data.emit(data_package)
-            # 3. 短暂休眠，让出CPU给其他操作，并控制刷新率
             QThread.msleep(50)
-        # 循环结束后，从队列中获取指令
-        command = "STOP"  # 默认为停止
+        command = ("STOP", None)
         if self._is_running:
             try:
-                # 尝试无阻塞地获取指令
-                command = self.command_queue.get_nowait()
+                queued_item = self.command_queue.get_nowait()
+                if isinstance(queued_item, tuple) and len(queued_item) == 2:
+                    command = queued_item
+                else:
+                    command = (queued_item, None)
             except queue.Empty:
-                # 如果队列为空但_is_running仍为True，说明可能存在逻辑问题，但我们先安全退出
-                print("警告: 预览循环退出，但指令队列为空。")
-        return last_spectrum, command
+                print("Warning: preview loop exited but no command was queued.")
+        return last_spectrum, command[0], command[1]
 
     def _initialize_batch_records(self) -> None:
         if not self.db_manager or self.project_id is None:
@@ -760,7 +833,7 @@ class BatchAcquisitionWorker(QObject):
                     notes=notes,
                 )
             except Exception as exc:
-                print(f"初始化批量运行失败: {exc}")
+                print(f"鍒濆鍖栨壒閲忚繍琛屽け璐? {exc}")
                 self.batch_run_id = None
         if not self.batch_run_id:
             return
@@ -781,7 +854,7 @@ class BatchAcquisitionWorker(QObject):
                 item_payload,
             )
         except Exception as exc:
-            print(f"创建批量孔位明细失败: {exc}")
+            print(f"鍒涘缓鎵归噺瀛斾綅鏄庣粏澶辫触: {exc}")
             self.batch_item_map = {}
 
     def _ensure_well_experiment(self, well_id: str) -> Optional[int]:
@@ -877,8 +950,86 @@ class BatchAcquisitionWorker(QObject):
                 self.spectrum_registry[well_id][bucket].append(spectrum_id)
             return spectrum_id
         except Exception as e:
-            print(f"保存批量光谱到数据库失败: {e}")
+            print(f"淇濆瓨鎵归噺鍏夎氨鍒版暟鎹簱澶辫触: {e}")
             return None
+
+
+    def _align_imported_spectrum(
+        self, imported_wavelengths: Any, imported_values: Any
+    ) -> Tuple[Optional[np.ndarray], Optional[str]]:
+        try:
+            wavelengths = np.array(imported_wavelengths, dtype=float)
+            values = np.array(imported_values, dtype=float)
+        except (TypeError, ValueError):
+            return None, "Imported data could not be parsed as numeric arrays."
+
+        mask = np.isfinite(wavelengths) & np.isfinite(values)
+        wavelengths = wavelengths[mask]
+        values = values[mask]
+
+        if (
+            wavelengths.ndim != 1
+            or values.ndim != 1
+            or wavelengths.size != values.size
+        ):
+            return None, "Imported data has inconsistent dimensions."
+        if wavelengths.size < 2:
+            return None, "Imported spectrum must contain at least two points."
+
+        order = np.argsort(wavelengths)
+        wavelengths = wavelengths[order]
+        values = values[order]
+
+        target_wavelengths = self.wavelengths
+        if (
+            wavelengths.size == target_wavelengths.size
+            and np.allclose(wavelengths, target_wavelengths, atol=1e-6)
+        ):
+            return values, None
+
+        if (
+            wavelengths[0] > target_wavelengths[0]
+            or wavelengths[-1] < target_wavelengths[-1]
+        ):
+            return None, "Imported wavelength range does not cover the instrument range."
+
+        aligned = np.interp(target_wavelengths, wavelengths, values)
+        return aligned, None
+
+    def _apply_imported_spectrum(
+        self, well_id: str, task_type: str, payload: Optional[Dict[str, Any]]
+    ) -> bool:
+        if payload is None:
+            self.error.emit("No spectrum data was provided for import.")
+            return False
+        if task_type not in {"background", "reference"}:
+            self.error.emit("Import is only supported for background or reference steps.")
+            return False
+
+        requested_type = payload.get("type")
+        if requested_type and requested_type != task_type:
+            self.error.emit("Imported spectrum type does not match the current step.")
+            return False
+
+        aligned_values, error_message = self._align_imported_spectrum(
+            payload.get("wavelengths"), payload.get("spectrum")
+        )
+        if aligned_values is None:
+            if error_message:
+                self.error.emit(error_message)
+            return False
+
+        file_path = payload.get("file_path", "")
+        self._ensure_well_experiment(well_id)
+        self.collected_data[well_id][task_type] = aligned_values
+        self.collected_data[well_id][f"{task_type}_source"] = {
+            "mode": "imported",
+            "path": file_path,
+        }
+        label = "Background" if task_type == "background" else "Reference"
+        self._save_spectrum_to_db(well_id, label, self.wavelengths, aligned_values)
+        self._record_batch_capture(well_id, status="collecting")
+        return True
 
     def _record_batch_capture(self, well_id: str, status: Optional[str] = None):
         if not self.db_manager:
@@ -903,14 +1054,14 @@ class BatchAcquisitionWorker(QObject):
     def _finalize_batch_run(self, status: str):
         if not self.db_manager or not self.batch_run_id:
             return
-        # 标记未完成的明细
+        # 鏍囪鏈畬鎴愮殑鏄庣粏
         for well_id, item_id in self.batch_item_map.items():
             if well_id not in self.completed_wells:
                 self.db_manager.finalize_batch_item(item_id, status=status)
         self.db_manager.update_batch_run(self.batch_run_id, status=status)
 
     def _generate_tasks(self):
-        # (此函数无变化)
+        # (姝ゅ嚱鏁版棤鍙樺寲)
         well_ids = sorted(self.layout_data.keys())
         for well_id in well_ids:
             self.tasks.append({"type": "background", "well_id": well_id})
@@ -920,6 +1071,8 @@ class BatchAcquisitionWorker(QObject):
                     {"type": "signal", "well_id": well_id, "point_num": point_num}
                 )
             self.tasks.append({"type": "save", "well_id": well_id})
+
+
 
     def run(self):
         self.run_status = "in_progress"
@@ -935,288 +1088,258 @@ class BatchAcquisitionWorker(QObject):
                 task = self.tasks[self.task_index]
                 well_id = task["well_id"]
                 task_type = task["type"]
-                # 1. 更新UI（此部分逻辑不变）
+
+                if task_type == "save":
+                    self.update_dialog.emit(
+                        {
+                            "instruction_key": "Saving data for {well_id}...",
+                            "params": {"well_id": well_id},
+                            "total_progress": int(self.task_index / total_tasks * 100),
+                            "point_progress": 100,
+                            "phase": None,
+                            "button_enabled": False,
+                            "import_enabled": False,
+                            "back_button_enabled": False,
+                        }
+                    )
+                    well_data = self.collected_data[well_id]
+                    signals_list = [
+                        well_data["signals"][k]
+                        for k in sorted(well_data["signals"] )
+                    ]
+                    absorbance_list = [
+                        well_data["absorbance"][k]
+                        for k in sorted(well_data["absorbance"])
+                    ]
+                    concentration = self.layout_data[well_id].get("concentration", 0.0)
+                    timestamp_file = time.strftime("%Y%m%d-%H%M%S")
+                    filename = f"{timestamp_file}_{well_id}_{concentration}nM{self.file_extension}"
+                    output_path = os.path.join(run_output_folder, filename)
+                    save_batch_spectrum_data(
+                        file_path=output_path,
+                        wavelengths=self.wavelengths,
+                        absorbance_spectra=absorbance_list,
+                        signals_list=signals_list,
+                        background=well_data.get("background"),
+                        reference=well_data.get("reference"),
+                        crop_start_wl=self.crop_start_wl,
+                        crop_end_wl=self.crop_end_wl,
+                    )
+                    exp_id = self._ensure_well_experiment(well_id)
+                    if self.db_manager and exp_id:
+                        serial_signals = [
+                            np.asarray(sig).tolist() if sig is not None else None
+                            for sig in signals_list
+                        ]
+                        serial_absorbance = [
+                            np.asarray(val).tolist() if val is not None else None
+                            for val in absorbance_list
+                        ]
+                        source_ids = []
+                        registry = self.spectrum_registry[well_id]
+                        for bucket in ("Background", "Reference", "Signal", "Result"):
+                            source_ids.extend(registry.get(bucket, []))
+                        summary_payload = {
+                            "concentration": concentration,
+                            "signals": serial_signals,
+                            "absorbance": serial_absorbance,
+                            "points_collected": len([s for s in serial_signals if s is not None]),
+                        }
+                        self.db_manager.save_analysis_result(
+                            experiment_id=exp_id,
+                            analysis_type="BatchSummary",
+                            result_data=summary_payload,
+                            source_spectrum_ids=source_ids,
+                        )
+                    self._record_batch_capture(well_id, status="completed")
+                    self._finalize_batch_item(well_id, status="completed")
+                    self.task_index += 1
+                    continue
+
                 if task_type == "background":
-                    self.update_dialog.emit(
-                        {
-                            "instruction_key": "Please place [Background] for well {well_id}\\n(Live preview active...)",
-                            "params": {"well_id": well_id},
-                            "total_progress": int(self.task_index / total_tasks * 100),
-                            "point_progress": 0,
-                            "button_text_key": "Collect Background",
-                            "button_enabled": not self.is_auto_enabled,  # 自动模式下禁用按钮
-                            "back_button_enabled": self.task_index > 0
-                            and not self.is_auto_enabled,
-                        }
-                    )
+                    self.update_dialog.emit({
+                        "instruction_key": "Please place [Background] for well {well_id}\\n(Live preview active...)",
+                        "params": {"well_id": well_id},
+                        "total_progress": int(self.task_index / total_tasks * 100),
+                        "point_progress": 0,
+                        "phase": "background",
+                        "button_enabled": not self.is_auto_enabled,
+                        "import_enabled": not self.is_auto_enabled,
+                        "back_button_enabled": self.task_index > 0 and not self.is_auto_enabled,
+                    })
                 elif task_type == "reference":
-                    self.update_dialog.emit(
-                        {
-                            "instruction_key": "Please place [Reference] for well {well_id}\\n(Live preview active...)",
-                            "params": {"well_id": well_id},
-                            "total_progress": int(self.task_index / total_tasks * 100),
-                            "point_progress": 0,
-                            "button_text_key": "Collect Reference",
-                            "button_enabled": not self.is_auto_enabled,
-                            "back_button_enabled": not self.is_auto_enabled,
-                        }
-                    )
+                    self.update_dialog.emit({
+                        "instruction_key": "Please place [Reference] for well {well_id}\\n(Live preview active...)",
+                        "params": {"well_id": well_id},
+                        "total_progress": int(self.task_index / total_tasks * 100),
+                        "point_progress": 0,
+                        "phase": "reference",
+                        "button_enabled": not self.is_auto_enabled,
+                        "import_enabled": not self.is_auto_enabled,
+                        "back_button_enabled": not self.is_auto_enabled,
+                    })
                 elif task_type == "signal":
                     point_num = task["point_num"]
                     points_done = len(self.collected_data[well_id]["signals"])
-                    self.update_dialog.emit(
-                        {
-                            "instruction_key": "Please move to well {well_id}, point {point_num}/{total_points}\\n(Live preview active...)",
-                            "params": {
-                                "well_id": well_id,
-                                "point_num": point_num,
-                                "total_points": self.points_per_well,
-                            },
-                            "point_progress": int(
-                                (points_done / self.points_per_well) * 100
-                            ),
-                            "total_progress": int(self.task_index / total_tasks * 100),
-                            "button_text_key": "Collect this Point",
-                            "button_enabled": not self.is_auto_enabled,
-                            "back_button_enabled": not self.is_auto_enabled,
-                        }
-                    )
-                # 【核心修改】根据是否启用自动模式，决定是等待用户点击还是自动延时
+                    self.update_dialog.emit({
+                        "instruction_key": "Please move to well {well_id}, point {point_num}/{total_points}\\n(Live preview active...)",
+                        "params": {"well_id": well_id, "point_num": point_num, "total_points": self.points_per_well},
+                        "point_progress": int((points_done / self.points_per_well) * 100),
+                        "total_progress": int(self.task_index / total_tasks * 100),
+                        "phase": "signal",
+                        "button_enabled": not self.is_auto_enabled,
+                        "import_enabled": False,
+                        "back_button_enabled": not self.is_auto_enabled,
+                    })
+
                 spectrum = None
-                command = None
+                payload = None
                 if not self.is_auto_enabled:
-                    # --- 手动模式 ---
-                    spectrum, command = self._get_command_while_previewing()
+                    spectrum, command, payload = self._get_command_while_previewing()
                 else:
-                    # --- 自动模式 ---
-                    # 确定延时时间
                     delay = self.intra_well_interval
-                    # 切换孔位或保存数据时，使用更长的孔间间隔
-                    if task_type in ["background", "reference", "save"]:
+                    if task_type in ("background", "reference"):
                         delay = self.inter_well_interval
-                    # 执行带预览的延时等待
                     if not self._timed_preview_wait(delay):
-                        command = "STOP"  # 如果等待被中止，则设置停止指令
+                        command = "STOP"
                     else:
-                        # 等待结束后，自动采集最后一次的光谱并继续
                         _, spectrum = self.controller.get_spectrum()
-                        command = "FORWARD"
+                        command = "COLLECT"
+                        payload = None
+
                 if command == "STOP" or not self._is_running:
                     if command == "STOP" and self.run_status == "in_progress":
                         self.run_status = "aborted"
                     break
-                # 3. 根据收到的指令处理状态 (此部分逻辑不变)
-                if command == "FORWARD":
-                    self._ensure_well_experiment(well_id)
-                    if task_type == "background":
-                        self.collected_data[well_id]["background"] = spectrum
-                        self._save_spectrum_to_db(
-                            well_id, "Background", self.wavelengths, spectrum
+
+                if command == "BACKWARD":
+                    if self.task_index > 0:
+                        previous_task = self.tasks[self.task_index - 1]
+                        rollback_well = previous_task["well_id"]
+                        rollback_type = previous_task["type"]
+                        data = self.collected_data[rollback_well]
+                        if rollback_type == "background":
+                            data.pop("background", None)
+                            data.pop("background_source", None)
+                        elif rollback_type == "reference":
+                            data.pop("reference", None)
+                            data.pop("reference_source", None)
+                        elif rollback_type == "signal":
+                            point_num = previous_task["point_num"]
+                            data["signals"].pop(point_num, None)
+                            data["absorbance"].pop(point_num, None)
+                        self.task_index -= 1
+                    continue
+
+                if command == "IMPORT":
+                    if not self._apply_imported_spectrum(well_id, task_type, payload):
+                        continue
+                    self.task_index += 1
+                    continue
+
+                if spectrum is None:
+                    _, spectrum = self.controller.get_spectrum()
+                self._ensure_well_experiment(well_id)
+
+                if task_type == "background":
+                    self.collected_data[well_id]["background"] = spectrum
+                    self._save_spectrum_to_db(
+                        well_id, "Background", self.wavelengths, spectrum
+                    )
+                    self._record_batch_capture(well_id, status="collecting")
+                elif task_type == "reference":
+                    self.collected_data[well_id]["reference"] = spectrum
+                    self._save_spectrum_to_db(
+                        well_id, "Reference", self.wavelengths, spectrum
+                    )
+                    self._record_batch_capture(well_id, status="collecting")
+                elif task_type == "signal":
+                    point_num = task["point_num"]
+                    self.collected_data[well_id]["signals"][point_num] = spectrum
+                    self._save_spectrum_to_db(
+                        well_id,
+                        f"Signal_Point_{point_num}",
+                        self.wavelengths,
+                        spectrum,
+                    )
+                    self.capture_counts[well_id] += 1
+                    bg = self.collected_data[well_id].get("background")
+                    ref = self.collected_data[well_id].get("reference")
+                    if self.wavelength_mask is not None:
+                        spectrum_np = np.array(spectrum)
+                        bg_np = np.array(bg) if bg is not None else None
+                        ref_np = np.array(ref) if ref is not None else None
+                        signal_cropped = spectrum_np[self.wavelength_mask]
+                        bg_cropped = bg_np[self.wavelength_mask] if bg_np is not None else None
+                        ref_cropped = ref_np[self.wavelength_mask] if ref_np is not None else None
+                    else:
+                        signal_cropped, bg_cropped, ref_cropped = spectrum, bg, ref
+                    absorbance = _calculate_absorbance(signal_cropped, bg_cropped, ref_cropped)
+                    if absorbance is not None:
+                        self.collected_data[well_id]["absorbance"][point_num] = absorbance
+                        result_wavelengths = (
+                            self.cropped_wavelengths
+                            if self.wavelength_mask is not None
+                            else self.wavelengths
                         )
-                        self._record_batch_capture(well_id, status="collecting")
-                    elif task_type == "reference":
-                        self.collected_data[well_id]["reference"] = spectrum
-                        self._save_spectrum_to_db(
-                            well_id, "Reference", self.wavelengths, spectrum
-                        )
-                        self._record_batch_capture(well_id, status="collecting")
-                    elif task_type == "signal":
-                        point_num = task["point_num"]
-                        self.collected_data[well_id]["signals"][point_num] = spectrum
                         self._save_spectrum_to_db(
                             well_id,
-                            f"Signal_Point_{point_num}",
-                            self.wavelengths,
-                            spectrum,
+                            f"Result_Point_{point_num}",
+                            result_wavelengths,
+                            absorbance,
                         )
-                        self.capture_counts[well_id] += 1
-                        bg = self.collected_data[well_id].get("background")
-                        ref = self.collected_data[well_id].get("reference")
-                        if self.wavelength_mask is not None:
-                            spectrum_np = np.array(spectrum)
-                            bg_np = np.array(bg) if bg is not None else None
-                            ref_np = np.array(ref) if ref is not None else None
-                            signal_cropped = spectrum_np[self.wavelength_mask]
-                            bg_cropped = (
-                                bg_np[self.wavelength_mask]
-                                if bg_np is not None
-                                else None
-                            )
-                            ref_cropped = (
-                                ref_np[self.wavelength_mask]
-                                if ref_np is not None
-                                else None
-                            )
-                        else:
-                            signal_cropped, bg_cropped, ref_cropped = spectrum, bg, ref
-                        absorbance = _calculate_absorbance(
-                            signal_cropped, bg_cropped, ref_cropped
-                        )
-                        if absorbance is not None:
-                            self.collected_data[well_id]["absorbance"][
-                                point_num
-                            ] = absorbance
-                            wl_result = (
-                                self.cropped_wavelengths
-                                if self.wavelength_mask is not None
-                                else self.wavelengths
-                            )
-                            self._save_spectrum_to_db(
-                                well_id,
-                                f"Result_Point_{point_num}",
-                                wl_result,
-                                absorbance,
-                            )
-                        self._record_batch_capture(well_id, status="collecting")
-                    elif task_type == "save":
-                        well_data = self.collected_data[well_id]
-                        signals_list = [
-                            well_data["signals"][k]
-                            for k in sorted(well_data["signals"])
-                        ]
-                        absorbance_list = [
-                            well_data["absorbance"][k]
-                            for k in sorted(well_data["absorbance"])
-                        ]
-                        concentration = self.layout_data[well_id].get(
-                            "concentration", 0.0
-                        )
-                        timestamp_file = time.strftime("%Y%m%d-%H%M%S")
-                        filename = f"{timestamp_file}_{well_id}_{concentration}nM{self.file_extension}"
-                        output_path = os.path.join(run_output_folder, filename)
-                        save_batch_spectrum_data(
-                            file_path=output_path,
-                            wavelengths=self.wavelengths,
-                            absorbance_spectra=absorbance_list,
-                            signals_list=signals_list,
-                            background=well_data.get("background"),
-                            reference=well_data.get("reference"),
-                            crop_start_wl=self.crop_start_wl,
-                            crop_end_wl=self.crop_end_wl,
-                        )
-                        exp_id = self._ensure_well_experiment(well_id)
-                        if self.db_manager and exp_id:
-                            serial_signals = [
-                                np.asarray(sig).tolist() if sig is not None else None
-                                for sig in signals_list
-                            ]
-                            serial_absorbance = [
-                                np.asarray(val).tolist() if val is not None else None
-                                for val in absorbance_list
-                            ]
-                            source_ids: List[int] = []
-                            registry = self.spectrum_registry[well_id]
-                            for bucket in (
-                                "Background",
-                                "Reference",
-                                "Signal",
-                                "Result",
-                            ):
-                                source_ids.extend(registry.get(bucket, []))
-                            summary_payload = {
-                                "concentration": concentration,
-                                "signals": serial_signals,
-                                "absorbance": serial_absorbance,
-                                "points_collected": len(
-                                    [s for s in serial_signals if s is not None]
-                                ),
-                            }
-                            self.db_manager.save_analysis_result(
-                                experiment_id=exp_id,
-                                analysis_type="BatchSummary",
-                                result_data=summary_payload,
-                                source_spectrum_ids=source_ids,
-                            )
-                        self._record_batch_capture(well_id, status="completed")
-                        self._finalize_batch_item(well_id, status="completed")
-                    self.task_index += 1
-                elif command == "BACKWARD":
-                    if self.task_index > 0:
-                        task_to_undo = self.tasks[self.task_index - 1]
-                        well_id_to_undo = task_to_undo["well_id"]
-                        type_to_undo = task_to_undo["type"]
-                        if type_to_undo == "background":
-                            self.collected_data[well_id_to_undo].pop("background", None)
-                        elif type_to_undo == "reference":
-                            self.collected_data[well_id_to_undo].pop("reference", None)
-                        elif type_to_undo == "signal":
-                            point_num = task_to_undo["point_num"]
-                            self.collected_data[well_id_to_undo]["signals"].pop(
-                                point_num, None
-                            )
-                            self.collected_data[well_id_to_undo]["absorbance"].pop(
-                                point_num, None
-                            )
-                        self.task_index -= 1
+                    self._record_batch_capture(well_id, status="collecting")
+
+                self.task_index += 1
+
             if self._is_running:
-                self.update_dialog.emit(
-                    {
-                        "instruction_key": "Batch acquisition complete!",
-                        "total_progress": 100,
-                        "point_progress": 100,
-                        "button_text_key": "Done",
-                        "button_enabled": False,
-                        "back_button_enabled": False,
-                    }
-                )
+                self.update_dialog.emit({
+                    "instruction_key": "Batch acquisition complete!",
+                    "total_progress": 100,
+                    "point_progress": 100,
+                    "phase": "complete",
+                    "button_enabled": False,
+                    "import_enabled": False,
+                    "back_button_enabled": False,
+                })
             try:
-                if self._is_running:  # 只有在任务正常完成时才执行
-                    print("正在生成最终结果汇总文件...")
+                if self._is_running:
                     all_results_data = {}
-                    # 确保波长数据存在
                     if (
                         not hasattr(self.controller, "wavelengths")
                         or self.controller.wavelengths is None
                     ):
-                        raise ValueError("无法获取有效的波长数据。")
+                        raise ValueError("Unable to obtain instrument wavelength data.")
                     wavelengths = np.array(self.controller.wavelengths)
-                    # 1. 遍历所有收集到的数据，聚合结果谱
-                    # 按孔位ID排序以保证列的顺序固定
                     sorted_well_ids = sorted(self.collected_data.keys())
-                    for well_id in sorted_well_ids:
-                        well_data = self.collected_data[well_id]
+                    for well in sorted_well_ids:
+                        well_data = self.collected_data[well]
                         if "absorbance" in well_data:
-                            # 按点编号排序
-                            sorted_points = sorted(well_data["absorbance"].keys())
-                            for point_num in sorted_points:
-                                absorbance_spectrum = well_data["absorbance"][point_num]
-                                # 为每一列创建一个唯一的名称
-                                column_name = f"{well_id}_Point_{point_num}"
-                                all_results_data[column_name] = absorbance_spectrum
-                    # 2. 如果收集到了结果，则创建DataFrame并保存
+                            for point_num in sorted(well_data["absorbance"].keys()):
+                                column_name = f"{well}_Point_{point_num}"
+                                all_results_data[column_name] = well_data["absorbance"][point_num]
                     if all_results_data:
                         df_summary = pd.DataFrame(all_results_data)
-                        # 将波长作为第一列插入
                         wavelengths_for_summary = (
                             self.cropped_wavelengths
                             if self.wavelength_mask is not None
                             else wavelengths
                         )
                         df_summary.insert(0, "Wavelength", wavelengths_for_summary)
-                        # 定义输出路径和文件名
-                        summary_filename = (
-                            f"batch_summary_all_results_{folder_timestamp}.xlsx"
-                        )
-                        summary_output_path = os.path.join(
-                            run_output_folder, summary_filename
-                        )
-                        # 保存到Excel
-                        df_summary.to_excel(
-                            summary_output_path, index=False, engine="openpyxl"
-                        )
-                        print(f"最终结果汇总文件已成功保存到: {summary_output_path}")
-                    else:
-                        print("未收集到任何结果光谱，跳过生成最终汇总文件。")
-            except Exception as e:
+                        summary_filename = f"batch_summary_all_results_{folder_timestamp}.xlsx"
+                        summary_output_path = os.path.join(run_output_folder, summary_filename)
+                        df_summary.to_excel(summary_output_path, index=False, engine="openpyxl")
+            except Exception as exc:
                 self.run_status = "failed"
-                print(f"生成最终结果汇总文件时发生严重错误: {e}")
-                self.error.emit(f"Failed to generate final summary file: {e}")
-        except Exception as e:
+                print(f"Failed to generate batch summary file: {exc}")
+                self.error.emit(f"Failed to generate final summary file: {exc}")
+        except Exception as exc:
             self.run_status = "failed"
-            self.error.emit(str(e))
+            self.error.emit(str(exc))
         finally:
             if self.run_status == "pending":
                 self.run_status = "aborted"
             self._finalize_batch_run(self.run_status)
             self._is_running = False
             self.finished.emit()
+

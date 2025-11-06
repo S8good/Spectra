@@ -25,16 +25,32 @@ from PyQt5.QtWidgets import (
     QTextEdit,
 )
 from ..utils.file_io import export_data_custom
-from PyQt5.QtCore import QEvent, QDate, pyqtSignal
+from PyQt5.QtCore import QEvent, QDate, Qt, pyqtSignal
 import csv
 from datetime import datetime
 import time
 from nanosense.core.data_access import ExplorerDataAccess
 
+
+class SortableTableWidgetItem(QTableWidgetItem):
+    """Table widget item that keeps a sortable key separate from display text."""
+    def __init__(self, display_text: str, sort_key):
+        super().__init__(display_text)
+        self._sort_key = sort_key
+
+    def __lt__(self, other: QTableWidgetItem) -> bool:
+        if isinstance(other, SortableTableWidgetItem):
+            return self._sort_key < other._sort_key
+        return super().__lt__(other)
+
 class DatabaseExplorerDialog(QDialog):
     load_spectra_requested = pyqtSignal(list)#定义一个信号
     def __init__(self, parent=None):
         super().__init__(parent)
+        # show standard window controls
+        self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
+        self.setWindowFlag(Qt.WindowMinimizeButtonHint, True)
+        self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
 
         # 从父窗口 (AppWindow) 获取 db_manager
         if parent and hasattr(parent, 'db_manager'):
@@ -103,8 +119,11 @@ class DatabaseExplorerDialog(QDialog):
         self.results_table = QTableWidget()
         self.results_table.setColumnCount(7)
         self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.results_table.horizontalHeader().setSectionsClickable(True)
+        self.results_table.horizontalHeader().setSortIndicatorShown(True)
         self.results_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.results_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.results_table.setSortingEnabled(True)
 
         self.detail_tabs = QTabWidget()
 
@@ -279,6 +298,52 @@ class DatabaseExplorerDialog(QDialog):
         finally:
             self.status_combo.blockSignals(False)
 
+    @staticmethod
+    def _text_sort_key(display_text: str):
+        normalized = display_text or ""
+        return (normalized == "", normalized.lower())
+
+    @staticmethod
+    def _numeric_sort_key(value: Any):
+        if value in (None, ""):
+            return (1, 0.0)
+        try:
+            return (0, float(value))
+        except (TypeError, ValueError):
+            try:
+                return (0, float(str(value)))
+            except (TypeError, ValueError):
+                return (1, 0.0)
+
+    @staticmethod
+    def _datetime_sort_key(value: Any):
+        if not value:
+            return (1, 0.0)
+        if isinstance(value, datetime):
+            return (0, value.timestamp())
+        text_value = str(value)
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+            try:
+                parsed = datetime.strptime(text_value, fmt)
+                return (0, parsed.timestamp())
+            except ValueError:
+                continue
+        try:
+            parsed = datetime.fromisoformat(text_value)
+            return (0, parsed.timestamp())
+        except ValueError:
+            return (1, text_value.lower())
+
+    def _create_results_item(self, value: Any, column_index: int) -> QTableWidgetItem:
+        display_text = "" if value in (None, "") else str(value)
+        if column_index == 0:
+            sort_key = self._numeric_sort_key(value)
+        elif column_index == 4:
+            sort_key = self._datetime_sort_key(value)
+        else:
+            sort_key = self._text_sort_key(display_text)
+        return SortableTableWidgetItem(display_text, sort_key)
+
     def _search_database(self):
         """执行查询并刷新实验列表"""
         if not self.db_manager:
@@ -306,12 +371,20 @@ class DatabaseExplorerDialog(QDialog):
         elapsed_ms = (time.perf_counter() - self._last_query_started) * 1000.0
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        header = self.results_table.horizontalHeader()
+        sort_section = header.sortIndicatorSection()
+        sort_order = header.sortIndicatorOrder()
+        if sort_section < 0:
+            sort_section = None
+
+        self.results_table.setSortingEnabled(False)
         self.results_table.setRowCount(0)
         if not results:
             self.results_hint_label.setText(
                 self.tr("No matching experiments. Refreshed at {0} (elapsed {1:.0f} ms)").format(timestamp, elapsed_ms)
             )
             self._clear_detail_tabs()
+            self.results_table.setSortingEnabled(True)
             print("查询完成，未匹配到实验。")
             self._last_query_started = None
             return
@@ -319,8 +392,11 @@ class DatabaseExplorerDialog(QDialog):
         self.results_table.setRowCount(len(results))
         for row_index, row_data in enumerate(results):
             for col_index, cell_data in enumerate(row_data):
-                item = QTableWidgetItem(str(cell_data))
+                item = self._create_results_item(cell_data, col_index)
                 self.results_table.setItem(row_index, col_index, item)
+        self.results_table.setSortingEnabled(True)
+        if sort_section is not None and self.results_table.rowCount() > 0:
+            self.results_table.sortItems(sort_section, sort_order)
 
         summary = self.tr("Found {0} experiment(s). Refreshed at {1} (elapsed {2:.0f} ms)").format(
             len(results), timestamp, elapsed_ms

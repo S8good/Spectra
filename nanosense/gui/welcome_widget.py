@@ -1,7 +1,7 @@
 # nanosense/gui/welcome_widget.py
 
 import os
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QPushButton, QLabel, QGraphicsDropShadowEffect, QHBoxLayout, QComboBox
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QPushButton, QLabel, QGraphicsDropShadowEffect, QHBoxLayout, QComboBox, QSizePolicy
 from PyQt5.QtGui import QFont, QIcon, QPainter, QPixmap, QColor
 from PyQt5.QtCore import QSize, pyqtSignal, Qt
 
@@ -151,30 +151,35 @@ class WelcomeWidget(QWidget):
 
         # --- Button Grid ---
         grid_layout = QGridLayout()
-        grid_layout.setSpacing(15)
+        grid_layout.setHorizontalSpacing(40)
+        grid_layout.setVerticalSpacing(25)
+        grid_layout.setContentsMargins(60, 10, 60, 10)
+        for col in range(3):
+            grid_layout.setColumnStretch(col, 1)
 
         # 【核心修改】移除了 self.mode_labels 列表
         self.mode_buttons = []
 
         self.buttons_info = [
-            ("Absorbance", "nanosense/gui/assets/icons/absorbance.png", (0, 0)),
-            ("Transmission", "nanosense/gui/assets/icons/transmission.png", (0, 1)),
-            ("Reflectance", "nanosense/gui/assets/icons/reflectance.png", (0, 2)),
-            ("Raman", "nanosense/gui/assets/icons/raman.png", (0, 3)),
-            ("Fluorescence", "nanosense/gui/assets/icons/fluorescence.png", (1, 0)),
-            ("Absolute irradiance", "nanosense/gui/assets/icons/irradiance_abs.png", (1, 1)),
-            ("Relative irradiance", "nanosense/gui/assets/icons/irradiance_rel.png", (1, 2)),
-            ("Color", "nanosense/gui/assets/icons/color.png", (1, 3)),
+            ("Absorbance", "nanosense/gui/assets/icons/absorbance.png"),
+            ("Transmission", "nanosense/gui/assets/icons/transmission.png"),
+            ("Reflectance", "nanosense/gui/assets/icons/reflectance.png"),
+            ("Raman", "nanosense/gui/assets/icons/raman.png"),
+            ("Fluorescence", "nanosense/gui/assets/icons/fluorescence.png"),
+            ("Color", "nanosense/gui/assets/icons/color.png"),
         ]
 
-        for text_key, icon_path, pos in self.buttons_info:
+        for index, (text_key, icon_path) in enumerate(self.buttons_info):
+            row = index // 3
+            column = index % 3
             button = HoverButton(icon_path)
             button.setFixedHeight(140)
+            button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             button.clicked.connect(lambda checked, mode=text_key: self.mode_selected.emit(mode,
                                                                                           self.hardware_mode_combo.currentText().startswith(
                                                                                               self.tr(
                                                                                                   "Real Hardware"))))
-            grid_layout.addWidget(button, pos[0], pos[1])
+            grid_layout.addWidget(button, row, column)
 
             self.mode_buttons.append(button)
 

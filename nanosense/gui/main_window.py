@@ -1,4 +1,4 @@
-# nanosense/gui/main_window.py
+﻿# nanosense/gui/main_window.py
 
 import json
 
@@ -90,7 +90,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # ±£´æÓ²¼þÄ£Ê½×´Ì¬
+        # 卤拢麓忙脫虏录镁脛拢脢陆脳麓脤卢
 
         self.use_real_hardware = use_real_hardware
 
@@ -118,7 +118,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # Ö±½ÓÔÚ¹¹Ôìº¯ÊýÖÐ³¢ÊÔÁ¬½ÓÓ²¼þ
+        # 脰卤陆脫脭脷鹿鹿脭矛潞炉脢媒脰脨鲁垄脢脭脕卢陆脫脫虏录镁
 
         requested_mode = self.use_real_hardware
 
@@ -164,7 +164,7 @@ class AppWindow(QMainWindow):
 
         self.init_ui()
 
-        self.apply_styles()  # ±£³ÖÄãÔ­ÓÐµÄÑùÊ½¼ÓÔØ
+        self.apply_styles()  # 卤拢鲁脰脛茫脭颅脫脨碌脛脩霉脢陆录脫脭脴
 
         self._setup_initial_state()
 
@@ -172,7 +172,7 @@ class AppWindow(QMainWindow):
 
         self._setup_initial_language()
 
-    # ¡¾ÐÂÔö¡¿³õÊ¼»¯Êý¾Ý¿âÁ¬½Ó
+    # 隆戮脨脗脭枚隆驴鲁玫脢录禄炉脢媒戮脻驴芒脕卢陆脫
 
     def _initialize_database(self):
 
@@ -208,7 +208,7 @@ class AppWindow(QMainWindow):
 
             )
 
-    # ¡¾ÐÂÔö¡¿²éÕÒ»ò´´½¨Ä¬ÈÏÏîÄ¿
+    # 隆戮脨脗脭枚隆驴虏茅脮脪禄貌麓麓陆篓脛卢脠脧脧卯脛驴
 
     def _find_or_create_default_project(self):
 
@@ -224,13 +224,13 @@ class AppWindow(QMainWindow):
 
             )
 
-            print(f"µ±Ç°ÏîÄ¿ÒÑÉèÖÃÎª '{project_name}' (ID: {self.current_project_id})")
+            print(f"碌卤脟掳脧卯脛驴脪脩脡猫脰脙脦陋 '{project_name}' (ID: {self.current_project_id})")
 
-    # ¡¾ÐÂÔö¡¿»ñÈ¡µ±Ç°ÊµÑéID£¬Èç¹û²»´æÔÚÔò´´½¨
+    # 隆戮脨脗脭枚隆驴禄帽脠隆碌卤脟掳脢碌脩茅ID拢卢脠莽鹿没虏禄麓忙脭脷脭貌麓麓陆篓
 
     def get_or_create_current_experiment_id(self):
 
-        """»ñÈ¡µ±Ç°ÊµÑéID£¬Èç¹û²»´æÔÚÔò´´½¨¡£ÏÖÔÚÔö¼ÓÁË¶ÔÏîÄ¿IDµÄ¼ì²é¡£"""
+        """禄帽脠隆碌卤脟掳脢碌脩茅ID拢卢脠莽鹿没虏禄麓忙脭脷脭貌麓麓陆篓隆拢脧脰脭脷脭枚录脫脕脣露脭脧卯脛驴ID碌脛录矛虏茅隆拢"""
 
         if not self.db_manager:
 
@@ -238,7 +238,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # ¡¾ÐÂÔö¡¿Ë«ÖØ¼ì²é£¬È·±£ÔÚ´´½¨ÊµÑéÇ°£¬ÏîÄ¿IDÊÇÓÐÐ§µÄ
+        # 隆戮脨脗脭枚隆驴脣芦脰脴录矛虏茅拢卢脠路卤拢脭脷麓麓陆篓脢碌脩茅脟掳拢卢脧卯脛驴ID脢脟脫脨脨搂碌脛
 
         if self.current_project_id is None:
 
@@ -286,11 +286,11 @@ class AppWindow(QMainWindow):
 
                 )
 
-                print(f"ÐÂÊµÑé '{text}' ÒÑ´´½¨£¬ID: {self.current_experiment_id}")
+                print(f"脨脗脢碌脩茅 '{text}' 脪脩麓麓陆篓拢卢ID: {self.current_experiment_id}")
 
             else:
 
-                return None  # ÓÃ»§È¡Ïû
+                return None  # 脫脙禄搂脠隆脧没
 
 
 
@@ -316,7 +316,7 @@ class AppWindow(QMainWindow):
 
     def init_ui(self):
 
-        # ¡¾ÐÞ¸Ä¡¿´´½¨MenuBarÊ±£¬½«È«¾ÖAction´«µÝ½øÈ¥
+        # 隆戮脨脼赂脛隆驴麓麓陆篓MenuBar脢卤拢卢陆芦脠芦戮脰Action麓芦碌脻陆酶脠楼
 
         self.setMenuBar(MenuBar(self.go_home_action, self.exit_action, self))
 
@@ -426,7 +426,7 @@ class AppWindow(QMainWindow):
 
     def _open_performance_dialog(self, slope=None):
 
-        """´ò¿ª¼ì²âÐÔÄÜ·ÖÎö¶Ô»°¿ò£¬¿ÉÒÔÑ¡ÔñÐÔµØ´«ÈëÐ±ÂÊ¡£"""
+        """麓貌驴陋录矛虏芒脨脭脛脺路脰脦枚露脭禄掳驴貌拢卢驴脡脪脭脩隆脭帽脨脭碌脴麓芦脠毛脨卤脗脢隆拢"""
 
         dialog = PerformanceDialog(main_window=self, parent=self, slope=slope)
 
@@ -490,11 +490,11 @@ class AppWindow(QMainWindow):
 
         """
 
-        ³¢ÊÔ¸ù¾ÝÇëÇóµÄÓ²¼þÄ£Ê½½¨Á¢¿ØÖÆÆ÷ÊµÀý¡£
+        鲁垄脢脭赂霉戮脻脟毛脟贸碌脛脫虏录镁脛拢脢陆陆篓脕垄驴脴脰脝脝梅脢碌脌媒隆拢
 
-        :param requested_mode: True ±íÊ¾ÕæÊµÓ²¼þ£¬False ±íÊ¾Ä£ÄâÄ£Ê½
+        :param requested_mode: True 卤铆脢戮脮忙脢碌脫虏录镁拢卢False 卤铆脢戮脛拢脛芒脛拢脢陆
 
-        :param allow_fallback: µ±ÕæÊµÓ²¼þÊ§°ÜÊ±ÊÇ·ñ³¢ÊÔ×Ô¶¯»ØÍËµ½Ä£ÄâÄ£Ê½
+        :param allow_fallback: 碌卤脮忙脢碌脫虏录镁脢搂掳脺脢卤脢脟路帽鲁垄脢脭脳脭露炉禄脴脥脣碌陆脛拢脛芒脛拢脢陆
 
         :return: (controller, fallback_attempted)
 
@@ -542,7 +542,7 @@ class AppWindow(QMainWindow):
 
     def _setup_initial_state(self):
 
-        """¸ù¾Ý´«ÈëµÄÓ²¼þÄ£Ê½£¬ÉèÖÃ¸´Ñ¡¿òµÄ³õÊ¼×´Ì¬¡£"""
+        """赂霉戮脻麓芦脠毛碌脛脫虏录镁脛拢脢陆拢卢脡猫脰脙赂麓脩隆驴貌碌脛鲁玫脢录脳麓脤卢隆拢"""
 
         self._sync_hardware_mode_action()
 
@@ -604,7 +604,7 @@ class AppWindow(QMainWindow):
 
     def switch_to_initial_view(self, mode_name):
 
-        print(f"Ö÷´°¿Ú½ÓÊÕµ½³õÊ¼Ä£Ê½: {mode_name}")
+        print(f"脰梅麓掳驴脷陆脫脢脮碌陆鲁玫脢录脛拢脢陆: {mode_name}")
 
 
 
@@ -670,9 +670,9 @@ class AppWindow(QMainWindow):
 
                     QMainWindow, QDialog, QWidget {
 
-                        background-color: #1A202C; /* ÉîÀ¶»ÒÉ«±³¾° */
+                        background-color: #1A202C; /* 脡卯脌露禄脪脡芦卤鲁戮掳 */
 
-                        color: #E2E8F0; /* ÈáºÍµÄ°×É«ÎÄ×Ö */
+                        color: #E2E8F0; /* 脠谩潞脥碌脛掳脳脡芦脦脛脳脰 */
 
                         font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
 
@@ -686,9 +686,9 @@ class AppWindow(QMainWindow):
 
                     #plotsContainer {
 
-                        background-color: #2D3748; /* Ê¹ÓÃÒ»¸ö±ÈÖ÷±³¾°ÉÔÁÁµÄÑÕÉ« */
+                        background-color: #2D3748; /* 脢鹿脫脙脪禄赂枚卤脠脰梅卤鲁戮掳脡脭脕脕碌脛脩脮脡芦 */
 
-                        border-radius: 8px;      /* Ìí¼ÓÔ²½ÇÊ¹Æä¿´ÆðÀ´¸üÈáºÍ */
+                        border-radius: 8px;      /* 脤铆录脫脭虏陆脟脢鹿脝盲驴麓脝冒脌麓赂眉脠谩潞脥 */
 
                     }
 
@@ -696,7 +696,7 @@ class AppWindow(QMainWindow):
 
                     CollapsibleBox {
 
-                        /* ÎªÕû¸ö¿Ø¼þÉèÖÃÍâ±ß¾à£¬´´ÔìºôÎü¸Ð */
+                        /* 脦陋脮没赂枚驴脴录镁脡猫脰脙脥芒卤脽戮脿拢卢麓麓脭矛潞么脦眉赂脨 */
 
                         margin-bottom: 4px; 
 
@@ -706,7 +706,7 @@ class AppWindow(QMainWindow):
 
                     CollapsibleBox > QToolButton {
 
-                        background-color: #2D3748; /* ±êÌâÀ¸±³¾°É« */
+                        background-color: #2D3748; /* 卤锚脤芒脌赂卤鲁戮掳脡芦 */
 
                         border: 1px solid #4A5568;
 
@@ -716,11 +716,11 @@ class AppWindow(QMainWindow):
 
                         font-size: 15px;
 
-                        padding: 8px; /* ¼Ó´óÄÚ±ß¾à */
+                        padding: 8px; /* 录脫麓贸脛脷卤脽戮脿 */
 
                         color: #CBD5E0;
 
-                        text-align: left; /* ÎÄ×Ö¾Ó×ó */
+                        text-align: left; /* 脦脛脳脰戮脫脳贸 */
 
                     }
 
@@ -732,9 +732,9 @@ class AppWindow(QMainWindow):
 
                         border: none;
 
-                        border-top: 1px solid #4A5568; /* Ö»±£ÁôÉÏ±ß¿ò×÷Îª·Ö¸îÏß */
+                        border-top: 1px solid #4A5568; /* 脰禄卤拢脕么脡脧卤脽驴貌脳梅脦陋路脰赂卯脧脽 */
 
-                        margin: 0px 5px 0px 5px; /* ×óÓÒÁô³öÒ»Ð©±ß¾à */
+                        margin: 0px 5px 0px 5px; /* 脳贸脫脪脕么鲁枚脪禄脨漏卤脽戮脿 */
 
                     }
 
@@ -744,7 +744,7 @@ class AppWindow(QMainWindow):
 
                     QGroupBox {
 
-                        background-color: #2D3748; /* ÉÔÁÁµÄÃæ°å±³¾° */
+                        background-color: #2D3748; /* 脡脭脕脕碌脛脙忙掳氓卤鲁戮掳 */
 
                         border: 1px solid #4A5568;
 
@@ -792,7 +792,7 @@ class AppWindow(QMainWindow):
 
                     QPushButton {
 
-                        background-color: #3182CE; /* À¶É«Ö÷µ÷ */
+                        background-color: #3182CE; /* 脌露脡芦脰梅碌梅 */
 
                         color: white;
 
@@ -846,7 +846,7 @@ class AppWindow(QMainWindow):
 
                     QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
 
-                        border: 1px solid #3182CE; /* ½¹µã×´Ì¬Ê±¸ßÁÁ */
+                        border: 1px solid #3182CE; /* 陆鹿碌茫脳麓脤卢脢卤赂脽脕脕 */
 
                     }
 
@@ -858,7 +858,7 @@ class AppWindow(QMainWindow):
 
                     QComboBox::down-arrow {
 
-                        image: url(nanosense/gui/assets/down_arrow.svg); /* (ÐèÒªÒ»¸ö°×É«ÏòÏÂ¼ýÍ·SVGÍ¼±ê) */
+                        image: url(nanosense/gui/assets/down_arrow.svg); /* (脨猫脪陋脪禄赂枚掳脳脡芦脧貌脧脗录媒脥路SVG脥录卤锚) */
 
                     }
 
@@ -870,7 +870,7 @@ class AppWindow(QMainWindow):
 
                         border: 1px solid #4A5568;
 
-                        selection-background-color: #3182CE; /* Ñ¡ÖÐÏîµÄ±³¾°É« */
+                        selection-background-color: #3182CE; /* 脩隆脰脨脧卯碌脛卤鲁戮掳脡芦 */
 
                     }
 
@@ -976,13 +976,13 @@ class AppWindow(QMainWindow):
 
                     }
 
-                    /* ===== Tab Widget Style (ÐÂÔö) ===== */
+                    /* ===== Tab Widget Style (脨脗脭枚) ===== */
 
-                    QTabWidget::pane { /* TabÒ³µÄ±ß¿òºÍ±³¾° */
+                    QTabWidget::pane { /* Tab脪鲁碌脛卤脽驴貌潞脥卤鲁戮掳 */
 
                         border: 1px solid #4A5568;
 
-                        border-top: none; /* ¶¥²¿±ß¿òÓÉTab°´Å¥Ìá¹©£¬´Ë´¦È¥µô */
+                        border-top: none; /* 露楼虏驴卤脽驴貌脫脡Tab掳麓脜楼脤谩鹿漏拢卢麓脣麓娄脠楼碌么 */
 
                         border-radius: 0 0 4px 4px;
 
@@ -990,15 +990,15 @@ class AppWindow(QMainWindow):
 
 
 
-                    QTabBar::tab { /* Tab°´Å¥µÄÑùÊ½ */
+                    QTabBar::tab { /* Tab掳麓脜楼碌脛脩霉脢陆 */
 
-                        background-color: #2D3748; /* Î´Ñ¡ÖÐÊ±µÄ±³¾°É« */
+                        background-color: #2D3748; /* 脦麓脩隆脰脨脢卤碌脛卤鲁戮掳脡芦 */
 
-                        color: #A0AEC0; /* Î´Ñ¡ÖÐÊ±µÄÎÄ×ÖÑÕÉ« */
+                        color: #A0AEC0; /* 脦麓脩隆脰脨脢卤碌脛脦脛脳脰脩脮脡芦 */
 
                         border: 1px solid #4A5568;
 
-                        border-bottom: none; /* µ×±ß¿òÈ¥µô£¬ÓëpaneÁ¬½Ó */
+                        border-bottom: none; /* 碌脳卤脽驴貌脠楼碌么拢卢脫毛pane脕卢陆脫 */
 
                         padding: 8px 16px;
 
@@ -1010,19 +1010,19 @@ class AppWindow(QMainWindow):
 
 
 
-                    QTabBar::tab:selected { /* Tab°´Å¥±»Ñ¡ÖÐÊ±µÄÑùÊ½ */
+                    QTabBar::tab:selected { /* Tab掳麓脜楼卤禄脩隆脰脨脢卤碌脛脩霉脢陆 */
 
-                        background-color: #1A202C; /* Ñ¡ÖÐÊ±Ê¹ÓÃ¸üÉîµÄ±³¾°É«£¬ÓëÖ÷´°¿ÚÈÚºÏ */
+                        background-color: #1A202C; /* 脩隆脰脨脢卤脢鹿脫脙赂眉脡卯碌脛卤鲁戮掳脡芦拢卢脫毛脰梅麓掳驴脷脠脷潞脧 */
 
-                        color: white; /* Ñ¡ÖÐÊ±Ê¹ÓÃ¸üÁÁµÄÎÄ×ÖÑÕÉ« */
+                        color: white; /* 脩隆脰脨脢卤脢鹿脫脙赂眉脕脕碌脛脦脛脳脰脩脮脡芦 */
 
-                        border-bottom: 1px solid #1A202C; /* ¸²¸ÇpaneµÄÉÏ±ß¿ò£¬ÊµÏÖÈÚºÏÐ§¹û */
+                        border-bottom: 1px solid #1A202C; /* 赂虏赂脟pane碌脛脡脧卤脽驴貌拢卢脢碌脧脰脠脷潞脧脨搂鹿没 */
 
                     }
 
 
 
-                    QTabBar::tab:hover { /* Êó±êÐüÍ£ÔÚTab°´Å¥ÉÏÊ± */
+                    QTabBar::tab:hover { /* 脢贸卤锚脨眉脥拢脭脷Tab掳麓脜楼脡脧脢卤 */
 
                         background-color: #384253;
 
@@ -1030,15 +1030,15 @@ class AppWindow(QMainWindow):
 
                     
 
-                    /* ===== Menu Bar Style (ÐÂÔö) ===== */
+                    /* ===== Menu Bar Style (脨脗脭枚) ===== */
 
                     QMenuBar {
 
-                        background-color: #1A202C; /* Æ¥ÅäÖ÷´°¿Ú±³¾°É« */
+                        background-color: #1A202C; /* 脝楼脜盲脰梅麓掳驴脷卤鲁戮掳脡芦 */
 
                         color: #E2E8F0;
 
-                        border-bottom: 1px solid #4A5568; /* µ×²¿¼ÓÒ»ÌõÏ¸Î¢·Ö¸îÏß£¬Ôö¼Ó²ã´Î¸Ð */
+                        border-bottom: 1px solid #4A5568; /* 碌脳虏驴录脫脪禄脤玫脧赂脦垄路脰赂卯脧脽拢卢脭枚录脫虏茫麓脦赂脨 */
 
                     }
 
@@ -1056,9 +1056,9 @@ class AppWindow(QMainWindow):
 
                     
 
-                    QMenuBar::item:selected { /* µ±Êó±êÐüÍ£»òÑ¡ÖÐ¶¥¼¶²Ëµ¥ÏîÊ± */
+                    QMenuBar::item:selected { /* 碌卤脢贸卤锚脨眉脥拢禄貌脩隆脰脨露楼录露虏脣碌楼脧卯脢卤 */
 
-                        background-color: #2D3748; /* Ê¹ÓÃÃæ°åµÄ±³¾°É«×÷Îª¸ßÁÁ */
+                        background-color: #2D3748; /* 脢鹿脫脙脙忙掳氓碌脛卤鲁戮掳脡芦脳梅脦陋赂脽脕脕 */
 
                         color: white;
 
@@ -1068,7 +1068,7 @@ class AppWindow(QMainWindow):
 
                     
 
-                    QMenu { /* ÏÂÀ­²Ëµ¥±¾ÉíµÄÑùÊ½ */
+                    QMenu { /* 脧脗脌颅虏脣碌楼卤戮脡铆碌脛脩霉脢陆 */
 
                         background-color: #2D3748;
 
@@ -1082,15 +1082,15 @@ class AppWindow(QMainWindow):
 
                     QMenu::item {
 
-                        padding: 8px 25px; /* ÎªÏÂÀ­²Ëµ¥ÏîÌá¹©¸ü¶à¿Õ¼ä */
+                        padding: 8px 25px; /* 脦陋脧脗脌颅虏脣碌楼脧卯脤谩鹿漏赂眉露脿驴脮录盲 */
 
                     }
 
                     
 
-                    QMenu::item:selected { /* µ±Êó±êÐüÍ£»òÑ¡ÖÐÏÂÀ­²Ëµ¥ÀïµÄÏîÄ¿Ê± */
+                    QMenu::item:selected { /* 碌卤脢贸卤锚脨眉脥拢禄貌脩隆脰脨脧脗脌颅虏脣碌楼脌茂碌脛脧卯脛驴脢卤 */
 
-                        background-color: #3182CE; /* Ê¹ÓÃÎÒÃÇµÄÖ÷ÌâÀ¶É«×÷Îª¸ßÁÁ */
+                        background-color: #3182CE; /* 脢鹿脫脙脦脪脙脟碌脛脰梅脤芒脌露脡芦脳梅脦陋赂脽脕脕 */
 
                         color: white;
 
@@ -1116,19 +1116,19 @@ class AppWindow(QMainWindow):
 
     def closeEvent(self, event):
 
-        # ¡¾ÐÞ¸Ä¡¿ÔÚ¹Ø±ÕÇ°¹Ø±ÕÊý¾Ý¿âÁ¬½Ó
+        # 隆戮脨脼赂脛隆驴脭脷鹿脴卤脮脟掳鹿脴卤脮脢媒戮脻驴芒脕卢陆脫
 
         if self.db_manager:
 
             self.db_manager.close()
 
-            print("Êý¾Ý¿âÁ¬½ÓÒÑ¹Ø±Õ¡£")
+            print("脢媒戮脻驴芒脕卢陆脫脪脩鹿脴卤脮隆拢")
 
         if hasattr(self, 'measurement_page'):
 
             self.measurement_page.stop_all_activities()
 
-        print("³ÌÐòÍË³ö...")
+        print("鲁脤脨貌脥脣鲁枚...")
 
         event.accept()
 
@@ -1392,7 +1392,7 @@ class AppWindow(QMainWindow):
 
         """
 
-        ´ò¿ªÉèÖÃ¶Ô»°¿ò£¬²¢´¦Àí·µ»Ø½á¹û¡£
+        麓貌驴陋脡猫脰脙露脭禄掳驴貌拢卢虏垄麓娄脌铆路碌禄脴陆谩鹿没隆拢
 
         """
 
@@ -1470,7 +1470,7 @@ class AppWindow(QMainWindow):
 
     def _open_batch_report_dialog(self):
 
-        """´ò¿ªÒ»¼üÉú³É·ÖÎö±¨¸æµÄ¶Ô»°¿ò¡£"""
+        """麓貌驴陋脪禄录眉脡煤鲁脡路脰脦枚卤篓赂忙碌脛露脭禄掳驴貌隆拢"""
 
         dialog = BatchReportDialog(self)
 
@@ -1478,7 +1478,7 @@ class AppWindow(QMainWindow):
 
 
 
-    def _trigger_realtime_noise_analysis(self):  # <--- ÖØÐÂÌí¼Ó´Ë·½·¨
+    def _trigger_realtime_noise_analysis(self):  # <--- 脰脴脨脗脤铆录脫麓脣路陆路篓
 
         if self.stacked_widget.currentWidget() is self.measurement_page:
 
@@ -1762,9 +1762,18 @@ class AppWindow(QMainWindow):
 
         self.batch_worker.live_preview_data.connect(self.run_dialog.update_all_plots)
 
-
-
-        self.run_dialog.action_triggered.connect(self.batch_worker.trigger_action, Qt.DirectConnection)
+        for signal in (
+            self.run_dialog.background_collect_requested,
+            self.run_dialog.reference_collect_requested,
+            self.run_dialog.signal_collect_requested,
+        ):
+            signal.connect(self.batch_worker.request_collect, Qt.DirectConnection)
+        self.run_dialog.background_import_requested.connect(
+            self.batch_worker.request_import, Qt.DirectConnection
+        )
+        self.run_dialog.reference_import_requested.connect(
+            self.batch_worker.request_import, Qt.DirectConnection
+        )
 
         self.run_dialog.back_triggered.connect(self.batch_worker.go_back, Qt.DirectConnection)
 
@@ -1786,7 +1795,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # Èç¹ûÈÎÎñ²»ÊÇ±»ÓÃ»§ÖÐÖ¹µÄ£¬¶øÊÇÕý³£Íê³ÉµÄ
+        # 脠莽鹿没脠脦脦帽虏禄脢脟卤禄脫脙禄搂脰脨脰鹿碌脛拢卢露酶脢脟脮媒鲁拢脥锚鲁脡碌脛
 
         if result == QDialog.Accepted and getattr(self.batch_worker, 'run_status', None) == 'completed':
 
@@ -1824,7 +1833,7 @@ class AppWindow(QMainWindow):
 
         """Abort batch acquisition and fully reset the hardware controller."""
 
-        print("ÕýÔÚÖÐÖ¹ÅúÁ¿²É¼¯ÈÎÎñ...")
+        print("脮媒脭脷脰脨脰鹿脜煤脕驴虏脡录炉脠脦脦帽...")
 
         if hasattr(self, 'batch_worker') and self.batch_worker:
 
@@ -1832,7 +1841,7 @@ class AppWindow(QMainWindow):
 
 
 
-        print("ÕýÔÚÖ´ÐÐÓ²¼þ¿ØÖÆÆ÷¶Ï¿ªÁ¬½Ó...")
+        print("脮媒脭脷脰麓脨脨脫虏录镁驴脴脰脝脝梅露脧驴陋脕卢陆脫...")
 
         FX2000Controller.disconnect()
 
@@ -1842,7 +1851,7 @@ class AppWindow(QMainWindow):
 
 
 
-        print("ÕýÔÚÖØÐÂÁ¬½ÓÓ²¼þ¿ØÖÆÆ÷...")
+        print("脮媒脭脷脰脴脨脗脕卢陆脫脫虏录镁驴脴脰脝脝梅...")
 
         requested_mode = self.use_real_hardware
 
@@ -1876,7 +1885,7 @@ class AppWindow(QMainWindow):
 
             self.processor.wavelengths = self.controller.wavelengths
 
-            print("Ó²¼þÖØÖÃ²¢ÖØÐÂÁ¬½Ó³É¹¦")
+            print("脫虏录镁脰脴脰脙虏垄脰脴脨脗脕卢陆脫鲁脡鹿娄")
 
 
 
@@ -1884,21 +1893,21 @@ class AppWindow(QMainWindow):
 
         """
 
-        µ±ÅúÁ¿²É¼¯¹¤×÷Ïß³ÌÍê³ÉÆäÈÎÎñºó£¬´Ë²Ûº¯Êý±»µ÷ÓÃ¡£
+        碌卤脜煤脕驴虏脡录炉鹿陇脳梅脧脽鲁脤脥锚鲁脡脝盲脠脦脦帽潞贸拢卢麓脣虏脹潞炉脢媒卤禄碌梅脫脙隆拢
 
         """
 
-        # 1. ¼ì²é¶Ô»°¿òÊÇ·ñ´æÔÚ²¢¹Ø±ÕËü
+        # 1. 录矛虏茅露脭禄掳驴貌脢脟路帽麓忙脭脷虏垄鹿脴卤脮脣眉
 
         if hasattr(self, 'run_dialog') and self.run_dialog:
 
-            self.run_dialog.accept()  # accept()»á¹Ø±Õ¶Ô»°¿ò²¢ÉèÖÃresultÎªAccepted
+            self.run_dialog.accept()  # accept()禄谩鹿脴卤脮露脭禄掳驴貌虏垄脡猫脰脙result脦陋Accepted
 
 
 
-        # 2. ¼ì²éÈÎÎñÊÇ·ñÊÇÕý³£Íê³ÉµÄ£¨¼´ÓÃ»§Ã»ÓÐµã»÷ÖÐÖ¹£©
+        # 2. 录矛虏茅脠脦脦帽脢脟路帽脢脟脮媒鲁拢脥锚鲁脡碌脛拢篓录麓脫脙禄搂脙禄脫脨碌茫禄梅脰脨脰鹿拢漏
 
-        # self.batch_worker ´ËÊ±¿ÉÄÜÒÑ¾­±» deleteLater ÇåÀí£¬ÐèÒª¼ì²é
+        # self.batch_worker 麓脣脢卤驴脡脛脺脪脩戮颅卤禄 deleteLater 脟氓脌铆拢卢脨猫脪陋录矛虏茅
 
         if hasattr(self, 'batch_worker') and self.batch_worker and getattr(self.batch_worker, 'run_status', None) == 'completed':
 
@@ -1932,7 +1941,7 @@ class AppWindow(QMainWindow):
 
             if reply == QMessageBox.Yes:
 
-                # ×Ô¶¯´ò¿ªÅúÁ¿·ÖÎö¶Ô»°¿ò
+                # 脳脭露炉麓貌驴陋脜煤脕驴路脰脦枚露脭禄掳驴貌
 
                 analysis_dialog = DataAnalysisDialog(self, initial_folder=output_folder)
 
@@ -2014,7 +2023,7 @@ class AppWindow(QMainWindow):
 
         """
 
-        ¼ÓÔØ²¢°²×°Ö¸¶¨ÓïÑÔµÄ·­ÒëÎÄ¼þ£¬²¢ÊÖ¶¯¸üÐÂËùÓÐUI¡£
+        录脫脭脴虏垄掳虏脳掳脰赂露篓脫茂脩脭碌脛路颅脪毛脦脛录镁拢卢虏垄脢脰露炉赂眉脨脗脣霉脫脨UI隆拢
 
         """
 
@@ -2052,7 +2061,7 @@ class AppWindow(QMainWindow):
 
         """
 
-        ÖØÐÂ·­Òëµ±Ç°´°¿ÚµÄËùÓÐUIÎÄ±¾¡£
+        脰脴脨脗路颅脪毛碌卤脟掳麓掳驴脷碌脛脣霉脫脨UI脦脛卤戮隆拢
 
         """
 
@@ -2062,7 +2071,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # ÖØÐÂ·­ÒëÈ«¾ÖActionµÄÎÄ±¾
+        # 脰脴脨脗路颅脪毛脠芦戮脰Action碌脛脦脛卤戮
 
         self.go_home_action.setText(self.tr('Back to Welcome Screen'))
 
@@ -2070,7 +2079,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # ÖØÐÂ·­Òë²Ëµ¥À¸
+        # 脰脴脨脗路颅脪毛虏脣碌楼脌赂
 
         if hasattr(self.menuBar(), '_retranslate_ui'):
 
@@ -2078,7 +2087,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # ÃüÁî×ÓÒ³ÃæÒ²½øÐÐ×ÔÎÒ·­Òë
+        # 脙眉脕卯脳脫脪鲁脙忙脪虏陆酶脨脨脳脭脦脪路颅脪毛
 
         if hasattr(self, 'measurement_page') and hasattr(self.measurement_page, '_retranslate_ui'):
 
@@ -2104,17 +2113,17 @@ class AppWindow(QMainWindow):
 
         """
 
-        ÔÚ³ÌÐòÆô¶¯Ê±£¬¸ù¾ÝÅäÖÃÎÄ¼þÉèÖÃ³õÊ¼ÓïÑÔ¡£
+        脭脷鲁脤脨貌脝么露炉脢卤拢卢赂霉戮脻脜盲脰脙脦脛录镁脡猫脰脙鲁玫脢录脫茂脩脭隆拢
 
         """
 
-        # ´ÓÉèÖÃÖÐ¶ÁÈ¡±£´æµÄÓïÑÔ£¬Èç¹û²»´æÔÚ£¬ÔòÄ¬ÈÏÎª 'en' (Ó¢ÎÄ)
+        # 麓脫脡猫脰脙脰脨露脕脠隆卤拢麓忙碌脛脫茂脩脭拢卢脠莽鹿没虏禄麓忙脭脷拢卢脭貌脛卢脠脧脦陋 'en' (脫垄脦脛)
 
         language = self.app_settings.get('language', 'en')
 
 
 
-        # ¸ù¾Ý¶ÁÈ¡µ½µÄÓïÑÔ£¬ÉèÖÃ²Ëµ¥ÏîµÄ¹´Ñ¡×´Ì¬
+        # 赂霉戮脻露脕脠隆碌陆碌脛脫茂脩脭拢卢脡猫脰脙虏脣碌楼脧卯碌脛鹿麓脩隆脳麓脤卢
 
         if language == 'zh':
 
@@ -2126,7 +2135,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # µ÷ÓÃÓïÑÔÇÐ»»º¯Êý£¬ÒÔÈ·±£³ÌÐòÆô¶¯Ê±¾Í¼ÓÔØÕýÈ·µÄ·­Òë
+        # 碌梅脫脙脫茂脩脭脟脨禄禄潞炉脢媒拢卢脪脭脠路卤拢鲁脤脨貌脝么露炉脢卤戮脥录脫脭脴脮媒脠路碌脛路颅脪毛
 
         self._switch_language(language)
 
@@ -2136,7 +2145,7 @@ class AppWindow(QMainWindow):
 
         """
 
-        ´ò¿ªÄ£ÄâAPIÅäÖÃ¶Ô»°¿ò£¬²¢ÔÚÓÃ»§È·ÈÏºó±£´æÉèÖÃ¡£
+        麓貌驴陋脛拢脛芒API脜盲脰脙露脭禄掳驴貌拢卢虏垄脭脷脫脙禄搂脠路脠脧潞贸卤拢麓忙脡猫脰脙隆拢
 
         """
 
@@ -2160,7 +2169,7 @@ class AppWindow(QMainWindow):
 
     def _open_database_explorer(self):
 
-        """¡¾ÐÞ¸Ä¡¿ÒÔ·ÇÄ£Ì¬·½Ê½´ò¿ªÊý¾Ý¿âä¯ÀÀÆ÷£¬²¢·ÀÖ¹ÖØ¸´´ò¿ª¡£"""
+        """隆戮脨脼赂脛隆驴脪脭路脟脛拢脤卢路陆脢陆麓貌驴陋脢媒戮脻驴芒盲炉脌脌脝梅拢卢虏垄路脌脰鹿脰脴赂麓麓貌驴陋隆拢"""
 
         if not self.db_manager:
 
@@ -2172,7 +2181,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # Èç¹û´°¿ÚÒÑ¾­´ò¿ª£¬ÔòÖ±½Ó¼¤»î²¢ÏÔÊ¾ÔÚ×îÇ°¶Ë£¬¶ø²»ÊÇ´´½¨ÐÂµÄ
+        # 脠莽鹿没麓掳驴脷脪脩戮颅麓貌驴陋拢卢脭貌脰卤陆脫录陇禄卯虏垄脧脭脢戮脭脷脳卯脟掳露脣拢卢露酶虏禄脢脟麓麓陆篓脨脗碌脛
 
         if self.db_explorer_window and self.db_explorer_window.isVisible():
 
@@ -2182,7 +2191,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # ´´½¨ÐÂÊµÀý²¢½«Æä´æ´¢ÔÚ self.db_explorer_window ÖÐ
+        # 麓麓陆篓脨脗脢碌脌媒虏垄陆芦脝盲麓忙麓垄脭脷 self.db_explorer_window 脰脨
 
         self.db_explorer_window = DatabaseExplorerDialog(parent=self)
 
@@ -2190,7 +2199,7 @@ class AppWindow(QMainWindow):
 
 
 
-        # Ê¹ÓÃ .show() ¶ø²»ÊÇ .exec_()
+        # 脢鹿脫脙 .show() 露酶虏禄脢脟 .exec_()
 
         self.db_explorer_window.show()
 
@@ -2198,7 +2207,7 @@ class AppWindow(QMainWindow):
 
     def _open_analysis_window_from_db(self, spectra_list):
 
-        """¸ù¾Ý´ÓÊý¾Ý¿â¼ÓÔØµÄ¹âÆ×ÁÐ±í£¬´´½¨Ò»¸öÐÂµÄ·ÖÎö´°¿Ú¡£"""
+        """赂霉戮脻麓脫脢媒戮脻驴芒录脫脭脴碌脛鹿芒脝脳脕脨卤铆拢卢麓麓陆篓脪禄赂枚脨脗碌脛路脰脦枚麓掳驴脷隆拢"""
 
         if not spectra_list:
 
@@ -2206,17 +2215,18 @@ class AppWindow(QMainWindow):
 
 
 
-        print(f"´ÓÊý¾Ý¿â¼ÓÔØÁË {len(spectra_list)} Ìõ¹âÆ×£¬ÕýÔÚ´ò¿ª·ÖÎö´°¿Ú...")
+        print(f"麓脫脢媒戮脻驴芒录脫脭脴脕脣 {len(spectra_list)} 脤玫鹿芒脝脳拢卢脮媒脭脷麓貌驴陋路脰脦枚麓掳驴脷...")
 
 
 
-        # ´´½¨²¢ÏÔÊ¾ AnalysisWindow À´Õ¹Ê¾ÕâÐ©Êý¾Ý
+        # 麓麓陆篓虏垄脧脭脢戮 AnalysisWindow 脌麓脮鹿脢戮脮芒脨漏脢媒戮脻
 
         analysis_win = AnalysisWindow(spectra_data=spectra_list, parent=self)
 
         self.analysis_windows.append(analysis_win)
 
         analysis_win.show()
+
 
 
 
