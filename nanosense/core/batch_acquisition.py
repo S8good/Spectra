@@ -172,54 +172,30 @@ class BatchRunDialog(QDialog):
         main_layout.addWidget(topbar)
         main_layout.addWidget(self.instruction_label)
 
-        # Primary action buttons row (text buttons for clarity)
-        button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(0, 12, 0, 0)
-        button_layout.setSpacing(12)
+        # Reuse tool buttons for existing control logic.
+        self.back_button = self.tb_back
+        self.background_collect_button = self.tb_background_collect
+        self.background_import_button = self.tb_background_import
+        self.reference_collect_button = self.tb_reference_collect
+        self.reference_import_button = self.tb_reference_import
+        self.signal_collect_button = self.tb_signal_collect
+        self.abort_button = self.tb_abort
 
-        self.back_button = QPushButton()
-        self.back_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.back_button.setFixedHeight(36)
-        self.back_button.setMinimumWidth(140)
-
-        def configure_action_button(button: QPushButton) -> None:
-            button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            button.setFixedHeight(32)
-            button.setMinimumWidth(150)
-
-        self.background_collect_button = QPushButton()
-        self.background_import_button = QPushButton()
-        self.reference_collect_button = QPushButton()
-        self.reference_import_button = QPushButton()
-        self.signal_collect_button = QPushButton()
-
-        for btn in (
-            self.background_collect_button,
-            self.background_import_button,
-            self.reference_collect_button,
-            self.reference_import_button,
-            self.signal_collect_button,
-        ):
-            configure_action_button(btn)
-
-        button_layout.addStretch()
-        button_layout.addWidget(self.back_button)
-        button_layout.addSpacing(18)
-        button_layout.addWidget(self.background_collect_button)
-        button_layout.addWidget(self.background_import_button)
-        button_layout.addSpacing(12)
-        button_layout.addWidget(self.reference_collect_button)
-        button_layout.addWidget(self.reference_import_button)
-        button_layout.addSpacing(12)
-        button_layout.addWidget(self.signal_collect_button)
-        button_layout.addStretch()
-        main_layout.addLayout(button_layout)
-
-        self.abort_button = QPushButton()
-        self.abort_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.abort_button.setFixedHeight(32)
-        self.abort_button.setMinimumWidth(160)
-        main_layout.addWidget(self.abort_button, alignment=Qt.AlignCenter)
+        # Improve visibility for background collection button.
+        self.background_collect_button.setStyleSheet(
+            """
+            QToolButton {
+                background-color: rgba(255, 255, 255, 0.18);
+                border-radius: 4px;
+            }
+            QToolButton:hover {
+                background-color: rgba(255, 255, 255, 0.30);
+            }
+            QToolButton:disabled {
+                background-color: transparent;
+            }
+            """
+        )
 
         plots_container = QWidget()
         plots_layout = QVBoxLayout(plots_container)
@@ -341,7 +317,6 @@ class BatchRunDialog(QDialog):
         ):
             btn.setEnabled(False)
         self.back_button.setEnabled(False)
-        self._sync_tool_buttons()
 
     def _connect_signals(self) -> None:
         self.background_collect_button.clicked.connect(self.background_collect_requested.emit)
@@ -353,22 +328,6 @@ class BatchRunDialog(QDialog):
         self.abort_button.clicked.connect(self._confirm_abort)
         self.toggle_summary_button.toggled.connect(self._toggle_summary_pause)
         self.clear_summary_button.clicked.connect(self._clear_summary_plot)
-        self.tb_back.clicked.connect(self.back_button.click)
-        self.tb_background_collect.clicked.connect(self.background_collect_button.click)
-        self.tb_background_import.clicked.connect(self.background_import_button.click)
-        self.tb_reference_collect.clicked.connect(self.reference_collect_button.click)
-        self.tb_reference_import.clicked.connect(self.reference_import_button.click)
-        self.tb_signal_collect.clicked.connect(self.signal_collect_button.click)
-        self.tb_abort.clicked.connect(self.abort_button.click)
-
-    def _sync_tool_buttons(self) -> None:
-        self.tb_back.setEnabled(self.back_button.isEnabled())
-        self.tb_background_collect.setEnabled(self.background_collect_button.isEnabled())
-        self.tb_background_import.setEnabled(self.background_import_button.isEnabled())
-        self.tb_reference_collect.setEnabled(self.reference_collect_button.isEnabled())
-        self.tb_reference_import.setEnabled(self.reference_import_button.isEnabled())
-        self.tb_signal_collect.setEnabled(self.signal_collect_button.isEnabled())
-        self.tb_abort.setEnabled(self.abort_button.isEnabled())
 
     def _prompt_import(self, spectrum_type: str) -> None:
         start_dir = self._last_import_dir or os.path.expanduser("~")
@@ -428,7 +387,6 @@ class BatchRunDialog(QDialog):
                 allow_import = collect_enabled if import_enabled is None else import_enabled
                 import_btn.setEnabled(allow_import if active else False)
         self._current_phase = phase
-        self._sync_tool_buttons()
 
     def changeEvent(self, event: QEvent) -> None:
         if event.type() == QEvent.LanguageChange:
@@ -438,20 +396,17 @@ class BatchRunDialog(QDialog):
     def _retranslate_ui(self) -> None:
         self.setWindowTitle(self.tr("Batch Acquisition in Progress..."))
         self.instruction_label.setText(self.tr("Initializing..."))
-        self.tb_back.setToolTip(self.tr("Previous Step"))
-        self.tb_background_collect.setToolTip(self.tr("Collect Background"))
-        self.tb_background_import.setToolTip(self.tr("Import Background"))
-        self.tb_reference_collect.setToolTip(self.tr("Collect Reference"))
-        self.tb_reference_import.setToolTip(self.tr("Import Reference"))
-        self.tb_signal_collect.setToolTip(self.tr("Collect this Point"))
-        self.tb_abort.setToolTip(self.tr("Abort Task"))
-        self.back_button.setToolTip(self.tr("Previous Step"))
-        self.background_collect_button.setToolTip(self.tr("Collect Background"))
-        self.background_import_button.setToolTip(self.tr("Import Background"))
-        self.reference_collect_button.setToolTip(self.tr("Collect Reference"))
-        self.reference_import_button.setToolTip(self.tr("Import Reference"))
-        self.signal_collect_button.setToolTip(self.tr("Collect this Point"))
-        self.abort_button.setToolTip(self.tr("Abort Task"))
+        tooltip_map = {
+            self.tb_back: "Previous Step",
+            self.tb_background_collect: "Collect Background",
+            self.tb_background_import: "Import Background",
+            self.tb_reference_collect: "Collect Reference",
+            self.tb_reference_import: "Import Reference",
+            self.tb_signal_collect: "Collect this Point",
+            self.tb_abort: "Abort Task",
+        }
+        for button, key in tooltip_map.items():
+            button.setToolTip(self.tr(key))
 
         title_style = {"color": "#90A4AE", "size": "12pt"}
         self.signal_plot.setTitle(self.tr("Live Signal"), **title_style)
@@ -462,14 +417,6 @@ class BatchRunDialog(QDialog):
 
         self.total_progress_label.setText(self.tr("Total Well Progress:"))
         self.point_progress_label.setText(self.tr("Current Point Progress:"))
-
-        self.back_button.setText(self.tr("Previous Step"))
-        self.background_collect_button.setText(self.tr("Collect Background"))
-        self.background_import_button.setText(self.tr("Import Background"))
-        self.reference_collect_button.setText(self.tr("Collect Reference"))
-        self.reference_import_button.setText(self.tr("Import Reference"))
-        self.signal_collect_button.setText(self.tr("Collect this Point"))
-        self.abort_button.setText(self.tr("Abort Task"))
         self.toggle_summary_button.setText(self.tr("Pause Overlay"))
         self.clear_summary_button.setText(self.tr("Clear Summary Plot"))
 
@@ -615,7 +562,6 @@ class BatchRunDialog(QDialog):
 
         if "back_button_enabled" in status:
             self.back_button.setEnabled(status["back_button_enabled"])
-        self._sync_tool_buttons()
 
 # --------------------------------------------------------------------------------
 class BatchAcquisitionWorker(QObject):
