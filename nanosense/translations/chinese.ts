@@ -581,7 +581,7 @@ Please verify:
         <source>Switching hardware mode requires restarting the application.
 
 Click &apos;OK&apos; to return to the launcher.</source>
-        <translation>切换硬件模式需要重新启动应用程序。点击 &apos;OK&apos; 将返回到启动器。</translation>
+        <translation>切换硬件模式需要重新启动应用程序。点击 'OK' 将返回到启动器。</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1868"/>
@@ -677,7 +677,7 @@ Open Settings -&gt; Customize Parameters... to set the database file path and en
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1513"/>
         <source>Feature &apos;{feature_name}&apos; is under development.</source>
-        <translation>功能 &apos;{feature_name}&apos; 正在开发中。</translation>
+        <translation>功能 '{feature_name}' 正在开发中。</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1747"/>
@@ -829,12 +829,12 @@ Would you like to run batch analysis now?</source>
 <context>
     <name>BatchRunDialog</name>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="406"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="412"/>
         <source>Batch Acquisition in Progress...</source>
         <translation>批量采集中...</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="407"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="413"/>
         <source>Initializing...</source>
         <translation>初始化...</translation>
     </message>
@@ -844,12 +844,12 @@ Would you like to run batch analysis now?</source>
         <translation type="obsolete">实时光谱预览</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="427"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="433"/>
         <source>Total Well Progress:</source>
         <translation>总孔位进度:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="428"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="434"/>
         <source>Current Point Progress:</source>
         <translation>当前点进度:</translation>
     </message>
@@ -864,95 +864,95 @@ Would you like to run batch analysis now?</source>
         <translation type="obsolete">中止任务</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="544"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="550"/>
         <source>Confirm</source>
         <translation>确认</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="544"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="550"/>
         <source>Are you sure you want to abort the current batch acquisition task?</source>
         <translation>您确定要中止当前的批量采集任务吗？</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="114"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="120"/>
         <source>Please place [Background] for well {well_id}
 (Live preview active...)</source>
         <translation>请为 {well_id} 孔放置 [背景参比]\n(实时预览中...)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="115"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="121"/>
         <source>Collect Background</source>
         <translation>采集背景</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="117"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="123"/>
         <source>Please place [Reference] for well {well_id}
 (Live preview active...)</source>
         <translation>请为 {well_id} 孔放置 [参考参比]\n(实时预览中...)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="118"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="124"/>
         <source>Collect Reference</source>
         <translation>采集参考</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="120"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="126"/>
         <source>Please move to well {well_id}, point {point_num}/{total_points}
 (Live preview active...)</source>
         <translation>请移至 {well_id} 孔, 第 {point_num}/{total_points} 点\n(实时预览中...)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="121"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="127"/>
         <source>Collect this Point</source>
         <translation>采集此点</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="122"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="128"/>
         <source>Calculating absorbance for {well_id}...</source>
         <translation>正在为 {well_id} 计算吸收率...</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="123"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="129"/>
         <source>Saving data for {well_id}...</source>
         <translation>正在保存 {well_id} 的数据...</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="124"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="130"/>
         <source>Batch acquisition complete!</source>
         <translation>批量采集全部完成！</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="125"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="131"/>
         <source>Done</source>
         <translation>完成</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="243"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="249"/>
         <source>Open in New Window</source>
         <translation>在独立窗口中打开</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="438"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="444"/>
         <source>Live Signal</source>
         <translation>实时信号</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="439"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="445"/>
         <source>Current Background</source>
         <translation>当前背景谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="440"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="446"/>
         <source>Current Reference</source>
         <translation>当前参考谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="441"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="447"/>
         <source>Live Result (Absorbance)</source>
         <translation>实时结果谱 (吸收光谱)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="442"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="448"/>
         <source>Accumulated Results Summary</source>
         <translation>累积结果汇总</translation>
     </message>
@@ -962,53 +962,53 @@ Would you like to run batch analysis now?</source>
         <translation type="obsolete">上一步</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="523"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="529"/>
         <source>Pause Overlay</source>
         <translation>暂停叠加</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="430"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="436"/>
         <source>Clear Summary Plot</source>
         <translation>清空汇总图</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="523"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="529"/>
         <source>Resume Overlay</source>
         <translation>恢复叠加</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="116"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="122"/>
         <source>Import Background</source>
         <translation>导入背景谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="119"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="125"/>
         <source>Import Reference</source>
         <translation>导入参考谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="343"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="349"/>
         <source>Select Spectrum File</source>
         <translation>选择光谱文件</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="343"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="349"/>
         <source>All Supported Files (*.xlsx *.xls *.csv *.txt);;Excel Files (*.xlsx *.xls);;CSV/Text Files (*.csv *.txt)</source>
         <translation>所有支持的文件 (*.xlsx *.xls *.csv *.txt);;Excel 文件 (*.xlsx *.xls);;CSV/文本文件 (*.csv *.txt)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="362"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="368"/>
         <source>Import Failed</source>
         <translation>导入失败</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="355"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="361"/>
         <source>Could not load spectrum data from:
 {0}</source>
         <translation>无法从 {0} 读取光谱数据</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="362"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="368"/>
         <source>Loaded data has mismatched wavelength and intensity lengths.</source>
         <translation>加载的数据中波长与强度数组长度不一致。</translation>
     </message>
@@ -2849,7 +2849,7 @@ This action cannot be undone.</source>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/measurement_widget.py" line="850"/>
         <source>Comparison spectrum &apos;{0}&apos; loaded and displayed.</source>
-        <translation>对比光谱 &apos;{0}&apos; 已加载并显示。</translation>
+        <translation>对比光谱 '{0}' 已加载并显示。</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/measurement_widget.py" line="1081"/>

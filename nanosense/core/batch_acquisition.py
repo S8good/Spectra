@@ -1,4 +1,4 @@
-﻿# nanosense/core/batch_acquisition.py (鏈€缁堥瑙堢増)
+﻿# nanosense/core/batch_acquisition.py
 import json
 import queue
 import time
@@ -36,18 +36,24 @@ def _calculate_absorbance(signal, background, reference):
     """Compute absorbance from signal, background, and reference spectra."""
     if signal is None or background is None or reference is None:
         return None
-    signal, background, reference = (
-        np.array(signal),
-        np.array(background),
-        np.array(reference),
+    signal = np.array(signal, dtype=float)
+    background = np.array(background, dtype=float)
+    reference = np.array(reference, dtype=float)
+    valid_mask = (
+        np.isfinite(signal)
+        & np.isfinite(background)
+        & np.isfinite(reference)
     )
-    effective_signal = signal - background
-    effective_ref = reference - background
-    safe_denominator = np.copy(effective_ref)
+    if not np.any(valid_mask):
+        return None
+    absorbance = np.full(signal.shape, np.nan, dtype=float)
+    sig_eff = signal[valid_mask] - background[valid_mask]
+    ref_eff = reference[valid_mask] - background[valid_mask]
+    safe_denominator = np.copy(ref_eff)
     safe_denominator[safe_denominator == 0] = 1e-9
-    transmittance = effective_signal / safe_denominator
+    transmittance = sig_eff / safe_denominator
     transmittance[transmittance <= 0] = 1e-9
-    absorbance = -1 * np.log10(transmittance)
+    absorbance[valid_mask] = -1 * np.log10(transmittance)
     return absorbance
 
 
@@ -936,19 +942,16 @@ class BatchAcquisitionWorker(QObject):
         values = values[order]
 
         target_wavelengths = self.wavelengths
-        if (
-            wavelengths.size == target_wavelengths.size
-            and np.allclose(wavelengths, target_wavelengths, atol=1e-6)
-        ):
-            return values, None
-
-        if (
-            wavelengths[0] > target_wavelengths[0]
-            or wavelengths[-1] < target_wavelengths[-1]
-        ):
-            return None, "Imported wavelength range does not cover the instrument range."
-
-        aligned = np.interp(target_wavelengths, wavelengths, values)
+        aligned = np.full(target_wavelengths.shape, np.nan, dtype=float)
+        overlap_mask = (
+            (target_wavelengths >= wavelengths[0])
+            & (target_wavelengths <= wavelengths[-1])
+        )
+        if not np.any(overlap_mask):
+            return None, "Imported wavelength range has no overlap with the instrument range."
+        aligned[overlap_mask] = np.interp(
+            target_wavelengths[overlap_mask], wavelengths, values
+        )
         return aligned, None
 
     def _apply_imported_spectrum(
@@ -972,6 +975,9 @@ class BatchAcquisitionWorker(QObject):
         if aligned_values is None:
             if error_message:
                 self.error.emit(error_message)
+            return False
+        if np.isnan(aligned_values).all():
+            self.error.emit("Imported spectrum has no usable wavelength overlap.")
             return False
 
         file_path = payload.get("file_path", "")
