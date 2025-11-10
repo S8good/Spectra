@@ -64,6 +64,8 @@ python scripts/generate_demo_database.py  # 生成示例数据库（可选）
 | `scripts/validate_migration.py` | 检查 Phase 1 迁移结果是否达标（表/视图/链接/延迟等） | `python scripts/validate_migration.py --db data.db --max-latency 600 --strict` |
 | `scripts/plot_validation_trends.py` | 将验证历史绘制为趋势图（依赖 `matplotlib`） | `python scripts/plot_validation_trends.py` |
 | `scripts/run_validation_report.py` | 汇总验证脚本输出并生成压缩包，可在 CI/日常运行 | `python scripts/run_validation_report.py` |
+| `scripts/run_snapshot_governance.py` | 一键生成快照报表、可选清理与 Markdown 摘要 | `python scripts/run_snapshot_governance.py --db data.db --cleanup-dry-run` |
+| `scripts/legacy_freeze.py` | Legacy 表冻结审核、备份及回填脚本 | `python scripts/legacy_freeze.py --db data.db --freeze-after 2025-10-01 --backfill-missing` |
 
 更多 CLI 用法可通过 `python <脚本> --help` 查看。
 
@@ -118,4 +120,3 @@ python scripts/generate_demo_database.py  # 生成示例数据库（可选）
 4. 提交 Pull Request，并在描述中说明变更核心点及验证方式。
 
 欢迎提交 issues 和 PR，共同完善纳米光子学数据平台。谢谢支持！
-

@@ -57,12 +57,13 @@
 - 目标：为旧实验补齐 `instrument_states` / `processing_snapshots` 引用，减少 `legacy_unknown` 占比。
 - 步骤建议：
   1. 收集历史仪器配置原始资料（日志、配置文件）。
-  2. 批处理脚本（待开发）：扫描旧 `spectra`/`analysis_results` JSON，提取可识别参数组合，统一插入结构化快照。
-  3. 对无法自动匹配的实验，导出人工处理清单（CSV），并在完成后将 `is_active` 标记恢复。
-- 填充完成后再次运行 `report_snapshots.py` 以确认快照去重效果。
+  2. 运行 `python scripts/legacy_freeze.py --backfill-missing --freeze-after <ts>`，脚本会扫描旧 `spectra`/`analysis_results` JSON，提取可识别参数组合并统一插入结构化快照。
+  3. 对无法自动匹配的实验，导出脚本生成的 CSV 清单，人工补录后将 `is_active` 标记恢复。
+- 填充完成后再次运行 `run_snapshot_governance.py` 以确认快照去重效果。
 
 ## 6. 验证清单
-- `scripts/validate_migration.py --db <path-to-db> --strict`（待新版实现）。
+- `scripts/legacy_freeze.py --report-file docs/reports/legacy_freeze_<ts>.md --strict`：冻结/备份/回填完整记录。
+- `scripts/validate_migration.py --db <path-to-db> --strict`：结构/数据一致性复核。
 - UI 冒烟：在 Database Explorer 中确认结构化视图可读，Legacy 视图保持查询但无新增写入。
 - 对比备份与现状（随机抽样 5~10 条）确保数据一致。
 
@@ -81,3 +82,15 @@
 ---
 
 > 后续计划：Phase 2 将考虑将 `analysis_results` 重构为只读视图，并在界面/脚本层全面切换至结构化数据源。
+
+## 9. 脚本化执行速查
+- 常规冻结演练：
+  ```bash
+  python scripts/legacy_freeze.py --db data/nanosense_data.db --freeze-after 2025-10-01 --backup-dir backups --export-csv-dir docs/reports/exports
+  ```
+  步骤一键完成备份、CSV 导出，并在 `docs/reports/legacy_freeze_<timestamp>.md` 中形成审计记录。
+- 回填缺失引用：
+  ```bash
+  python scripts/legacy_freeze.py --db data/nanosense_data.db --backfill-missing --freeze-after 2025-10-01
+  ```
+  支持自动调用 Phase 1 迁移逻辑补齐 `spectrum_set_id` / `analysis_run_id`，并在报告中记录修复条数。

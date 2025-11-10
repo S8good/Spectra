@@ -399,7 +399,42 @@ def ensure_output_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
 
-def main() -> None:
+def generate_snapshot_reports(db_path: str, output_dir: str, top_n: int = 10) -> Dict[str, Optional[Dict[str, Any]]]:
+    """
+    Run snapshot analysis and persist markdown/CSV reports.
+
+    Returns the computed analysis dictionary for further processing.
+    """
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"Database file not found: {db_path}")
+
+    ensure_output_dir(output_dir)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+
+    try:
+        analysis: Dict[str, Optional[Dict[str, Any]]] = {
+            "instrument_states": analyze_instrument_states(conn, top_n),
+            "processing_snapshots": analyze_processing_snapshots(conn, top_n),
+        }
+        markdown_path = os.path.join(output_dir, "snapshot_report.md")
+        write_markdown_report(analysis, markdown_path)
+        write_csv_reports(analysis, output_dir)
+        print(f"Markdown report written to: {markdown_path}")
+        print(f"CSV summaries written to: {output_dir}")
+        return analysis
+    finally:
+        conn.close()
+
+
+__all__ = [
+    "generate_snapshot_reports",
+    "analyze_instrument_states",
+    "analyze_processing_snapshots",
+]
+
+
+def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Generate statistics for instrument_states and processing_snapshots tables."
     )
@@ -417,37 +452,18 @@ def main() -> None:
     )
     parser.add_argument(
         "--top",
+        "--top-duplicates",
         dest="top_n",
         type=int,
         default=10,
-        help="Number of duplicate fingerprints to include per table.",
+        help="Number of duplicate fingerprints to include per table (alias: --top-duplicates).",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    if not os.path.exists(args.db_path):
-        raise SystemExit(f"Database file not found: {args.db_path}")
-
-    ensure_output_dir(args.output_dir)
-
-    conn = sqlite3.connect(args.db_path)
-    conn.row_factory = sqlite3.Row
-
-    try:
-        analysis: Dict[str, Optional[Dict[str, Any]]] = {
-            "instrument_states": analyze_instrument_states(conn, args.top_n),
-            "processing_snapshots": analyze_processing_snapshots(conn, args.top_n),
-        }
-
-        markdown_path = os.path.join(args.output_dir, "snapshot_report.md")
-        write_markdown_report(analysis, markdown_path)
-        write_csv_reports(analysis, args.output_dir)
-
-        print(f"Markdown report written to: {markdown_path}")
-        print(f"CSV summaries written to: {args.output_dir}")
-    finally:
-        conn.close()
+    generate_snapshot_reports(args.db_path, args.output_dir, args.top_n)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

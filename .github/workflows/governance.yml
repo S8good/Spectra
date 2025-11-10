@@ -1,0 +1,57 @@
+name: Snapshot & Legacy Governance
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Prepare demo database
+        run: |
+          mkdir -p data
+          python scripts/generate_demo_database.py --output data/nanosense_data.db --force
+
+      - name: Run snapshot governance
+        run: |
+          mkdir -p docs/reports
+          python scripts/run_snapshot_governance.py \
+            --db data/nanosense_data.db \
+            --output-dir docs/reports \
+            --summary-file docs/reports/snapshot_governance_ci.md \
+            --cleanup-dry-run
+
+      - name: Run legacy freeze audit
+        run: |
+          python scripts/legacy_freeze.py \
+            --db data/nanosense_data.db \
+            --freeze-after 2025-01-01 \
+            --backup-dir docs/reports/backups \
+            --export-csv-dir docs/reports/exports \
+            --report-file docs/reports/legacy_freeze_ci.md
+
+      - name: Upload governance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: governance-reports
+          path: |
+            docs/reports/snapshot_governance_ci.md
+            docs/reports/legacy_freeze_ci.md
+            docs/reports/snapshot_report.md
+            docs/reports/snapshot_summary.csv
+            docs/reports/snapshot_duplicates.csv

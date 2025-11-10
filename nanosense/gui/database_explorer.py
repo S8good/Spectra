@@ -26,6 +26,16 @@ from PyQt5.QtWidgets import (
 )
 from ..utils.file_io import export_data_custom
 from PyQt5.QtCore import QEvent, QDate, Qt, pyqtSignal
+try:  # 部分旧版 PyQt5 未提供 QFutureWatcher
+    from PyQt5.QtCore import QFutureWatcher
+except ImportError:
+    QFutureWatcher = None  # type: ignore
+
+try:
+    from PyQt5 import QtConcurrent  # type: ignore
+except ImportError:
+    QtConcurrent = None  # type: ignore
+
 import csv
 from datetime import datetime
 import time
@@ -57,10 +67,16 @@ class DatabaseExplorerDialog(QDialog):
             self.db_manager = self.parent().db_manager
         else:
             self.db_manager = None
-        self._last_query_started = None
         self.data_access = None
         if self.db_manager and hasattr(self.db_manager, "conn") and self.db_manager.conn:
             self.data_access = ExplorerDataAccess(self.db_manager.conn)
+
+        self._async_supported = bool(QFutureWatcher and QtConcurrent)
+        self._search_token = None
+        self._search_watcher: Optional["QFutureWatcher"] = None
+        self._detail_token = None
+        self._detail_watcher: Optional["QFutureWatcher"] = None
+        self._current_batch_rows: List[Dict[str, Any]] = []
 
         self._init_ui()
         self._connect_signals()
@@ -179,6 +195,24 @@ class DatabaseExplorerDialog(QDialog):
         # Batch overview tab
         batch_tab = QWidget()
         batch_layout = QVBoxLayout(batch_tab)
+        self.batch_filter_bar = QHBoxLayout()
+        self.batch_status_label = QLabel()
+        self.batch_status_filter = QComboBox()
+        self.batch_status_filter.setMinimumWidth(140)
+        self.batch_status_filter.addItem(self.tr("All Status"), "")
+        self.batch_position_label = QLabel()
+        self.batch_position_filter = QLineEdit()
+        self.batch_position_filter.setPlaceholderText(self.tr("Filter by position label"))
+        self.batch_apply_filter_button = QPushButton(self.tr("Apply"))
+        self.batch_clear_filter_button = QPushButton(self.tr("Clear"))
+        self.batch_filter_bar.addWidget(self.batch_status_label)
+        self.batch_filter_bar.addWidget(self.batch_status_filter)
+        self.batch_filter_bar.addWidget(self.batch_position_label)
+        self.batch_filter_bar.addWidget(self.batch_position_filter, 1)
+        self.batch_filter_bar.addWidget(self.batch_apply_filter_button)
+        self.batch_filter_bar.addWidget(self.batch_clear_filter_button)
+        self.batch_filter_bar.addStretch()
+        batch_layout.addLayout(self.batch_filter_bar)
         self.batch_table = QTableWidget()
         self.batch_table.setColumnCount(8)
         self.batch_table.setHorizontalHeaderLabels(
@@ -230,6 +264,10 @@ class DatabaseExplorerDialog(QDialog):
         self.operator_edit.textChanged.connect(self._search_database)
         self.results_table.itemSelectionChanged.connect(self._refresh_detail_tabs)
         self.delete_button.clicked.connect(self._delete_selected_experiments)
+        self.batch_status_filter.currentIndexChanged.connect(self._apply_batch_filters)
+        self.batch_apply_filter_button.clicked.connect(self._apply_batch_filters)
+        self.batch_clear_filter_button.clicked.connect(self._reset_batch_filters)
+        self.batch_position_filter.returnPressed.connect(self._apply_batch_filters)
 
     def changeEvent(self, event):
         if event.type() == QEvent.LanguageChange:
@@ -249,6 +287,11 @@ class DatabaseExplorerDialog(QDialog):
         self.operator_label.setText(self.tr("Operator contains:"))
         self.operator_edit.setPlaceholderText(self.tr("Operator contains"))
         self._populate_status_filter()
+        self.batch_status_label.setText(self.tr("Batch Status:"))
+        self.batch_position_label.setText(self.tr("Position:"))
+        self.batch_position_filter.setPlaceholderText(self.tr("Filter by position label"))
+        self.batch_apply_filter_button.setText(self.tr("Apply"))
+        self.batch_clear_filter_button.setText(self.tr("Clear"))
         self.search_button.setText(self.tr("Search"))
         self.reset_button.setText(self.tr("Reset Filters"))
 
@@ -345,32 +388,94 @@ class DatabaseExplorerDialog(QDialog):
         return SortableTableWidgetItem(display_text, sort_key)
 
     def _search_database(self):
-        """执行查询并刷新实验列表"""
+        """执行查询并刷新实验列表（异步以避免阻塞 UI）。"""
         if not self.db_manager:
             return
+        filters = self._collect_filters()
+        if self._async_supported:
+            self._start_async_search(filters)
+        else:
+            result = self._execute_search(filters)
+            if result.get("error"):
+                QMessageBox.critical(
+                    self,
+                    self.tr("Error"),
+                    self.tr("Search failed: {0}").format(result["error"]),
+                )
+                self.results_hint_label.setText(self.tr("Query failed. Please adjust filters and retry."))
+                return
+            self._apply_search_results(result["results"], result["elapsed_ms"], result["timestamp"])
 
+    def _collect_filters(self) -> Dict[str, Any]:
         project_id = self.project_combo.currentData()
         name_filter = self.exp_name_edit.text().strip()
         start_date = self.start_date_edit.date().toString("yyyy-MM-dd")
         end_date = self.end_date_edit.date().toString("yyyy-MM-dd")
         type_text = self.exp_type_combo.currentText()
         type_filter = type_text if type_text != self.tr("All Types") else ""
-        status_filter = self.status_combo.currentData()
+        status_filter = self.status_combo.currentData() or ""
         operator_filter = self.operator_edit.text().strip()
+        return {
+            "project_id": project_id,
+            "name_filter": name_filter,
+            "start_date": start_date,
+            "end_date": end_date,
+            "type_filter": type_filter,
+            "status_filter": status_filter,
+            "operator_filter": operator_filter,
+        }
 
-        self._last_query_started = time.perf_counter()
-        results = self.db_manager.search_experiments(
-            project_id=project_id,
-            name_filter=name_filter,
-            start_date=start_date,
-            end_date=end_date,
-            type_filter=type_filter,
-            status_filter=status_filter or "",
-            operator_filter=operator_filter,
-        )
-        elapsed_ms = (time.perf_counter() - self._last_query_started) * 1000.0
+    def _set_search_in_progress(self, running: bool) -> None:
+        self.search_button.setEnabled(not running)
+        self.reset_button.setEnabled(not running)
+        if running:
+            self.results_hint_label.setText(self.tr("Running query..."))
+
+    def _start_async_search(self, filters: Dict[str, Any]) -> None:
+        self._set_search_in_progress(True)
+        token = object()
+        self._search_token = token
+        watcher = QFutureWatcher()
+        watcher.setParent(self)
+        future = QtConcurrent.run(self._execute_search, filters)
+        watcher.finished.connect(lambda tok=token, w=watcher: self._handle_search_finished(tok, w))
+        self._search_watcher = watcher
+        watcher.setFuture(future)
+
+    def _execute_search(self, filters: Dict[str, Any]) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {"error": None}
+        start_perf = time.perf_counter()
+        try:
+            results = self.db_manager.search_experiments(**filters)
+        except Exception as exc:
+            payload["error"] = str(exc)
+            return payload
+        elapsed_ms = (time.perf_counter() - start_perf) * 1000.0
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        payload.update(
+            {
+                "results": results,
+                "elapsed_ms": elapsed_ms,
+                "timestamp": timestamp,
+            }
+        )
+        return payload
 
+    def _handle_search_finished(self, token, watcher: QFutureWatcher) -> None:
+        result = watcher.result()
+        watcher.deleteLater()
+        if token is not self._search_token:
+            return
+        self._search_watcher = None
+        self._set_search_in_progress(False)
+        if not result or result.get("error"):
+            error_message = result.get("error") if isinstance(result, dict) else self.tr("Unknown error.")
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Search failed: {0}").format(error_message))
+            self.results_hint_label.setText(self.tr("Query failed. Please adjust filters and retry."))
+            return
+        self._apply_search_results(result["results"], result["elapsed_ms"], result["timestamp"])
+
+    def _apply_search_results(self, results, elapsed_ms: float, timestamp: str) -> None:
         header = self.results_table.horizontalHeader()
         sort_section = header.sortIndicatorSection()
         sort_order = header.sortIndicatorOrder()
@@ -379,14 +484,15 @@ class DatabaseExplorerDialog(QDialog):
 
         self.results_table.setSortingEnabled(False)
         self.results_table.setRowCount(0)
+
         if not results:
             self.results_hint_label.setText(
-                self.tr("No matching experiments. Refreshed at {0} (elapsed {1:.0f} ms)").format(timestamp, elapsed_ms)
+                self.tr("No matching experiments. Refreshed at {0} (elapsed {1:.0f} ms)").format(
+                    timestamp, elapsed_ms
+                )
             )
             self._clear_detail_tabs()
             self.results_table.setSortingEnabled(True)
-            print("查询完成，未匹配到实验。")
-            self._last_query_started = None
             return
 
         self.results_table.setRowCount(len(results))
@@ -394,6 +500,7 @@ class DatabaseExplorerDialog(QDialog):
             for col_index, cell_data in enumerate(row_data):
                 item = self._create_results_item(cell_data, col_index)
                 self.results_table.setItem(row_index, col_index, item)
+
         self.results_table.setSortingEnabled(True)
         if sort_section is not None and self.results_table.rowCount() > 0:
             self.results_table.sortItems(sort_section, sort_order)
@@ -405,8 +512,6 @@ class DatabaseExplorerDialog(QDialog):
         if self.results_table.rowCount() > 0:
             self.results_table.selectRow(0)
             self._refresh_detail_tabs()
-        print(f"查询完成，找到 {len(results)} 条记录。")
-        self._last_query_started = None
 
     def _reset_filters(self):
         """【修改】重置所有筛选条件并重新搜索。"""
@@ -575,14 +680,67 @@ class DatabaseExplorerDialog(QDialog):
         if not experiment_id or not self.data_access:
             self._clear_detail_tabs()
             return
+        if not self._async_supported:
+            payload = self._load_detail_payload(experiment_id)
+            if payload.get("error"):
+                QMessageBox.warning(
+                    self,
+                    self.tr("Warning"),
+                    self.tr("Failed to load detail tabs: {0}").format(payload["error"]),
+                )
+                return
+            self._update_experiment_tab(payload.get("overview"))
+            self._update_spectra_tab(payload.get("spectra") or [])
+            self._update_batch_tab(payload.get("batch") or [])
+            return
 
-        overview = self.data_access.fetch_experiment_overview(experiment_id)
-        spectra_rows = self.data_access.fetch_spectrum_sets(experiment_id, limit=100)
-        batch_rows = self.data_access.fetch_batch_overview(experiment_id)
+        token = object()
+        self._detail_token = token
+        self.detail_tabs.setEnabled(False)
+        watcher = QFutureWatcher()
+        watcher.setParent(self)
+        future = QtConcurrent.run(self._load_detail_payload, experiment_id)
+        watcher.finished.connect(lambda tok=token, w=watcher: self._handle_detail_finished(tok, w))
+        self._detail_watcher = watcher
+        watcher.setFuture(future)
 
-        self._update_experiment_tab(overview)
-        self._update_spectra_tab(spectra_rows)
-        self._update_batch_tab(batch_rows)
+    def _load_detail_payload(self, experiment_id: int) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {"error": None}
+        try:
+            overview = self.data_access.fetch_experiment_overview(experiment_id)
+            spectra_rows = self.data_access.fetch_spectrum_sets(experiment_id, limit=100)
+            batch_rows = self.data_access.fetch_batch_overview(experiment_id)
+        except Exception as exc:
+            payload["error"] = str(exc)
+            return payload
+        payload.update(
+            {
+                "overview": overview,
+                "spectra": spectra_rows,
+                "batch": batch_rows,
+            }
+        )
+        return payload
+
+    def _handle_detail_finished(self, token, watcher: QFutureWatcher) -> None:
+        result = watcher.result()
+        watcher.deleteLater()
+        if token is not self._detail_token:
+            return
+        self._detail_watcher = None
+        self.detail_tabs.setEnabled(True)
+
+        if not result or result.get("error"):
+            QMessageBox.warning(
+                self,
+                self.tr("Warning"),
+                self.tr("Failed to load detail tabs: {0}").format(result.get("error", self.tr("Unknown error"))),
+            )
+            return
+
+        self._update_experiment_tab(result.get("overview"))
+        self._update_spectra_tab(result.get("spectra") or [])
+        self._update_batch_tab(result.get("batch") or [])
 
     def _clear_detail_tabs(self):
         placeholder = self.tr("—")
@@ -594,6 +752,7 @@ class DatabaseExplorerDialog(QDialog):
             self.spectra_table.setRowCount(0)
         if hasattr(self, "batch_table"):
             self.batch_table.setRowCount(0)
+        self._current_batch_rows = []
 
     def _update_experiment_tab(self, overview: Optional[Dict[str, Any]]):
         if not overview:
@@ -631,10 +790,53 @@ class DatabaseExplorerDialog(QDialog):
                 self.spectra_table.setItem(row_idx, col_idx, item)
 
     def _update_batch_tab(self, batch_rows: List[Dict[str, Any]]):
+        self._current_batch_rows = batch_rows or []
+        self._populate_batch_status_filter()
+        self._apply_batch_filters()
+
+    def _populate_batch_status_filter(self):
+        if not hasattr(self, "batch_status_filter"):
+            return
+        current_value = self.batch_status_filter.currentData()
+        self.batch_status_filter.blockSignals(True)
+        self.batch_status_filter.clear()
+        self.batch_status_filter.addItem(self.tr("All Status"), "")
+        statuses = sorted(
+            {row.get("batch_status") for row in self._current_batch_rows if row.get("batch_status")}
+        )
+        for status in statuses:
+            self.batch_status_filter.addItem(status, status)
+        target_index = self.batch_status_filter.findData(current_value) if current_value else 0
+        if target_index < 0:
+            target_index = 0
+        self.batch_status_filter.setCurrentIndex(target_index)
+        self.batch_status_filter.blockSignals(False)
+
+    def _reset_batch_filters(self):
+        self.batch_status_filter.blockSignals(True)
+        self.batch_status_filter.setCurrentIndex(0)
+        self.batch_status_filter.blockSignals(False)
+        self.batch_position_filter.clear()
+        self._apply_batch_filters()
+
+    def _apply_batch_filters(self):
+        rows = self._current_batch_rows or []
+        status_value = self.batch_status_filter.currentData()
+        position_text = self.batch_position_filter.text().strip().lower()
+        filtered: List[Dict[str, Any]] = []
+        for row in rows:
+            if status_value and row.get("batch_status") != status_value:
+                continue
+            label_value = (row.get("position_label") or "").lower()
+            if position_text and position_text not in label_value:
+                continue
+            filtered.append(row)
+        self._render_batch_rows(filtered)
+
+    def _render_batch_rows(self, batch_rows: List[Dict[str, Any]]):
         self.batch_table.setRowCount(0)
         if not batch_rows:
             return
-
         columns = [
             "item_id",
             "batch_run_id",
