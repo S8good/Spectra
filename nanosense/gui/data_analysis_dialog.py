@@ -249,6 +249,7 @@ class DataAnalysisDialog(QDialog):
         self.worker.finished.connect(self._on_tasks_finished)
         self.worker.start()
 
+
     def _update_progress(self, value, message):
         self.progress_bar.setValue(value)
         self.status_label.setText(self.tr(message))  # 翻译进度信息

@@ -27,6 +27,7 @@ from .analysis_window import AnalysisWindow
 from .colorimetry_widget import ColorimetryWidget
 
 from .data_analysis_dialog import DataAnalysisDialog
+from .delta_lambda_visualizer import DeltaLambdaVisualizationDialog, GL_IMPORT_ERROR
 
 from .kobs_linearization_dialog import KobsLinearizationDialog
 
@@ -392,6 +393,9 @@ class AppWindow(QMainWindow):
         menu.batch_acquisition_action.triggered.connect(self._start_batch_acquisition)
 
         menu.data_analysis_action.triggered.connect(self._open_data_analysis_dialog)
+
+        if hasattr(menu, 'delta_visualization_action'):
+            menu.delta_visualization_action.triggered.connect(self._open_delta_lambda_visualizer)
 
         menu.database_explorer_action.triggered.connect(self._open_database_explorer)
 
@@ -1384,6 +1388,29 @@ class AppWindow(QMainWindow):
     def _open_data_analysis_dialog(self):
 
         dialog = DataAnalysisDialog(self)
+
+        dialog.exec_()
+
+    def _open_delta_lambda_visualizer(self):
+
+        if GL_IMPORT_ERROR is not None:
+            QMessageBox.warning(
+                self,
+                self.tr("OpenGL Dependency Missing"),
+                self.tr("Δλ Visualization requires PyOpenGL (pyqtgraph OpenGL backend).\n"
+                        "Please install it via `pip install PyOpenGL PyOpenGL_accelerate`."),
+            )
+            return
+
+        try:
+            dialog = DeltaLambdaVisualizationDialog(
+                preprocessing_params={},
+                app_settings=self.app_settings,
+                parent=self,
+            )
+        except ImportError as exc:
+            QMessageBox.warning(self, self.tr("Δλ Visualization"), str(exc))
+            return
 
         dialog.exec_()
 

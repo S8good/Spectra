@@ -36,6 +36,7 @@ class MenuBar(QMenuBar):
         # Data Menu Actions
         self.batch_acquisition_action = QAction(self.tr('Batch Acquisition Setup'), self)
         self.data_analysis_action = QAction(self.tr('Batch Data Analysis'), self)
+        self.delta_visualization_action = QAction(self.tr('Δλ Visualization'), self)
         self.database_explorer_action = QAction(self.tr('Database Explorer...'), self)
 
         # --- Settings Menu Actions ---
@@ -83,6 +84,7 @@ class MenuBar(QMenuBar):
         self.data_menu = self.addMenu(self.tr('&Data'))
         self.data_menu.addAction(self.batch_acquisition_action)
         self.data_menu.addAction(self.data_analysis_action)
+        self.data_menu.addAction(self.delta_visualization_action)
         self.data_menu.addSeparator()
         self.data_menu.addAction(self.database_explorer_action)
 
@@ -129,6 +131,7 @@ class MenuBar(QMenuBar):
         self.realtime_noise_action.setText(self.tr('Real-time Data Analysis...'))
 
         self.data_analysis_action.setText(self.tr('Batch Data Analysis'))
+        self.delta_visualization_action.setText(self.tr('Δλ Visualization'))
         self.database_explorer_action.setText(self.tr('Database Explorer...'))
         self.batch_report_action.setText(self.tr('Generate Analysis Report...'))
         self.batch_report_action.setToolTip(
