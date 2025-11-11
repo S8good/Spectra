@@ -71,6 +71,7 @@ def seed_batch_run(
     start_time: datetime,
     layout: Dict[str, Dict[str, object]],
     completed_wells: Iterable[str],
+    review_wells: Iterable[str] = (),
 ) -> None:
     run_id = db.create_batch_run(
         project_id,
@@ -96,6 +97,8 @@ def seed_batch_run(
         "version": "1.0",
         "parameters": {"source": "demo_generator", "points_per_well": 3},
     }
+
+    review_targets = set(review_wells)
 
     for index, (well_id, metadata) in enumerate(layout.items(), start=1):
         item_id = item_map.get(well_id)
@@ -155,6 +158,12 @@ def seed_batch_run(
             capture_count=captures,
             status=status,
         )
+        qa_payload = {
+            "sam_angle_deg": round(2.5 + 0.5 * index, 2),
+            "threshold_deg": 5.0,
+            "qa_flag": "needs_review" if well_id in review_targets else "ok",
+        }
+        db.update_batch_item_metadata(item_id, {"qa": qa_payload})
 
     final_status = "completed" if set(completed_wells) == set(layout.keys()) else "in_progress"
     db.update_batch_run(run_id, status=final_status)
@@ -232,11 +241,12 @@ def main() -> None:
             operator="alice",
             start_time=datetime(2025, 9, 5, 9, 0),
             layout={
-                "A1": {"sample": "Analyte A1", "position": "A1"},
-                "A2": {"sample": "Analyte A2", "position": "A2"},
-                "B1": {"sample": "Control Blank", "position": "B1"},
+                "A1": {"sample": "Analyte A1", "position": "A1", "reference": {"source": "reference_capture", "sam_threshold_deg": 5.0}},
+                "A2": {"sample": "Analyte A2", "position": "A2", "reference": {"source": "reference_capture", "sam_threshold_deg": 5.0}},
+                "B1": {"sample": "Control Blank", "position": "B1", "reference": {"source": "reference_capture", "sam_threshold_deg": 6.0}},
             },
             completed_wells={"A1", "A2"},
+            review_wells={"A2"},
         )
 
         seed_batch_run(
@@ -246,10 +256,11 @@ def main() -> None:
             operator="alice",
             start_time=datetime(2025, 9, 7, 10, 30),
             layout={
-                "A1": {"sample": "Analyte B1", "position": "A1"},
-                "A2": {"sample": "Analyte B2", "position": "A2"},
+                "A1": {"sample": "Analyte B1", "position": "A1", "reference": {"source": "reference_capture", "sam_threshold_deg": 4.5}},
+                "A2": {"sample": "Analyte B2", "position": "A2", "reference": {"source": "reference_capture", "sam_threshold_deg": 4.5}},
             },
             completed_wells={"A1"},
+            review_wells={"A2"},
         )
 
         seed_calibration_experiment(manager, calibration_project)
@@ -262,4 +273,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -472,12 +472,12 @@
 <context>
     <name>AppWindow</name>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2076"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2097"/>
         <source>Back to Welcome Screen</source>
         <translation>返回欢迎界面</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2078"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2099"/>
         <source>Exit</source>
         <translation>退出</translation>
     </message>
@@ -487,68 +487,68 @@
         <translation type="obsolete">纳米传感--纳米光子传感软件系统</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1513"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1514"/>
         <source>Info</source>
         <translation>提示</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1489"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1490"/>
         <source>Please switch to the measurement page to perform real-time noise analysis.</source>
         <translation>请切换到测量页面进行实时噪声分析。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2181"/>
         <source>Restart Required</source>
         <translation>需要重新启动</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2181"/>
         <source>Mock API settings have been saved. Please restart the application in mock mode for the changes to take effect.</source>
         <translation>模拟 API 设置已保存。请在模拟模式下重启应用程序以使更改生效。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="257"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="258"/>
         <source>New Experiment</source>
         <translation>新实验</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="257"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="258"/>
         <source>Please name this new experiment session:</source>
         <translation>请输入新实验会话的名称：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1421"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1422"/>
         <source>Database connection has been updated. A restart may be required for all features to use the new database.</source>
         <translation>数据库连接已更新。新设置将立即生效。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2176"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2197"/>
         <source>Database Error</source>
         <translation>数据库错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="249"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="250"/>
         <source>Failed to find or create a default project. Cannot save experiment.</source>
         <translation>未能找到或创建默认项目，无法保存实验。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2176"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2197"/>
         <source>Database is not connected. Please check the settings.</source>
         <translation>数据库未连接，请检查设置。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2070"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="2091"/>
         <source>Nanophotonics sensing detection data visualization analysis system</source>
         <translation>纳米光子学传感检测数据可视化分析系统</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="635"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="636"/>
         <source>Failed to initialize the spectrometer in both real-hardware and mock modes.
 Please verify the hardware connection and the mock API configuration.</source>
         <translation>在真实硬件和模拟模式下初始化光谱仪均失败。请验证硬件连接和模拟API配置。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="645"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="646"/>
         <source>Failed to connect to the real spectrometer.
 
 Please verify:
@@ -557,145 +557,145 @@ Please verify:
         <translation>连接真实光谱仪失败。请验证：1. 设备已通过USB连接。2. 驱动已正确安装。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="649"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="650"/>
         <source>Failed to start the mock API. Please check the code.</source>
         <translation>启动模拟API失败。请检查代码。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="653"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="654"/>
         <source>Hardware Error</source>
         <translation>硬件错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="471"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="472"/>
         <source>Hardware Warning</source>
         <translation>硬件警告</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="471"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="472"/>
         <source>Real hardware connection failed. The application will continue using the mock API.</source>
         <translation>真实硬件连接失败。应用程序将继续使用模拟API。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="559"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="560"/>
         <source>Switching hardware mode requires restarting the application.
 
 Click &apos;OK&apos; to return to the launcher.</source>
-        <translation>切换硬件模式需要重新启动应用程序。点击 'OK' 将返回到启动器。</translation>
+        <translation>切换硬件模式需要重新启动应用程序。点击 &apos;OK&apos; 将返回到启动器。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1868"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1889"/>
         <source>Hardware reconnection failed in both real and mock modes. Please restart the application.</source>
         <translation>在真实和模拟模式下重新连接硬件均失败。请重启应用程序。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1872"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1893"/>
         <source>Hardware reconnection failed in real mode. Please restart the application.</source>
         <translation>在真实模式下重新连接硬件失败。请重启应用程序。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1876"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1897"/>
         <source>Mock API reconnection failed. Please restart the application.</source>
         <translation>模拟API重新连接失败。请重启应用程序。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1878"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1899"/>
         <source>Critical Error</source>
         <translation>严重错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="187"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="188"/>
         <source>No database path was found in the configuration. Database features will be unavailable.</source>
         <translation>配置中未找到数据库路径，数据库功能将不可用。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="195"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="196"/>
         <source>Database Warning</source>
         <translation>数据库警告</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="195"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="196"/>
         <source>No database path was found in the configuration.
 Open Settings -&gt; Customize Parameters... to set the database file path and enable data archiving.</source>
         <translation>配置中未找到数据库路径。请打开 设置 -&gt; 自定义参数... 来设置数据库文件路径并启用数据归档。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1218"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1219"/>
         <source>Loaded Spectrum</source>
         <translation>已加载光谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1288"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1289"/>
         <source>Select Folder Containing Spectra Files</source>
         <translation>选择包含光谱文件的文件夹</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1299"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1300"/>
         <source>Successfully loaded {0} spectra from the selected folder.</source>
         <translation>已成功从所选文件夹加载 {0} 条光谱。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1322"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1323"/>
         <source>No spectra were found in the selected folder.</source>
         <translation>在选定文件夹中没有找到光谱。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1331"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1332"/>
         <source>Choose a multi-column spectra file</source>
         <translation>选择一个多列光谱文件</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1331"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1332"/>
         <source>Data Files (*.xlsx *.xls *.csv *.txt)</source>
         <translation>数据文件 (*.xlsx *.xls *.csv *.txt)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1343"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1344"/>
         <source>Successfully loaded {0} spectra from the selected file.</source>
         <translation>已成功从所选文件加载 {0} 条光谱。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1365"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1366"/>
         <source>No spectra could be loaded from the selected file.</source>
         <translation>无法从所选文件中加载任何光谱数据。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1379"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1380"/>
         <source>Please switch to the measurement page before using the peak finding feature.</source>
         <translation>在使用寻峰功能前，请先切换到测量页面。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1427"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1428"/>
         <source>Success</source>
         <translation>成功</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1427"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1428"/>
         <source>Default paths have been saved.</source>
         <translation>默认路径已保存。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1513"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1514"/>
         <source>Feature &apos;{feature_name}&apos; is under development.</source>
-        <translation>功能 '{feature_name}' 正在开发中。</translation>
+        <translation>功能 &apos;{feature_name}&apos; 正在开发中。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1747"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1765"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1557"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1576"/>
         <source>A valid output folder must be selected.</source>
         <translation>必须选择一个有效的输出文件夹。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1920"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1941"/>
         <source>Task Complete</source>
         <translation>任务完成</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1920"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1941"/>
         <source>Batch acquisition finished. Data saved to:
 {output_folder}
 
@@ -703,27 +703,27 @@ Would you like to run batch analysis now?</source>
         <translation>批量采集已完成。数据已保存至: {output_folder} 您想现在运行批量分析吗？</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1276"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1277"/>
         <source>Three File Import</source>
         <translation>三文件导入</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1573"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1592"/>
         <source>Database Not Configured</source>
         <translation>数据库未配置</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1573"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1592"/>
         <source>Please configure a database file before running batch acquisition.</source>
         <translation>在运行批量采集之前请先配置数据库文件。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1593"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1612"/>
         <source>Unable to resolve a project for batch acquisition.</source>
         <translation>无法解析用于批量采集的项目。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1697"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1716"/>
         <source>Batch Operator</source>
         <translation>批量操作员</translation>
     </message>
@@ -829,12 +829,12 @@ Would you like to run batch analysis now?</source>
 <context>
     <name>BatchRunDialog</name>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="412"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="444"/>
         <source>Batch Acquisition in Progress...</source>
         <translation>批量采集中...</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="413"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="445"/>
         <source>Initializing...</source>
         <translation>初始化...</translation>
     </message>
@@ -844,12 +844,12 @@ Would you like to run batch analysis now?</source>
         <translation type="obsolete">实时光谱预览</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="433"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="465"/>
         <source>Total Well Progress:</source>
         <translation>总孔位进度:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="434"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="466"/>
         <source>Current Point Progress:</source>
         <translation>当前点进度:</translation>
     </message>
@@ -864,95 +864,95 @@ Would you like to run batch analysis now?</source>
         <translation type="obsolete">中止任务</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="550"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="709"/>
         <source>Confirm</source>
         <translation>确认</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="550"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="709"/>
         <source>Are you sure you want to abort the current batch acquisition task?</source>
         <translation>您确定要中止当前的批量采集任务吗？</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="120"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="128"/>
         <source>Please place [Background] for well {well_id}
 (Live preview active...)</source>
         <translation>请为 {well_id} 孔放置 [背景参比]\n(实时预览中...)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="121"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="129"/>
         <source>Collect Background</source>
         <translation>采集背景</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="123"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="131"/>
         <source>Please place [Reference] for well {well_id}
 (Live preview active...)</source>
         <translation>请为 {well_id} 孔放置 [参考参比]\n(实时预览中...)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="124"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="132"/>
         <source>Collect Reference</source>
         <translation>采集参考</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="126"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="134"/>
         <source>Please move to well {well_id}, point {point_num}/{total_points}
 (Live preview active...)</source>
         <translation>请移至 {well_id} 孔, 第 {point_num}/{total_points} 点\n(实时预览中...)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="127"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="135"/>
         <source>Collect this Point</source>
         <translation>采集此点</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="128"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="136"/>
         <source>Calculating absorbance for {well_id}...</source>
         <translation>正在为 {well_id} 计算吸收率...</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="129"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="137"/>
         <source>Saving data for {well_id}...</source>
         <translation>正在保存 {well_id} 的数据...</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="130"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="138"/>
         <source>Batch acquisition complete!</source>
         <translation>批量采集全部完成！</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="131"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="139"/>
         <source>Done</source>
         <translation>完成</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="249"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="260"/>
         <source>Open in New Window</source>
         <translation>在独立窗口中打开</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="444"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="484"/>
         <source>Live Signal</source>
         <translation>实时信号</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="445"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="485"/>
         <source>Current Background</source>
         <translation>当前背景谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="446"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="486"/>
         <source>Current Reference</source>
         <translation>当前参考谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="447"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="487"/>
         <source>Live Result (Absorbance)</source>
         <translation>实时结果谱 (吸收光谱)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="448"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="488"/>
         <source>Accumulated Results Summary</source>
         <translation>累积结果汇总</translation>
     </message>
@@ -962,121 +962,201 @@ Would you like to run batch analysis now?</source>
         <translation type="obsolete">上一步</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="529"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="569"/>
         <source>Pause Overlay</source>
         <translation>暂停叠加</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="436"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="468"/>
         <source>Clear Summary Plot</source>
         <translation>清空汇总图</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="529"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="569"/>
         <source>Resume Overlay</source>
         <translation>恢复叠加</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="122"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="130"/>
         <source>Import Background</source>
         <translation>导入背景谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="125"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="133"/>
         <source>Import Reference</source>
         <translation>导入参考谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="349"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="381"/>
         <source>Select Spectrum File</source>
         <translation>选择光谱文件</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="349"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="381"/>
         <source>All Supported Files (*.xlsx *.xls *.csv *.txt);;Excel Files (*.xlsx *.xls);;CSV/Text Files (*.csv *.txt)</source>
         <translation>所有支持的文件 (*.xlsx *.xls *.csv *.txt);;Excel 文件 (*.xlsx *.xls);;CSV/文本文件 (*.csv *.txt)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="368"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="400"/>
         <source>Import Failed</source>
         <translation>导入失败</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="361"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="393"/>
         <source>Could not load spectrum data from:
 {0}</source>
         <translation>无法从 {0} 读取光谱数据</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="368"/>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="400"/>
         <source>Loaded data has mismatched wavelength and intensity lengths.</source>
         <translation>加载的数据中波长与强度数组长度不一致。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="140"/>
+        <source>Please review QA for well {well_id}</source>
+        <translation>请检查孔位 {well_id} 的质控（QA）</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="141"/>
+        <source>[Review Required]</source>
+        <translation>【需要复核】</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="142"/>
+        <source>Well {well_id} [{label}] SAM angle {angle:.2f}°, threshold {threshold}</source>
+        <translation>孔位 {well_id}【{label}】SAM 角度 {angle:.2f}°，阈值 {threshold}</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="472"/>
+        <source>QA Feedback</source>
+        <translation>质控反馈</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="473"/>
+        <source>Show Comparison</source>
+        <translation>显示对比</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="476"/>
+        <source>Copy Info</source>
+        <translation>复制信息</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="474"/>
+        <source>Focus Well</source>
+        <translation>聚焦到该孔位</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="475"/>
+        <source>Mark Reviewed</source>
+        <translation>标记为已复核</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="601"/>
+        <source>{well} [{label}] — {angle:.2f}°</source>
+        <translation>{well}【{label}】— {angle:.2f}°</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="679"/>
+        <source>Info</source>
+        <translation>提示</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="642"/>
+        <source>Comparison data is unavailable for this entry.</source>
+        <translation>此条目没有可用的对比数据。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="649"/>
+        <source>QA Comparison — Well {0}</source>
+        <translation>质控对比 — 孔位 {0}</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="656"/>
+        <source>Sample</source>
+        <translation>样品</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="657"/>
+        <source>Reference</source>
+        <translation>参考</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="659"/>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="679"/>
+        <source>Database connection is not available.</source>
+        <translation>数据库连接不可用。</translation>
     </message>
 </context>
 <context>
     <name>BatchSetupDialog</name>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="173"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="202"/>
         <source>Batch Task Settings</source>
         <translation>批量任务设置</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="174"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="203"/>
         <source>Select Report Output Folder:</source>
         <translation>选择报告输出文件夹:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="175"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="204"/>
         <source>Browse...</source>
         <translation>浏览...</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="176"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="205"/>
         <source>Select File Format:</source>
         <translation>选择文件格式:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="190"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="222"/>
         <source>Excel File (*.xlsx)</source>
         <translation>Excel 文件 (*.xlsx)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="191"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="223"/>
         <source>CSV File (*.csv)</source>
         <translation>CSV 文件 (*.csv)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="192"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="224"/>
         <source>Text File (*.txt)</source>
         <translation>文本文件 (*.txt)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="200"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="232"/>
         <source>OK</source>
         <translation>确定</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="201"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="233"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="208"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="240"/>
         <source>Select Report Output Folder</source>
         <translation>选择报告输出文件夹</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="144"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="169"/>
         <source>Excel File</source>
         <translation>Excel文件</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="146"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="171"/>
         <source>Text File</source>
         <translation>文本文件</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="184"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="216"/>
         <source>Points per Well:</source>
         <translation>每片采集点数：</translation>
     </message>
@@ -1096,24 +1176,39 @@ Would you like to run batch analysis now?</source>
         <translation>裁切结束波长:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="178"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="207"/>
         <source>Automatic Acquisition Settings</source>
         <translation>自动采集设置</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="179"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="208"/>
         <source>Enable Automatic Acquisition</source>
         <translation>启用自动采集</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="180"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="209"/>
         <source>Point-to-Point Interval (s):</source>
         <translation>采集点间隔 (秒)：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="181"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="210"/>
         <source>Well-to-Well Interval (s):</source>
         <translation>样品间间隔 (秒)：</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="211"/>
+        <source>Spectral QA (SAM)</source>
+        <translation>光谱质控（SAM）</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="212"/>
+        <source>Enable SAM QA</source>
+        <translation>启用 SAM 质控</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="213"/>
+        <source>SAM Threshold (deg):</source>
+        <translation>SAM 阈值（度）：</translation>
     </message>
 </context>
 <context>
@@ -1556,102 +1651,102 @@ Results have been saved to:
 <context>
     <name>DatabaseExplorerDialog</name>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="240"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="314"/>
         <source>Database Explorer</source>
         <translation>数据浏览器</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="243"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="317"/>
         <source>Filter Criteria</source>
         <translation>筛选条件</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="244"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="318"/>
         <source>Project:</source>
         <translation>所属项目:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="245"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="319"/>
         <source>Experiment Name:</source>
         <translation>实验名称:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="246"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="320"/>
         <source>Date Range (From/To):</source>
         <translation>日期范围 (从/至):</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="247"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="321"/>
         <source>Experiment Type:</source>
         <translation>实验类型:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="252"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="337"/>
         <source>Search</source>
         <translation>搜索</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="253"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="338"/>
         <source>Reset Filters</source>
         <translation>重置筛选</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="256"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="341"/>
         <source>Exp. ID</source>
         <translation>实验ID</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="256"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="341"/>
         <source>Project</source>
         <translation>项目</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="256"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="341"/>
         <source>Experiment Name</source>
         <translation>实验名称</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="256"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="341"/>
         <source>Type</source>
         <translation>类型</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="256"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="341"/>
         <source>Timestamp</source>
         <translation>时间戳</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="256"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="341"/>
         <source>Operator</source>
         <translation>操作员</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="259"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="344"/>
         <source>Load Spectra to Analysis</source>
         <translation>加载光谱至分析窗口</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="260"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="345"/>
         <source>Export Selected...</source>
         <translation>导出选中项...</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="261"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="346"/>
         <source>Delete Selected</source>
         <translation>删除选中项</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="271"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="356"/>
         <source>All Projects</source>
         <translation>所有项目</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="357"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="457"/>
         <source>All Types</source>
         <translation>所有类型</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="530"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="960"/>
         <source>Info</source>
         <translation>提示</translation>
     </message>
@@ -1666,17 +1761,17 @@ Results have been saved to:
         <translation type="obsolete">请从表格中选择一个或多个实验。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="445"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="592"/>
         <source>No spectra found for the selected experiments.</source>
         <translation>未找到所选实验的光谱数据。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="452"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="599"/>
         <source>Please select one or more experiments to delete.</source>
         <translation>请选择一个或多个要删除的实验。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="464"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="611"/>
         <source>Are you sure you want to permanently delete the following {0} experiment(s)?
 
 {1}
@@ -1685,220 +1780,370 @@ This action cannot be undone.</source>
         <translation>您确定要永久删除以下 {0} 个实验吗？\n\n{1}\n\n此操作无法撤销。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="470"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="617"/>
         <source>Confirm Deletion</source>
         <translation>确认删除</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="549"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="696"/>
         <source>Success</source>
         <translation>成功</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="480"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="627"/>
         <source>Selected experiments have been deleted.</source>
         <translation>已删除所选实验。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="555"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="702"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="485"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="632"/>
         <source>Failed to delete experiments: {0}</source>
         <translation>删除实验失败: {0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="492"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="639"/>
         <source>Please select one or more experiments to export.</source>
         <translation>请选择一个或多个要导出的实验。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="505"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="652"/>
         <source>Could not retrieve data for the selected experiments.</source>
         <translation>无法检索到所选实验的数据。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="256"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="341"/>
         <source>Status</source>
         <translation>状态</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="190"/>
         <source>Created At</source>
         <translation>创建时间</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="142"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="172"/>
         <source>Updated At</source>
         <translation>更新时间</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="143"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="173"/>
         <source>Legacy Timestamp</source>
         <translation>旧版时间戳</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="605"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="935"/>
         <source>—</source>
         <translation>—</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="152"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="182"/>
         <source>Notes</source>
         <translation>备注</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="153"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="183"/>
         <source>Experiment Details</source>
         <translation>实验详情</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="190"/>
         <source>Set ID</source>
         <translation>组 ID</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="190"/>
         <source>Capture Label</source>
         <translation>采集标签</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="190"/>
         <source>Role</source>
         <translation>角色</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="190"/>
         <source>Variant</source>
         <translation>版本</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="190"/>
         <source>Captured At</source>
         <translation>采集时间</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="190"/>
         <source>Instrument ID</source>
         <translation>仪器ID</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="190"/>
         <source>Processing ID</source>
         <translation>进程ID</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="160"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="190"/>
         <source>Quality</source>
         <translation>质量</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="177"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="207"/>
         <source>Spectra</source>
         <translation>光谱</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="184"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
         <source>Item ID</source>
         <translation>条目 ID</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="184"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
         <source>Batch ID</source>
         <translation>批次 ID</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="184"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
         <source>Batch Name</source>
         <translation>批次名称</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="184"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
         <source>Batch Status</source>
         <translation>批次状态</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="184"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
         <source>Position</source>
         <translation>位置</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="184"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
         <source>Item Status</source>
         <translation>条目状态</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="184"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
         <source>Capture Count</source>
         <translation>采集次数</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="184"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
         <source>Last Captured At</source>
         <translation>上次采集时间</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="200"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="267"/>
         <source>Batch Overview</source>
         <translation>批次概览</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="248"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="322"/>
         <source>Experiment Status:</source>
         <translation>实验状态：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="249"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="323"/>
         <source>Operator contains:</source>
         <translation>操作员包含：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="250"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="324"/>
         <source>Operator contains</source>
         <translation>操作员包含</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="291"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="851"/>
         <source>All Status</source>
         <translation>全部状态</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="383"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="531"/>
         <source>No matching experiments. Refreshed at {0} (elapsed {1:.0f} ms)</source>
         <translation>未找到匹配的实验。刷新时间：{0}（耗时 {1:.0f} ms）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="401"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="550"/>
         <source>Found {0} experiment(s). Refreshed at {1} (elapsed {2:.0f} ms)</source>
         <translation>找到 {0} 个实验。刷新时间：{1}（耗时 {2:.0f} ms）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="530"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="677"/>
         <source>No experiment data available to export.</source>
         <translation>没有可导出的实验数据。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="535"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="682"/>
         <source>Export Experiments Summary</source>
         <translation>导出实验汇总</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="535"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="682"/>
         <source>CSV Files (*.csv)</source>
         <translation>CSV 文件 (.csv)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="549"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="696"/>
         <source>Exported {0} experiment rows to:
 {1}</source>
         <translation>已导出 {0} 条实验记录到：{1}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="555"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="702"/>
         <source>Failed to export data: {0}</source>
         <translation>导出数据失败：{0}</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="328"/>
+        <source>Filter by position label</source>
+        <translation>按位置标签筛选</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="329"/>
+        <source>Apply</source>
+        <translation>应用</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="330"/>
+        <source>Clear</source>
+        <translation>清除</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
+        <source>SAM Angle (°)</source>
+        <translation>SAM 角度（°）</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
+        <source>QA Flag</source>
+        <translation>质控标记</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="326"/>
+        <source>Batch Status:</source>
+        <translation>批次状态：</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="327"/>
+        <source>Position:</source>
+        <translation>位置：</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="331"/>
+        <source>Show needs review only</source>
+        <translation>仅显示需复核的项</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="332"/>
+        <source>Reference Details</source>
+        <translation>参考信息</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="333"/>
+        <source>Source:</source>
+        <translation>来源：</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="334"/>
+        <source>Template:</source>
+        <translation>模板：</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="335"/>
+        <source>Threshold:</source>
+        <translation>阈值：</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="336"/>
+        <source>Preview Template</source>
+        <translation>预览模板</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="515"/>
+        <source>Search failed: {0}</source>
+        <translation>搜索失败：{0}</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="516"/>
+        <source>Query failed. Please adjust filters and retry.</source>
+        <translation>查询失败。请调整筛选条件后重试。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="474"/>
+        <source>Running query...</source>
+        <translation>正在执行查询…</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="514"/>
+        <source>Unknown error.</source>
+        <translation>未知错误。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="776"/>
+        <source>Warning</source>
+        <translation>警告</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="776"/>
+        <source>Failed to load detail tabs: {0}</source>
+        <translation>详情页签加载失败：{0}</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="776"/>
+        <source>Unknown error</source>
+        <translation>未知错误</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="946"/>
+        <source>Template</source>
+        <translation>模板</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="946"/>
+        <source>Reference Capture</source>
+        <translation>参考采集</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="960"/>
+        <source>The selected record does not reference a template.</source>
+        <translation>所选记录没有关联任何模板。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="969"/>
+        <source>Template Missing</source>
+        <translation>模板缺失</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="969"/>
+        <source>Template &apos;{0}&apos; was not found.</source>
+        <translation>未找到模板“{0}”。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="978"/>
+        <source>Invalid Template</source>
+        <translation>模板无效</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="978"/>
+        <source>Template &apos;{0}&apos; has invalid data.</source>
+        <translation>模板“{0}”包含无效数据。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="985"/>
+        <source>Template Preview — {0}</source>
+        <translation>模板预览 — {0}</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="987"/>
+        <source>Points: {cnt} | Range: {start:.2f} - {end:.2f} nm</source>
+        <translation>点数：{cnt} | 范围：{start:.2f}–{end:.2f} nm</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="997"/>
+        <source>Close</source>
+        <translation>关闭</translation>
     </message>
 </context>
 <context>
@@ -2849,7 +3094,7 @@ This action cannot be undone.</source>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/measurement_widget.py" line="850"/>
         <source>Comparison spectrum &apos;{0}&apos; loaded and displayed.</source>
-        <translation>对比光谱 '{0}' 已加载并显示。</translation>
+        <translation>对比光谱 &apos;{0}&apos; 已加载并显示。</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/measurement_widget.py" line="1081"/>
@@ -3525,104 +3770,129 @@ Experiment ID: {0}</source>
 <context>
     <name>PlateSetupDialog</name>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="83"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="136"/>
         <source>Batch Acquisition Setup (96-Well Plate Layout)</source>
         <translation>批量采集设置 (96孔板布局)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="84"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="137"/>
         <source>Save Layout</source>
         <translation>保存布局</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="85"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="138"/>
         <source>Load Layout</source>
         <translation>加载布局</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="86"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="139"/>
         <source>Clear Layout</source>
         <translation>清空布局</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="87"/>
         <source>Concentration Layout (Unit: nM)</source>
-        <translation>浓度布局 (单位: nM)</translation>
+        <translation type="obsolete">浓度布局 (单位: nM)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="88"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="142"/>
         <source>OK</source>
         <translation>确定</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="89"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="143"/>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="94"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="148"/>
         <source>Info</source>
         <translation>提示</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="94"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="148"/>
         <source>Current layout is empty, nothing to save.</source>
         <translation>当前布局为空，无需保存。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="97"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="151"/>
         <source>Save Layout File</source>
         <translation>保存布局文件</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="110"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="164"/>
         <source>JSON Files (*.json)</source>
         <translation>JSON 文件 (*.json)</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="117"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="171"/>
         <source>Success</source>
         <translation>成功</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="103"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="157"/>
         <source>Layout successfully saved to {0}</source>
         <translation>布局已成功保存至 {0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="120"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="174"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="106"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="160"/>
         <source>Failed to save layout: {0}</source>
         <translation>保存布局失败: {0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="110"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="164"/>
         <source>Load Layout File</source>
         <translation>加载布局文件</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="117"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="171"/>
         <source>Successfully loaded layout from {0}</source>
         <translation>已成功从 {0} 加载布局</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="120"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="174"/>
         <source>Failed to load layout: {0}</source>
         <translation>加载布局失败: {0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="125"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="179"/>
         <source>Invalid Input</source>
         <translation>输入无效</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="125"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="179"/>
         <source>You have not set the concentration for any well. Please set at least one.</source>
         <translation>您没有设置任何孔的浓度。请至少设置一个。</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="91"/>
+        <source>Use Reference Capture</source>
+        <translation>使用参考采集</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="92"/>
+        <source>Use Template</source>
+        <translation>使用模板</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="254"/>
+        <source>Select Template</source>
+        <translation>选择模板</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="140"/>
+        <source>Manage Templates...</source>
+        <translation>管理模板…</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="141"/>
+        <source>Concentration &amp; QA Layout</source>
+        <translation>浓度与质控布局</translation>
     </message>
 </context>
 <context>

@@ -26,6 +26,17 @@ from .snapshot_utils import (
 from typing import Any, Dict, List, Optional, Tuple
 
 
+def _merge_nested_dict(target: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+    for key, value in updates.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            target[key] = _merge_nested_dict(dict(target.get(key, {})), value)
+        elif isinstance(value, dict):
+            target[key] = _merge_nested_dict({}, value)
+        else:
+            target[key] = value
+    return target
+
+
 
 class DatabaseManager:
 
@@ -1360,6 +1371,60 @@ class DatabaseManager:
     def finalize_batch_item(self, item_id: int, status: str = "completed"):
 
         self.update_batch_item_progress(item_id, status=status)
+
+
+
+    def update_batch_item_metadata(self, item_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+
+        if not self.conn:
+
+            return None
+
+        try:
+
+            cursor = self.conn.cursor()
+
+            cursor.execute(
+
+                "SELECT metadata_json FROM batch_run_items WHERE item_id = ?",
+
+                (item_id,),
+
+            )
+
+            row = cursor.fetchone()
+
+            metadata = {}
+
+            if row and row[0]:
+
+                try:
+
+                    metadata = json.loads(row[0])
+
+                except json.JSONDecodeError:
+
+                    metadata = {}
+
+            merged = _merge_nested_dict(metadata, updates)
+
+            cursor.execute(
+
+                "UPDATE batch_run_items SET metadata_json = ? WHERE item_id = ?",
+
+                (json.dumps(merged, ensure_ascii=False), item_id),
+
+            )
+
+            self.conn.commit()
+
+            return merged
+
+        except Exception as e:
+
+            print(f"更新批量明细元数据失败: {e}")
+
+            return None
 
 
 

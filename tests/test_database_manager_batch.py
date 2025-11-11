@@ -53,5 +53,16 @@ def test_save_spectrum_links_batch_item(tmp_path):
         row = cursor.fetchone()
         assert row is not None
         assert row[0] == item_id
+
+        merged = manager.update_batch_item_metadata(
+            item_id, {"qa": {"sam_angle_deg": 4.25, "qa_flag": "needs_review"}}
+        )
+        assert merged is not None
+        assert merged["qa"]["sam_angle_deg"] == 4.25
+        row = manager.conn.execute(
+            "SELECT metadata_json FROM batch_run_items WHERE item_id = ?", (item_id,)
+        ).fetchone()
+        assert row is not None
+        assert '"qa_flag": "needs_review"' in row[0]
     finally:
         manager.close()

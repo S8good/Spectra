@@ -102,6 +102,26 @@ class BatchSetupDialog(QDialog):
         main_layout.addLayout(form_layout)
         main_layout.addWidget(self.auto_group)  # 将新的Group添加到主布局
 
+        self.qa_group = QGroupBox()
+        qa_layout = QFormLayout(self.qa_group)
+        self.enable_sam_checkbox = QCheckBox()
+        self.sam_threshold_spinbox = QDoubleSpinBox()
+        self.sam_threshold_spinbox.setDecimals(2)
+        self.sam_threshold_spinbox.setRange(0.1, 90.0)
+        self.sam_threshold_spinbox.setSingleStep(0.5)
+        self.sam_threshold_spinbox.setValue(5.0)
+        self.sam_threshold_spinbox.setSuffix(" °")
+        default_sam_enabled = bool(self.app_settings.get("batch_sam_enabled", False))
+        self.enable_sam_checkbox.setChecked(default_sam_enabled)
+        default_sam_threshold = self.app_settings.get("batch_sam_threshold_deg")
+        if isinstance(default_sam_threshold, (int, float)):
+            self.sam_threshold_spinbox.setValue(float(default_sam_threshold))
+        self.sam_threshold_spinbox.setEnabled(default_sam_enabled)
+        self.sam_threshold_label = QLabel()
+        qa_layout.addRow(self.enable_sam_checkbox)
+        qa_layout.addRow(self.sam_threshold_label, self.sam_threshold_spinbox)
+        main_layout.addWidget(self.qa_group)
+
         form_layout.addRow(self.crop_start_label, self.crop_start_spinbox)
         form_layout.addRow(self.crop_end_label, self.crop_end_spinbox)
 
@@ -109,6 +129,7 @@ class BatchSetupDialog(QDialog):
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
 
         self._on_auto_acquisition_toggled(self.enable_auto_checkbox.isChecked())
+        self._on_sam_toggled(self.enable_sam_checkbox.isChecked())
         main_layout.addWidget(self.button_box)
 
     def _connect_signals(self):
@@ -120,6 +141,7 @@ class BatchSetupDialog(QDialog):
         self.button_box.rejected.connect(self.reject)
         self.enable_cropping_checkbox.toggled.connect(self._on_cropping_toggled)
         self.enable_auto_checkbox.toggled.connect(self._on_auto_acquisition_toggled)
+        self.enable_sam_checkbox.toggled.connect(self._on_sam_toggled)
 
     def _on_auto_acquisition_toggled(self, checked):
         """当自动采集复选框状态改变时，更新UI。"""
@@ -133,6 +155,9 @@ class BatchSetupDialog(QDialog):
         self.crop_end_spinbox.setEnabled(checked)
         self.crop_start_label.setEnabled(checked)
         self.crop_end_label.setEnabled(checked)
+
+    def _on_sam_toggled(self, checked):
+        self.sam_threshold_spinbox.setEnabled(checked)
 
     def get_settings(self):
         """
@@ -159,8 +184,12 @@ class BatchSetupDialog(QDialog):
         inter_well_interval = self.inter_well_interval_spinbox.value()
 
         # 【修改】返回所有设置
+        sam_enabled = self.enable_sam_checkbox.isChecked()
+        sam_threshold = self.sam_threshold_spinbox.value() if sam_enabled else None
+
         return (folder, extension, points_per_well, crop_start, crop_end,
-                is_auto_enabled, intra_well_interval, inter_well_interval)
+                is_auto_enabled, intra_well_interval, inter_well_interval,
+                sam_enabled, sam_threshold)
 
     def changeEvent(self, event):
         """ 新增：响应语言变化事件 """
@@ -179,6 +208,9 @@ class BatchSetupDialog(QDialog):
         self.enable_auto_checkbox.setText(self.tr("Enable Automatic Acquisition"))
         self.intra_well_interval_label.setText(self.tr("Point-to-Point Interval (s):"))
         self.inter_well_interval_label.setText(self.tr("Well-to-Well Interval (s):"))
+        self.qa_group.setTitle(self.tr("Spectral QA (SAM)"))
+        self.enable_sam_checkbox.setText(self.tr("Enable SAM QA"))
+        self.sam_threshold_label.setText(self.tr("SAM Threshold (deg):"))
 
         # 为新增的标签设置文本
         self.points_per_well_label.setText(self.tr("Points per Well:"))

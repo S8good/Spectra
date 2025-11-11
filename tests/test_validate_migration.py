@@ -106,7 +106,7 @@ def build_validation_db(tmp_path, latency_seconds: int = 0) -> Path:
     conn.execute("CREATE TABLE analysis_metrics (analysis_run_id INTEGER, metric_key TEXT, metric_value TEXT, unit TEXT, is_primary INTEGER)")
     conn.execute("CREATE TABLE experiment_versions (experiment_version_id INTEGER PRIMARY KEY, experiment_id INTEGER, version_no INTEGER, snapshot_json TEXT, created_at TEXT)")
     conn.execute("CREATE TABLE batch_runs (batch_run_id INTEGER PRIMARY KEY, project_id INTEGER, name TEXT, status TEXT, start_time TEXT, end_time TEXT)")
-    conn.execute("CREATE TABLE batch_run_items (item_id INTEGER PRIMARY KEY, batch_run_id INTEGER, position_label TEXT, sequence_no INTEGER, status TEXT, experiment_id INTEGER, capture_count INTEGER, last_captured_at TEXT)")
+    conn.execute("CREATE TABLE batch_run_items (item_id INTEGER PRIMARY KEY, batch_run_id INTEGER, position_label TEXT, sequence_no INTEGER, status TEXT, experiment_id INTEGER, capture_count INTEGER, last_captured_at TEXT, metadata_json TEXT)")
     conn.execute("CREATE VIEW legacy_spectrum_sets_view AS SELECT experiment_id, capture_label AS type, captured_at AS timestamp FROM spectrum_sets")
     conn.execute("CREATE VIEW legacy_analysis_runs_view AS SELECT experiment_id, analysis_type, started_at AS timestamp FROM analysis_runs")
 
