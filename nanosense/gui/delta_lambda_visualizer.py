@@ -1,9 +1,9 @@
 # nanosense/gui/delta_lambda_visualizer.py
 
+import math
 import os
 import re
 from datetime import datetime
-
 import numpy as np
 try:
     import pyqtgraph.opengl as gl
@@ -13,8 +13,8 @@ except ModuleNotFoundError as exc:  # Missing PyOpenGL backend
     gl = None
     GLMeshItem = GLAxisItem = None
     GL_IMPORT_ERROR = exc
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QCursor, QImage
+from PyQt5.QtCore import Qt, pyqtSignal, QPoint
+from PyQt5.QtGui import QCursor, QImage, QMatrix4x4, QVector3D, QVector4D
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
@@ -29,6 +29,9 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QToolTip,
     QVBoxLayout,
 )
 
@@ -40,6 +43,173 @@ try:  # Optional dependency for GIF export
     import imageio.v3 as iio
 except ImportError:
     iio = None
+
+
+class DeltaLambdaGLView(gl.GLViewWidget):
+    """Custom GL view adding right-button panning while keeping default rotation/zoom."""
+
+    hoverInfoChanged = pyqtSignal(object)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._pan_active = False
+        self._last_mouse_pos = None
+        self._bar_metadata = []
+        self.mousePos = QPoint()  # ensure pyqtgraph base class has an initial value
+        self.setMouseTracking(True)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.RightButton:
+            self._pan_active = True
+            self._last_mouse_pos = event.pos()
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+            self._emit_hover_info(event.pos())
+
+    def mouseMoveEvent(self, event):
+        if self._pan_active and event.buttons() & Qt.RightButton:
+            if self._last_mouse_pos is None:
+                self._last_mouse_pos = event.pos()
+            delta = event.pos() - self._last_mouse_pos
+            # Negative X delta pans scene to the right visually; adjust scaling to keep smooth
+            self.pan(-delta.x() * 0.02, delta.y() * 0.02, 0)
+            self._last_mouse_pos = event.pos()
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+            self._emit_hover_info(event.pos())
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.RightButton and self._pan_active:
+            self._pan_active = False
+            self._last_mouse_pos = None
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+            self._emit_hover_info(event.pos())
+
+    def set_bar_metadata(self, metadata):
+        self._bar_metadata = metadata or []
+
+    def _emit_hover_info(self, pos):
+        if not self._bar_metadata:
+            self.hoverInfoChanged.emit(None)
+            return
+        info = self._pick_bar(pos)
+        self.hoverInfoChanged.emit(info)
+
+    def _pick_bar(self, pos):
+        width = max(1, self.width())
+        height = max(1, self.height())
+
+        proj = QMatrix4x4()
+        aspect = width / float(height)
+        fov = float(self.opts.get("fov", 60.0))
+        near_clip = float(self.opts.get("nearClip", 0.1))
+        far_clip = float(self.opts.get("farClip", 10000.0))
+        proj.perspective(fov, aspect, near_clip, far_clip)
+
+        view = QMatrix4x4()
+        view.translate(0, 0, -self.opts["distance"])
+        view.rotate(self.opts["elevation"], 1, 0, 0)
+        view.rotate(self.opts["azimuth"], 0, 0, 1)
+        center = self.opts["center"]
+        cx = center.x() if hasattr(center, "x") else center[0]
+        cy = center.y() if hasattr(center, "y") else center[1]
+        cz = center.z() if hasattr(center, "z") else center[2]
+        view.translate(-cx, -cy, -cz)
+
+        mvp = proj * view
+        inv_mvp, invertible = mvp.inverted()
+        if not invertible:
+            return None
+
+        def to_vec3(vec4):
+            w = vec4.w()
+            if w == 0:
+                return QVector3D(vec4.x(), vec4.y(), vec4.z())
+            return QVector3D(vec4.x() / w, vec4.y() / w, vec4.z() / w)
+
+        def screen_to_world(depth):
+            ndc_x = (2.0 * pos.x() / width) - 1.0
+            ndc_y = 1.0 - (2.0 * pos.y() / height)
+            clip_point = QVector4D(ndc_x, ndc_y, depth, 1.0)
+            world_point = inv_mvp * clip_point
+            return to_vec3(world_point)
+
+        near_point = screen_to_world(-1.0)
+        far_point = screen_to_world(1.0)
+        direction_vec = (far_point - near_point)
+        if math.isclose(direction_vec.lengthSquared(), 0.0, abs_tol=1e-9):
+            return None
+        direction = direction_vec.normalized()
+
+        def project_point(point):
+            vec = QVector4D(point, 1.0)
+            clip = proj * (view * vec)
+            if clip.w() == 0:
+                return None
+            ndc_x = clip.x() / clip.w()
+            ndc_y = clip.y() / clip.w()
+            screen_x = (ndc_x * 0.5 + 0.5) * width
+            screen_y = (1 - (ndc_y * 0.5 + 0.5)) * height
+            return screen_x, screen_y
+
+        def ray_aabb_distance(center_vec, extent):
+            ex, ey, ez = extent
+            min_corner = QVector3D(center_vec.x() - ex, center_vec.y() - ey, center_vec.z() - ez)
+            max_corner = QVector3D(center_vec.x() + ex, center_vec.y() + ey, center_vec.z() + ez)
+
+            t_min = -float("inf")
+            t_max = float("inf")
+
+            for axis in ("x", "y", "z"):
+                origin_val = getattr(near_point, axis)()
+                dir_val = getattr(direction, axis)()
+                min_val = getattr(min_corner, axis)()
+                max_val = getattr(max_corner, axis)()
+
+                if math.isclose(dir_val, 0.0, abs_tol=1e-9):
+                    if origin_val < min_val or origin_val > max_val:
+                        return None
+                    continue
+
+                inv_dir = 1.0 / dir_val
+                t1 = (min_val - origin_val) / dir_val
+                t2 = (max_val - origin_val) / dir_val
+                if t1 > t2:
+                    t1, t2 = t2, t1
+                t_min = max(t_min, t1)
+                t_max = min(t_max, t2)
+                if t_max < t_min:
+                    return None
+
+            if t_max < 0:
+                return None
+            return t_min if t_min >= 0 else t_max
+
+        best = None
+        best_dist = float("inf")
+
+        for meta in self._bar_metadata:
+            center_vec = meta.get("center")
+            extent = meta.get("extent")
+            if center_vec is None or extent is None:
+                continue
+            distance = ray_aabb_distance(center_vec, extent)
+            if distance is None or distance >= best_dist:
+                continue
+            best_dist = distance
+            best = dict(meta)
+            projection = project_point(center_vec)
+            if projection is not None:
+                best["widget_pos"] = QPoint(int(projection[0]), int(projection[1]))
+            else:
+                best["widget_pos"] = QPoint(int(pos.x()), int(pos.y()))
+            best["cursor_pos"] = self.mapToGlobal(pos)
+
+        return best
 
 
 class DeltaLambdaVisualizationDialog(QDialog):
@@ -58,6 +228,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
             ) from GL_IMPORT_ERROR
         self.setWindowTitle(self.tr("Δλ Visualization"))
         self.resize(1000, 720)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint | Qt.WindowMinimizeButtonHint)
 
         self.preprocessing_params = preprocessing_params or {}
         self.app_settings = app_settings or {}
@@ -69,6 +240,8 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.row_labels = []
         self.col_labels = []
         self.layout_is_plate = False
+        self.label_grid = None
+        self.table_row_lookup = {}
         self.bar_items = []
         self.grid_item = None
         self.axis_item = None
@@ -85,8 +258,11 @@ class DeltaLambdaVisualizationDialog(QDialog):
     def _build_ui(self):
         layout = QVBoxLayout(self)
 
-        folder_group = QGroupBox(self.tr("Input Folder (two batch files required)"))
-        folder_layout = QVBoxLayout(folder_group)
+        top_split = QHBoxLayout()
+        left_panel = QVBoxLayout()
+
+        self.folder_group = QGroupBox(self.tr("Input Folder (two batch files required)"))
+        folder_layout = QVBoxLayout(self.folder_group)
 
         folder_row = QHBoxLayout()
         self.folder_label = QLabel(self.tr("No folder selected."))
@@ -105,10 +281,10 @@ class DeltaLambdaVisualizationDialog(QDialog):
 
         self.compute_button = QPushButton(self.tr("Load && Compute Δλ"))
         folder_layout.addWidget(self.compute_button)
-        layout.addWidget(folder_group)
+        left_panel.addWidget(self.folder_group)
 
-        meta_group = QGroupBox(self.tr("Metadata & Export Settings"))
-        meta_layout = QFormLayout(meta_group)
+        self.meta_group = QGroupBox(self.tr("Metadata & Export Settings"))
+        meta_layout = QFormLayout(self.meta_group)
         self.plate_id_edit = QLineEdit()
         meta_layout.addRow(self.tr("Plate ID (for filenames):"), self.plate_id_edit)
 
@@ -122,10 +298,12 @@ class DeltaLambdaVisualizationDialog(QDialog):
         png_row.addWidget(self.export_view_button)
         meta_layout.addRow(self.tr("Interactive PNG:"), png_row)
 
-        mpl_row = QHBoxLayout()
+        export_row = QHBoxLayout()
         self.export_matplotlib_button = QPushButton(self.tr("Export Matplotlib PNG"))
-        mpl_row.addWidget(self.export_matplotlib_button)
-        meta_layout.addRow(self.tr("High-quality PNG:"), mpl_row)
+        export_row.addWidget(self.export_matplotlib_button)
+        self.export_table_button = QPushButton(self.tr("Export Δλ Table"))
+        export_row.addWidget(self.export_table_button)
+        meta_layout.addRow(self.tr("High-quality PNG / Data:"), export_row)
 
         gif_row = QHBoxLayout()
         self.gif_step_spinbox = QSpinBox()
@@ -144,18 +322,49 @@ class DeltaLambdaVisualizationDialog(QDialog):
         gif_row.addWidget(self.export_gif_button)
         meta_layout.addRow(self.tr("GIF Export (optional):"), gif_row)
 
-        layout.addWidget(meta_group)
+        left_panel.addWidget(self.meta_group)
+        top_split.addLayout(left_panel, 2)
 
-        self.gl_view = gl.GLViewWidget()
+        self.point_table = QTableWidget(0, 2)
+        self.point_table.setHorizontalHeaderLabels([self.tr("Point"), self.tr("Δλ (nm)")])
+        self.point_table.verticalHeader().setVisible(False)
+        self.point_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.point_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.point_table.setSelectionMode(QTableWidget.SingleSelection)
+        self.point_table.horizontalHeader().setStretchLastSection(True)
+        self.point_table.setMinimumWidth(220)
+
+        self.table_container = QVBoxLayout()
+        self.point_table_label = QLabel(self.tr("Point Δλ Summary"))
+        self.table_container.addWidget(self.point_table_label)
+        self.table_container.addWidget(self.point_table)
+        top_split.addLayout(self.table_container, 1)
+
+        layout.addLayout(top_split)
+
+        self.gl_view = DeltaLambdaGLView()
         self.gl_view.setBackgroundColor(20, 20, 20)
         self.gl_view.opts["distance"] = 60
+        self.gl_view.setMinimumHeight(320)
+        self.hover_overlay_label = QLabel(self.gl_view)
+        self.hover_overlay_label.setStyleSheet(
+            "background-color: rgba(0, 0, 0, 180); color: #FFEE58; padding: 3px 6px; border-radius: 4px;"
+        )
+        self.hover_overlay_label.hide()
         layout.addWidget(self.gl_view, 1)
 
-        status_row = QHBoxLayout()
+        footer_row = QHBoxLayout()
+        footer_left = QVBoxLayout()
+        self.toggle_view_button = QPushButton(self.tr("Expand 3D View"))
+        self.toggle_view_button.setCheckable(True)
+        footer_left.addWidget(self.toggle_view_button, alignment=Qt.AlignLeft)
         self.summary_label = QLabel(self.tr("Δλ surface not generated yet."))
         self.summary_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        status_row.addWidget(self.summary_label, 1)
-        layout.addLayout(status_row)
+        footer_left.addWidget(self.summary_label)
+        self.hover_label = QLabel(self.tr("Hover a bar to see details."))
+        footer_left.addWidget(self.hover_label)
+        footer_row.addLayout(footer_left, 1)
+        layout.addLayout(footer_row)
 
     def _connect_signals(self):
         self.select_folder_button.clicked.connect(self._select_folder)
@@ -163,6 +372,9 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.export_view_button.clicked.connect(self._export_png)
         self.export_matplotlib_button.clicked.connect(self._export_matplotlib_png)
         self.export_gif_button.clicked.connect(self._export_gif)
+        self.export_table_button.clicked.connect(self._export_delta_table)
+        self.toggle_view_button.toggled.connect(self._toggle_expanded_view)
+        self.gl_view.hoverInfoChanged.connect(self._on_hover_info)
 
     def _update_controls_state(self):
         has_folder = bool(self.folder_path and len(self.available_files) >= 2)
@@ -171,6 +383,44 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.export_view_button.setEnabled(has_data)
         self.export_matplotlib_button.setEnabled(has_data)
         self.export_gif_button.setEnabled(has_data)
+
+    def _toggle_expanded_view(self, checked):
+        self.folder_group.setVisible(not checked)
+        self.meta_group.setVisible(not checked)
+        self.point_table_label.setVisible(not checked)
+        self.point_table.setVisible(not checked)
+        self.toggle_view_button.setText(
+            self.tr("Exit Expanded View") if checked else self.tr("Expand 3D View")
+        )
+        self.gl_view.setMinimumHeight(600 if checked else 320)
+        if checked:
+            self.resize(self.width(), max(self.height(), 720))
+
+    def _on_hover_info(self, info):
+        if not info:
+            QToolTip.hideText()
+            self.hover_label.setText(self.tr("Hover a bar to see details."))
+            self.point_table.clearSelection()
+            self.hover_overlay_label.hide()
+            return
+        text = f"{info['label']}: {info['delta']:.3f} nm"
+        self.hover_label.setText(text)
+        widget_pos = info.get("widget_pos")
+        if widget_pos:
+            local_pt = widget_pos + QPoint(12, -12)
+            self.hover_overlay_label.setText(text)
+            self.hover_overlay_label.adjustSize()
+            x = max(0, min(self.gl_view.width() - self.hover_overlay_label.width(), local_pt.x()))
+            y = max(0, min(self.gl_view.height() - self.hover_overlay_label.height(), local_pt.y()))
+            self.hover_overlay_label.move(x, y)
+            self.hover_overlay_label.show()
+        else:
+            self.hover_overlay_label.hide()
+        if "cursor_pos" in info:
+            QToolTip.showText(info["cursor_pos"], text, self.gl_view)
+        row = self.table_row_lookup.get(info["label"])
+        if row is not None:
+            self.point_table.selectRow(row)
 
     # ------------------------------------------------------------ Workflow ---
     def _select_folder(self):
@@ -277,7 +527,13 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 delta_map[key] = delta
 
             self.delta_map = delta_map
-            self.row_labels, self.col_labels, grid, self.layout_is_plate = self._build_delta_grid(delta_map)
+            (
+                self.row_labels,
+                self.col_labels,
+                grid,
+                self.layout_is_plate,
+                self.label_grid,
+            ) = self._build_delta_grid(delta_map)
             if grid is None:
                 QMessageBox.warning(
                     self,
@@ -288,6 +544,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
 
             self.delta_grid = grid
             self._render_surface()
+            self._populate_point_table()
             stats_text = self._format_stats_text(delta_map, warnings)
             self.summary_label.setText(stats_text)
 
@@ -393,7 +650,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
 
     def _build_delta_grid(self, delta_map):
         if not delta_map:
-            return [], [], None, False
+            return [], [], None, False, None
 
         row_indices = {}
         col_indices = {}
@@ -412,6 +669,8 @@ class DeltaLambdaVisualizationDialog(QDialog):
             rows = sorted(row_indices.keys(), key=lambda k: (len(k), k))
             cols = sorted(col_indices.keys(), key=lambda k: (int(k), k))
             grid = np.full((len(rows), len(cols)), np.nan, dtype=np.float32)
+            label_grid = np.empty((len(rows), len(cols)), dtype=object)
+            label_grid[:] = None
             for label, value in delta_map.items():
                 if label not in placements:
                     continue
@@ -419,7 +678,8 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 r_idx = rows.index(row_label)
                 c_idx = cols.index(col_label)
                 grid[r_idx, c_idx] = value
-            return rows, cols, grid, True
+                label_grid[r_idx, c_idx] = label
+            return rows, cols, grid, True, label_grid
 
         # Fallback: auto tile values in a near-square grid
         values = list(delta_map.items())
@@ -427,14 +687,17 @@ class DeltaLambdaVisualizationDialog(QDialog):
         cols = int(np.ceil(np.sqrt(count)))
         rows = int(np.ceil(count / cols))
         grid = np.full((rows, cols), np.nan, dtype=np.float32)
-        for idx, (_, value) in enumerate(values):
+        label_grid = np.empty((rows, cols), dtype=object)
+        label_grid[:] = None
+        for idx, (label, value) in enumerate(values):
             r = idx // cols
             c = idx % cols
             grid[r, c] = value
+            label_grid[r, c] = label
 
         row_labels = [str(i + 1) for i in range(rows)]
         col_labels = [str(i + 1) for i in range(cols)]
-        return row_labels, col_labels, grid, False
+        return row_labels, col_labels, grid, False, label_grid
 
     @staticmethod
     def _parse_well_position(label):
@@ -466,27 +729,74 @@ class DeltaLambdaVisualizationDialog(QDialog):
         if rows == 0 or cols == 0:
             return
 
-        bar_heights = np.clip(np.nan_to_num(self.delta_grid, nan=0.0), 0.0, None)
-        x_coords, y_coords = np.meshgrid(np.arange(1, cols + 1, dtype=np.float32),
-                                         np.arange(1, rows + 1, dtype=np.float32))
+        raw_matrix = np.nan_to_num(self.delta_grid, nan=0.0)
+        bar_heights = np.abs(raw_matrix)
+        raw_values_flat = raw_matrix.flatten()
+        label_flat = self.label_grid.flatten() if self.label_grid is not None else [None] * raw_values_flat.size
+        x_coords, y_coords = np.meshgrid(
+            np.arange(1, cols + 1, dtype=np.float32),
+            np.arange(1, rows + 1, dtype=np.float32),
+        )
         heights_flat = bar_heights.flatten()
-        colors = self._build_bar_colors(heights_flat)
+        colors = self._build_bar_colors(raw_values_flat)
 
-        cube_mesh = gl.MeshData(np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0],
-                                          [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]], dtype=np.float32),
-                                np.array([[0, 1, 2], [1, 3, 2],
-                                          [4, 5, 6], [5, 7, 6],
-                                          [0, 1, 4], [1, 5, 4],
-                                          [2, 3, 6], [3, 7, 6],
-                                          [0, 2, 4], [2, 6, 4],
-                                          [1, 3, 5], [3, 7, 5]], dtype=np.uint32))
+        vertices = np.array(
+            [
+                [-0.5, -0.5, -0.5],
+                [0.5, -0.5, -0.5],
+                [-0.5, 0.5, -0.5],
+                [0.5, 0.5, -0.5],
+                [-0.5, -0.5, 0.5],
+                [0.5, -0.5, 0.5],
+                [-0.5, 0.5, 0.5],
+                [0.5, 0.5, 0.5],
+            ],
+            dtype=np.float32,
+        )
+        faces = np.array(
+            [
+                [0, 1, 2],
+                [1, 3, 2],
+                [4, 5, 6],
+                [5, 7, 6],
+                [0, 1, 4],
+                [1, 5, 4],
+                [2, 3, 6],
+                [3, 7, 6],
+                [0, 2, 4],
+                [2, 6, 4],
+                [1, 3, 5],
+                [3, 7, 5],
+            ],
+            dtype=np.uint32,
+        )
+        cube_mesh = gl.MeshData(vertices, faces)
         self.bar_items = []
-        for (x, y, height, color) in zip(x_coords.flatten(), y_coords.flatten(), heights_flat, colors):
+        metadata = []
+        for idx, (x, y, magnitude, color, label) in enumerate(
+            zip(x_coords.flatten(), y_coords.flatten(), heights_flat, colors, label_flat)
+        ):
+            if label is None or idx >= raw_values_flat.size:
+                continue
+            raw_value = raw_values_flat[idx]
+            if np.isnan(raw_value):
+                continue
             mesh = GLMeshItem(meshdata=cube_mesh, smooth=False, color=color, shader="shaded", glOptions="opaque")
-            mesh.scale(0.8, 0.8, height if height > 0 else 0.01)
-            mesh.translate(x, y, (height if height > 0 else 0.01) / 2.0)
+            effective_height = max(magnitude, 0.02)
+            mesh.scale(0.8, 0.8, effective_height)
+            z_offset = effective_height / 2.0 if raw_value >= 0 else -effective_height / 2.0
+            mesh.translate(x, y, z_offset)
             self.gl_view.addItem(mesh)
             self.bar_items.append(mesh)
+            metadata.append(
+                {
+                    "label": label,
+                    "delta": float(raw_value),
+                    "center": QVector3D(float(x), float(y), float(z_offset)),
+                    "extent": (0.4, 0.4, effective_height / 2.0),
+                }
+            )
+        self.gl_view.set_bar_metadata(metadata)
 
         self.grid_item = gl.GLGridItem()
         self.grid_item.setSize(cols + 1, rows + 1, 0.1)
@@ -505,17 +815,22 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.gl_view.opts["azimuth"] = 45
 
     @staticmethod
-    def _build_bar_colors(heights):
-        if heights.size == 0:
+    def _build_bar_colors(values):
+        if values.size == 0:
             return np.zeros((0, 4), dtype=np.float32)
-        max_val = float(np.max(heights))
-        if max_val <= 0:
-            return np.tile(np.array([[0.95, 0.95, 0.95, 0.9]], dtype=np.float32), (heights.size, 1))
-        norm = heights / max_val
-        base = np.array([0.98, 0.74, 0.20, 0.95], dtype=np.float32)  # amber
-        highlight = np.array([1.0, 0.93, 0.60, 0.98], dtype=np.float32)
-        colors = base + (highlight - base) * norm[:, None]
-        return colors.astype(np.float32)
+        max_abs = float(np.max(np.abs(values)))
+        if max_abs <= 0:
+            return np.tile(np.array([[0.8, 0.8, 0.8, 0.95]], dtype=np.float32), (values.size, 1))
+        norm = np.abs(values) / max_abs
+        pos_base = np.array([0.98, 0.74, 0.20, 0.95], dtype=np.float32)
+        pos_high = np.array([1.0, 0.93, 0.60, 0.98], dtype=np.float32)
+        neg_base = np.array([0.35, 0.54, 0.96, 0.95], dtype=np.float32)
+        neg_high = np.array([0.63, 0.80, 0.98, 0.98], dtype=np.float32)
+        colors = np.zeros((values.size, 4), dtype=np.float32)
+        pos_mask = values >= 0
+        colors[pos_mask] = pos_base + (pos_high - pos_base) * norm[pos_mask][:, None]
+        colors[~pos_mask] = neg_base + (neg_high - neg_base) * norm[~pos_mask][:, None]
+        return colors
 
     def _format_stats_text(self, delta_map, warnings):
         values = np.array(list(delta_map.values()), dtype=np.float64)
@@ -528,13 +843,24 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 np.min(finite_values),
                 np.max(finite_values),
             )
-        if self._negative_values_present:
-            stats += " · " + self.tr("Negative shifts were clipped to 0 in the surface view.")
         if not self.layout_is_plate:
             stats += " · " + self.tr("Layout auto-arranged (row/column labels inferred).")
         if warnings:
             stats += " · " + " | ".join(warnings)
         return stats
+
+    def _populate_point_table(self):
+        sorted_items = sorted(self.delta_map.items())
+        self.point_table.setRowCount(len(sorted_items))
+        self.table_row_lookup = {}
+        for row, (label, value) in enumerate(sorted_items):
+            label_item = QTableWidgetItem(label)
+            value_text = "" if np.isnan(value) else f"{value:.3f}"
+            value_item = QTableWidgetItem(value_text)
+            self.point_table.setItem(row, 0, label_item)
+            self.point_table.setItem(row, 1, value_item)
+            self.table_row_lookup[label] = row
+        self.point_table.resizeColumnsToContents()
 
     # --------------------------------------------------------------- Export ---
     def _export_png(self):
@@ -634,6 +960,34 @@ class DeltaLambdaVisualizationDialog(QDialog):
         finally:
             plt.close(fig)
 
+    def _export_delta_table(self):
+        if not self.delta_map:
+            QMessageBox.information(self, self.tr("Info"), self.tr("No Δλ data to export."))
+            return
+
+        plate_id = self.plate_id_edit.text().strip() or "plate"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_name = f"{timestamp}_{plate_id}_delta_lambda_table.csv"
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export Δλ Table"),
+            os.path.join(self.folder_path or os.path.expanduser("~"), default_name),
+            "CSV Files (*.csv)",
+        )
+        if not path:
+            return
+
+        try:
+            lines = ["Point,DeltaLambda_nm"]
+            for label, value in sorted(self.delta_map.items()):
+                val_text = "" if np.isnan(value) else f"{value:.6f}"
+                lines.append(f"{label},{val_text}")
+            with open(path, "w", encoding="utf-8") as fptr:
+                fptr.write("\n".join(lines))
+            QMessageBox.information(self, self.tr("Done"), self.tr("Δλ table exported:\n{0}").format(path))
+        except Exception as exc:
+            QMessageBox.critical(self, self.tr("Export Error"), str(exc))
+
     def _export_gif(self):
         if self.delta_grid is None:
             QMessageBox.information(self, self.tr("Info"), self.tr("Please generate the Δλ surface first."))
@@ -701,3 +1055,4 @@ class DeltaLambdaVisualizationDialog(QDialog):
             if key in self.gl_view.opts:
                 self.gl_view.opts[key] = value
         self.gl_view.update()
+
