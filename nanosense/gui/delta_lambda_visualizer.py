@@ -7,9 +7,11 @@ from datetime import datetime
 import numpy as np
 try:
     import pyqtgraph.opengl as gl
+    from pyqtgraph.opengl import GLMeshItem, GLAxisItem
     GL_IMPORT_ERROR = None
 except ModuleNotFoundError as exc:  # Missing PyOpenGL backend
     gl = None
+    GLMeshItem = GLAxisItem = None
     GL_IMPORT_ERROR = exc
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QCursor, QImage
@@ -67,8 +69,9 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.row_labels = []
         self.col_labels = []
         self.layout_is_plate = False
-        self.surface_item = None
+        self.bar_items = []
         self.grid_item = None
+        self.axis_item = None
         self.plate_id = ""
         self._negative_values_present = False
 
@@ -115,9 +118,14 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.dpi_spinbox.setValue(220)
         self.dpi_spinbox.setSuffix(" dpi")
         png_row.addWidget(self.dpi_spinbox)
-        self.export_png_button = QPushButton(self.tr("Export PNG Snapshot"))
-        png_row.addWidget(self.export_png_button)
-        meta_layout.addRow(self.tr("PNG Export:"), png_row)
+        self.export_view_button = QPushButton(self.tr("Export View PNG"))
+        png_row.addWidget(self.export_view_button)
+        meta_layout.addRow(self.tr("Interactive PNG:"), png_row)
+
+        mpl_row = QHBoxLayout()
+        self.export_matplotlib_button = QPushButton(self.tr("Export Matplotlib PNG"))
+        mpl_row.addWidget(self.export_matplotlib_button)
+        meta_layout.addRow(self.tr("High-quality PNG:"), mpl_row)
 
         gif_row = QHBoxLayout()
         self.gif_step_spinbox = QSpinBox()
@@ -152,14 +160,16 @@ class DeltaLambdaVisualizationDialog(QDialog):
     def _connect_signals(self):
         self.select_folder_button.clicked.connect(self._select_folder)
         self.compute_button.clicked.connect(self._load_and_visualize)
-        self.export_png_button.clicked.connect(self._export_png)
+        self.export_view_button.clicked.connect(self._export_png)
+        self.export_matplotlib_button.clicked.connect(self._export_matplotlib_png)
         self.export_gif_button.clicked.connect(self._export_gif)
 
     def _update_controls_state(self):
         has_folder = bool(self.folder_path and len(self.available_files) >= 2)
         has_data = self.delta_grid is not None
         self.compute_button.setEnabled(has_folder)
-        self.export_png_button.setEnabled(has_data)
+        self.export_view_button.setEnabled(has_data)
+        self.export_matplotlib_button.setEnabled(has_data)
         self.export_gif_button.setEnabled(has_data)
 
     # ------------------------------------------------------------ Workflow ---
@@ -298,6 +308,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
             raise ValueError(error)
 
         wavelengths = np.asarray(wavelengths, dtype=np.float64)
+        spectra_df = self._normalize_measurement_columns(spectra_df)
         peaks = {}
 
         wl_start = self.app_settings.get("analysis_wl_start", 450.0)
@@ -344,6 +355,41 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 peaks[str(col)] = float(sub_wl[peak_idx])
 
         return peaks
+
+    def _normalize_measurement_columns(self, df):
+        """
+        Drop instrument metadata columns (e.g., LightBK) and rename numeric-only
+        columns to Point_### so that baseline/post files can align automatically.
+        """
+        metadata_names = {"lightbk", "samplebk", "lightsource", "work", "dark", "light", "reference"}
+        kept_columns = []
+        renamed = []
+        sequential_idx = 1
+
+        for col in df.columns:
+            name_str = str(col).strip()
+            lower_name = name_str.lower()
+            if lower_name in metadata_names:
+                continue
+
+            kept_columns.append(col)
+            if re.fullmatch(r"\d{1,3}", name_str):
+                new_name = f"Point_{int(name_str):03d}"
+            elif lower_name.startswith("point"):
+                new_name = name_str
+            elif re.search(r"[A-Za-z]", name_str):
+                new_name = name_str
+            else:
+                new_name = f"Point_{sequential_idx:03d}"
+            renamed.append(new_name)
+            sequential_idx += 1
+
+        if not kept_columns:
+            raise ValueError("No measurement columns detected after removing metadata columns.")
+
+        cleaned = df[kept_columns].copy()
+        cleaned.columns = renamed
+        return cleaned
 
     def _build_delta_grid(self, delta_map):
         if not delta_map:
@@ -404,46 +450,72 @@ class DeltaLambdaVisualizationDialog(QDialog):
         return row, col
 
     def _render_surface(self):
-        if self.surface_item:
-            self.gl_view.removeItem(self.surface_item)
-            self.surface_item = None
+        if self.bar_items:
+            for item in self.bar_items:
+                self.gl_view.removeItem(item)
+            self.bar_items.clear()
         if self.grid_item:
             self.gl_view.removeItem(self.grid_item)
             self.grid_item = None
+        if self.axis_item:
+            self.gl_view.removeItem(self.axis_item)
+            self.axis_item = None
 
         rows = len(self.row_labels)
         cols = len(self.col_labels)
         if rows == 0 or cols == 0:
             return
 
-        X, Y = np.meshgrid(
-            np.arange(1, cols + 1, dtype=np.float32),
-            np.arange(1, rows + 1, dtype=np.float32),
-        )
-        z = np.nan_to_num(self.delta_grid, nan=0.0)
-        z = np.clip(z, 0.0, None)
+        bar_heights = np.clip(np.nan_to_num(self.delta_grid, nan=0.0), 0.0, None)
+        x_coords, y_coords = np.meshgrid(np.arange(1, cols + 1, dtype=np.float32),
+                                         np.arange(1, rows + 1, dtype=np.float32))
+        heights_flat = bar_heights.flatten()
+        colors = self._build_bar_colors(heights_flat)
 
-        self.surface_item = gl.GLSurfacePlotItem(
-            x=X,
-            y=Y,
-            z=z,
-            shader="heightColor",
-            computeNormals=False,
-            smooth=False,
-        )
-        self.surface_item.setGLOptions("translucent")
-        self.gl_view.addItem(self.surface_item)
+        cube_mesh = gl.MeshData(np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0],
+                                          [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]], dtype=np.float32),
+                                np.array([[0, 1, 2], [1, 3, 2],
+                                          [4, 5, 6], [5, 7, 6],
+                                          [0, 1, 4], [1, 5, 4],
+                                          [2, 3, 6], [3, 7, 6],
+                                          [0, 2, 4], [2, 6, 4],
+                                          [1, 3, 5], [3, 7, 5]], dtype=np.uint32))
+        self.bar_items = []
+        for (x, y, height, color) in zip(x_coords.flatten(), y_coords.flatten(), heights_flat, colors):
+            mesh = GLMeshItem(meshdata=cube_mesh, smooth=False, color=color, shader="shaded", glOptions="opaque")
+            mesh.scale(0.8, 0.8, height if height > 0 else 0.01)
+            mesh.translate(x, y, (height if height > 0 else 0.01) / 2.0)
+            self.gl_view.addItem(mesh)
+            self.bar_items.append(mesh)
 
         self.grid_item = gl.GLGridItem()
-        self.grid_item.setSize(cols + 2, rows + 2, 0.1)
+        self.grid_item.setSize(cols + 1, rows + 1, 0.1)
         self.grid_item.setSpacing(1, 1, 1)
-        self.grid_item.translate((cols + 2) / 2, (rows + 2) / 2, 0)
+        self.grid_item.translate((cols + 1) / 2, (rows + 1) / 2, 0)
         self.gl_view.addItem(self.grid_item)
 
-        max_extent = max(rows, cols)
-        self.gl_view.opts["distance"] = max_extent * 2.5
+        z_extent = max(float(np.nanmax(bar_heights)), 0.2)
+        self.axis_item = GLAxisItem()
+        self.axis_item.setSize(cols + 1, rows + 1, z_extent * 1.2)
+        self.gl_view.addItem(self.axis_item)
+
+        max_extent = max(rows, cols, z_extent)
+        self.gl_view.opts["distance"] = max_extent * 3.0
         self.gl_view.opts["elevation"] = 30
         self.gl_view.opts["azimuth"] = 45
+
+    @staticmethod
+    def _build_bar_colors(heights):
+        if heights.size == 0:
+            return np.zeros((0, 4), dtype=np.float32)
+        max_val = float(np.max(heights))
+        if max_val <= 0:
+            return np.tile(np.array([[0.95, 0.95, 0.95, 0.9]], dtype=np.float32), (heights.size, 1))
+        norm = heights / max_val
+        base = np.array([0.98, 0.74, 0.20, 0.95], dtype=np.float32)  # amber
+        highlight = np.array([1.0, 0.93, 0.60, 0.98], dtype=np.float32)
+        colors = base + (highlight - base) * norm[:, None]
+        return colors.astype(np.float32)
 
     def _format_stats_text(self, delta_map, warnings):
         values = np.array(list(delta_map.values()), dtype=np.float64)
@@ -495,6 +567,72 @@ class DeltaLambdaVisualizationDialog(QDialog):
             QMessageBox.warning(self, self.tr("Export Error"), self.tr("Failed to save PNG file."))
             return
         QMessageBox.information(self, self.tr("Done"), self.tr("PNG snapshot saved:\n{0}").format(path))
+
+    def _export_matplotlib_png(self):
+        if self.delta_grid is None:
+            QMessageBox.information(self, self.tr("Info"), self.tr("Please generate the Δλ surface first."))
+            return
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+            from mpl_toolkits.mplot3d import Axes3D  # pylint: disable=unused-import,import-error
+        except ImportError as exc:  # pragma: no cover
+            QMessageBox.warning(
+                self,
+                self.tr("Dependency Missing"),
+                self.tr("Matplotlib is required for high-quality export: {0}").format(str(exc)),
+            )
+            return
+
+        plate_id = self.plate_id_edit.text().strip() or "plate"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_name = f"{timestamp}_{plate_id}_delta_lambda_matplotlib.png"
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Save Matplotlib PNG"),
+            os.path.join(self.folder_path or os.path.expanduser("~"), default_name),
+            "PNG Files (*.png)",
+        )
+        if not path:
+            return
+
+        z_matrix = np.clip(np.nan_to_num(self.delta_grid, nan=0.0), 0.0, None)
+        rows, cols = z_matrix.shape
+        xpos, ypos = np.meshgrid(np.arange(cols), np.arange(rows))
+        xpos = xpos.flatten()
+        ypos = ypos.flatten()
+        zpos = np.zeros_like(xpos)
+        dx = dy = 0.8
+        dz = z_matrix.flatten()
+        max_val = float(np.max(dz)) if dz.size else 1.0
+        norm = dz / max_val if max_val > 0 else np.zeros_like(dz)
+        cmap = plt.get_cmap("YlOrBr")
+        colors = cmap(norm)
+
+        fig = plt.figure(figsize=(8, 6), dpi=self.dpi_spinbox.value())
+        ax = fig.add_subplot(111, projection="3d")
+        ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, zsort="average")
+
+        ax.set_title(f"Δλ 3D Map — {plate_id}")
+        ax.set_xlabel(self.tr("Column (x)"))
+        ax.set_ylabel(self.tr("Row (y)"))
+        ax.set_zlabel(self.tr("Δλ (nm)"))
+        ax.set_xticks(np.arange(cols) + dx / 2)
+        ax.set_xticklabels(self.col_labels or [str(i + 1) for i in range(cols)])
+        ax.set_yticks(np.arange(rows) + dy / 2)
+        ax.set_yticklabels(self.row_labels or [str(i + 1) for i in range(rows)])
+        ax.set_zlim(0, max(0.1, float(np.max(dz)) * 1.2 if dz.size else 1.0))
+        ax.view_init(elev=25, azim=-60)
+        ax.grid(True, linestyle=":", color="#B0BEC5", alpha=0.6)
+
+        try:
+            fig.savefig(path, dpi=self.dpi_spinbox.value(), bbox_inches="tight")
+            QMessageBox.information(self, self.tr("Done"), self.tr("Matplotlib PNG saved:\n{0}").format(path))
+        except Exception as exc:  # pragma: no cover
+            QMessageBox.critical(self, self.tr("Export Error"), str(exc))
+        finally:
+            plt.close(fig)
 
     def _export_gif(self):
         if self.delta_grid is None:
