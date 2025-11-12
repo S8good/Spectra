@@ -1032,7 +1032,23 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 QMessageBox.warning(self, self.tr("Export Error"), self.tr("Failed to capture any frames."))
                 return
 
-            iio.mimsave(path, frames, duration=delay, loop=0)
+            saver = getattr(iio, "mimsave", None)
+            if saver is None:  # imageio.v3 drops mimsave; fall back to v2 API if available
+                try:
+                    import imageio
+
+                    saver = getattr(imageio, "mimsave", None)
+                except ImportError:  # pragma: no cover - extremely unlikely
+                    saver = None
+            if saver is None:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Export Error"),
+                    self.tr("Installed imageio package does not provide GIF saving (`mimsave`)."),
+                )
+                return
+
+            saver(path, frames, duration=delay, loop=0)
             QMessageBox.information(self, self.tr("Done"), self.tr("GIF saved:\n{0}").format(path))
         except Exception as exc:  # pylint: disable=broad-except
             QMessageBox.critical(self, self.tr("Export Error"), str(exc))
@@ -1055,4 +1071,3 @@ class DeltaLambdaVisualizationDialog(QDialog):
             if key in self.gl_view.opts:
                 self.gl_view.opts[key] = value
         self.gl_view.update()
-
