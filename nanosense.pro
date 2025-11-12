@@ -18,6 +18,7 @@ SOURCES = main.py \
           nanosense/gui/data_analysis_dialog.py \
           nanosense/gui/database_explorer.py \
           nanosense/gui/drift_correction_dialog.py \
+          nanosense/gui/delta_lambda_visualizer.py \
           nanosense/gui/kinetics_analysis_dialog.py \
           nanosense/gui/kinetics_window.py \
           nanosense/gui/kobs_linearization_dialog.py \

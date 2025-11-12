@@ -247,6 +247,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.axis_item = None
         self.plate_id = ""
         self._negative_values_present = False
+        self._default_camera_opts = {}
 
         self._build_ui()
         self._connect_signals()
@@ -813,6 +814,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.gl_view.opts["distance"] = max_extent * 3.0
         self.gl_view.opts["elevation"] = 30
         self.gl_view.opts["azimuth"] = 45
+        self._default_camera_opts = self._snapshot_camera_opts()
 
     @staticmethod
     def _build_bar_colors(values):
@@ -880,7 +882,12 @@ class DeltaLambdaVisualizationDialog(QDialog):
         if not path:
             return
 
+        original_opts = self._snapshot_camera_opts()
+        self._apply_default_camera_view()
+        self.gl_view.update()
+        QApplication.processEvents()
         image = self.gl_view.readQImage()
+        self._restore_camera(original_opts)
         if image.isNull():
             QMessageBox.warning(self, self.tr("Export Error"), self.tr("Unable to capture the current view."))
             return
@@ -901,6 +908,8 @@ class DeltaLambdaVisualizationDialog(QDialog):
         try:
             import matplotlib
             matplotlib.use("Agg")
+            matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "DejaVu Sans"]
+            matplotlib.rcParams["axes.unicode_minus"] = False
             import matplotlib.pyplot as plt
             from mpl_toolkits.mplot3d import Axes3D  # pylint: disable=unused-import,import-error
         except ImportError as exc:  # pragma: no cover
@@ -940,10 +949,10 @@ class DeltaLambdaVisualizationDialog(QDialog):
         ax = fig.add_subplot(111, projection="3d")
         ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, zsort="average")
 
-        ax.set_title(f"Δλ 3D Map — {plate_id}")
+        ax.set_title(f"\u0394\u03bb 3D Map \u2014 {plate_id}")
         ax.set_xlabel(self.tr("Column (x)"))
         ax.set_ylabel(self.tr("Row (y)"))
-        ax.set_zlabel(self.tr("Δλ (nm)"))
+        ax.set_zlabel(self.tr("\u0394\u03bb (nm)"))
         ax.set_xticks(np.arange(cols) + dx / 2)
         ax.set_xticklabels(self.col_labels or [str(i + 1) for i in range(cols)])
         ax.set_yticks(np.arange(rows) + dy / 2)
@@ -1016,10 +1025,13 @@ class DeltaLambdaVisualizationDialog(QDialog):
         frames_needed = max(1, int(np.ceil(360 / step)))
         delay = self.gif_delay_spinbox.value() / 1000.0
 
-        initial_opts = dict(self.gl_view.opts)
+        initial_opts = self._snapshot_camera_opts()
         frames = []
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
         try:
+            self._apply_default_camera_view()
+            self.gl_view.update()
+            QApplication.processEvents()
             for _ in range(frames_needed):
                 self.gl_view.orbit(step, 0)
                 QApplication.processEvents()
@@ -1069,5 +1081,23 @@ class DeltaLambdaVisualizationDialog(QDialog):
     def _restore_camera(self, opts_snapshot):
         for key, value in opts_snapshot.items():
             if key in self.gl_view.opts:
-                self.gl_view.opts[key] = value
+                if isinstance(value, QVector3D):
+                    self.gl_view.opts[key] = QVector3D(value)
+                else:
+                    self.gl_view.opts[key] = value
         self.gl_view.update()
+
+    def _apply_default_camera_view(self):
+        if not self._default_camera_opts:
+            return
+        self._restore_camera(self._default_camera_opts)
+        QApplication.processEvents()
+
+    def _snapshot_camera_opts(self):
+        opts = dict(self.gl_view.opts)
+        center = opts.get("center")
+        if isinstance(center, QVector3D):
+            opts["center"] = QVector3D(center)
+        elif isinstance(center, (tuple, list)) and len(center) == 3:
+            opts["center"] = tuple(center)
+        return opts
