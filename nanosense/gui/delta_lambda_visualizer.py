@@ -44,6 +44,8 @@ try:  # Optional dependency for GIF export
 except ImportError:
     iio = None
 
+DEFAULT_EXPORT_DPI = 220
+
 
 class DeltaLambdaGLView(gl.GLViewWidget):
     """Custom GL view adding right-button panning while keeping default rotation/zoom."""
@@ -289,16 +291,6 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.plate_id_edit = QLineEdit()
         meta_layout.addRow(self.tr("Plate ID (for filenames):"), self.plate_id_edit)
 
-        png_row = QHBoxLayout()
-        self.dpi_spinbox = QSpinBox()
-        self.dpi_spinbox.setRange(72, 600)
-        self.dpi_spinbox.setValue(220)
-        self.dpi_spinbox.setSuffix(" dpi")
-        png_row.addWidget(self.dpi_spinbox)
-        self.export_view_button = QPushButton(self.tr("Export View PNG"))
-        png_row.addWidget(self.export_view_button)
-        meta_layout.addRow(self.tr("Interactive PNG:"), png_row)
-
         export_row = QHBoxLayout()
         self.export_matplotlib_button = QPushButton(self.tr("Export Matplotlib PNG"))
         export_row.addWidget(self.export_matplotlib_button)
@@ -370,7 +362,6 @@ class DeltaLambdaVisualizationDialog(QDialog):
     def _connect_signals(self):
         self.select_folder_button.clicked.connect(self._select_folder)
         self.compute_button.clicked.connect(self._load_and_visualize)
-        self.export_view_button.clicked.connect(self._export_png)
         self.export_matplotlib_button.clicked.connect(self._export_matplotlib_png)
         self.export_gif_button.clicked.connect(self._export_gif)
         self.export_table_button.clicked.connect(self._export_delta_table)
@@ -381,7 +372,6 @@ class DeltaLambdaVisualizationDialog(QDialog):
         has_folder = bool(self.folder_path and len(self.available_files) >= 2)
         has_data = self.delta_grid is not None
         self.compute_button.setEnabled(has_folder)
-        self.export_view_button.setEnabled(has_data)
         self.export_matplotlib_button.setEnabled(has_data)
         self.export_gif_button.setEnabled(has_data)
 
@@ -860,47 +850,11 @@ class DeltaLambdaVisualizationDialog(QDialog):
             value_text = "" if np.isnan(value) else f"{value:.3f}"
             value_item = QTableWidgetItem(value_text)
             self.point_table.setItem(row, 0, label_item)
-            self.point_table.setItem(row, 1, value_item)
-            self.table_row_lookup[label] = row
+        self.point_table.setItem(row, 1, value_item)
+        self.table_row_lookup[label] = row
         self.point_table.resizeColumnsToContents()
 
     # --------------------------------------------------------------- Export ---
-    def _export_png(self):
-        if self.delta_grid is None:
-            QMessageBox.information(self, self.tr("Info"), self.tr("Please generate the Δλ surface first."))
-            return
-
-        plate_id = self.plate_id_edit.text().strip() or "plate"
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        default_name = f"{timestamp}_{plate_id}_delta_lambda.png"
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Save PNG Snapshot"),
-            os.path.join(self.folder_path or os.path.expanduser("~"), default_name),
-            "PNG Files (*.png)",
-        )
-        if not path:
-            return
-
-        original_opts = self._snapshot_camera_opts()
-        self._apply_default_camera_view()
-        self.gl_view.update()
-        QApplication.processEvents()
-        image = self.gl_view.readQImage()
-        self._restore_camera(original_opts)
-        if image.isNull():
-            QMessageBox.warning(self, self.tr("Export Error"), self.tr("Unable to capture the current view."))
-            return
-
-        dpi = self.dpi_spinbox.value()
-        dots_per_meter = int(dpi / 25.4 * 1000)
-        image.setDotsPerMeterX(dots_per_meter)
-        image.setDotsPerMeterY(dots_per_meter)
-        if not image.save(path, "PNG"):
-            QMessageBox.warning(self, self.tr("Export Error"), self.tr("Failed to save PNG file."))
-            return
-        QMessageBox.information(self, self.tr("Done"), self.tr("PNG snapshot saved:\n{0}").format(path))
-
     def _export_matplotlib_png(self):
         if self.delta_grid is None:
             QMessageBox.information(self, self.tr("Info"), self.tr("Please generate the Δλ surface first."))
@@ -945,7 +899,8 @@ class DeltaLambdaVisualizationDialog(QDialog):
         cmap = plt.get_cmap("YlOrBr")
         colors = cmap(norm)
 
-        fig = plt.figure(figsize=(8, 6), dpi=self.dpi_spinbox.value())
+        export_dpi = DEFAULT_EXPORT_DPI
+        fig = plt.figure(figsize=(8, 6), dpi=export_dpi)
         ax = fig.add_subplot(111, projection="3d")
         ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, zsort="average")
 
@@ -962,7 +917,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
         ax.grid(True, linestyle=":", color="#B0BEC5", alpha=0.6)
 
         try:
-            fig.savefig(path, dpi=self.dpi_spinbox.value(), bbox_inches="tight")
+            fig.savefig(path, dpi=export_dpi, bbox_inches="tight")
             QMessageBox.information(self, self.tr("Done"), self.tr("Matplotlib PNG saved:\n{0}").format(path))
         except Exception as exc:  # pragma: no cover
             QMessageBox.critical(self, self.tr("Export Error"), str(exc))
