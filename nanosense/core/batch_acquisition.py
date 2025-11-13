@@ -8,7 +8,6 @@ import threading
 import pandas as pd
 import pyqtgraph as pg
 from PyQt5.QtWidgets import (
-    QApplication,
     QDialog,
     QVBoxLayout,
     QLabel,
@@ -23,8 +22,6 @@ from PyQt5.QtWidgets import (
     QStyle,
     QFileDialog,
     QGroupBox,
-    QListWidget,
-    QListWidgetItem,
 )
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QThread, Qt, QEvent, QSize
 from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
@@ -32,7 +29,6 @@ from PyQt5.QtSvg import QSvgRenderer
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 from .controller import FX2000Controller
-from ..algorithms import compute_sam_angle
 from ..utils.file_io import save_batch_spectrum_data, load_spectrum_from_path
 from ..gui.single_plot_window import SinglePlotWindow
 
@@ -89,7 +85,6 @@ class MultiCurvePlotWindow(pg.QtWidgets.QMainWindow):
 
 
 class BatchRunDialog(QDialog):
-    focus_well_requested = pyqtSignal(str)
     """Dialog that presents batch acquisition controls and live preview plots."""
 
     background_collect_requested = pyqtSignal()
@@ -137,9 +132,6 @@ class BatchRunDialog(QDialog):
         self.tr("Saving data for {well_id}...")
         self.tr("Batch acquisition complete!")
         self.tr("Done")
-        self.tr("Please review QA for well {well_id}")
-        self.tr("[Review Required]")
-        self.tr("Well {well_id} [{label}] SAM angle {angle:.2f}°, threshold {threshold}")
 
     def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -334,24 +326,6 @@ class BatchRunDialog(QDialog):
         progress_layout.addWidget(self.point_progress_bar, 1, 1)
         main_layout.addWidget(self.progress_panel)
 
-        self.qa_events: List[Dict[str, Any]] = []
-        self.qa_group = QGroupBox()
-        qa_layout = QVBoxLayout(self.qa_group)
-        self.qa_list = QListWidget()
-        self.qa_view_button = QPushButton()
-        self.qa_focus_button = QPushButton()
-        self.qa_mark_button = QPushButton()
-        self.qa_copy_button = QPushButton()
-        qa_buttons = QHBoxLayout()
-        qa_buttons.addWidget(self.qa_view_button)
-        qa_buttons.addWidget(self.qa_focus_button)
-        qa_buttons.addWidget(self.qa_mark_button)
-        qa_buttons.addWidget(self.qa_copy_button)
-        qa_buttons.addStretch()
-        qa_layout.addWidget(self.qa_list)
-        qa_layout.addLayout(qa_buttons)
-        main_layout.addWidget(self.qa_group)
-
         for btn in (
             self.background_collect_button,
             self.background_import_button,
@@ -372,9 +346,6 @@ class BatchRunDialog(QDialog):
         self.abort_button.clicked.connect(self._confirm_abort)
         self.toggle_summary_button.toggled.connect(self._toggle_summary_pause)
         self.clear_summary_button.clicked.connect(self._clear_summary_plot)
-        self.qa_list.itemSelectionChanged.connect(self._update_qa_buttons)
-        self.qa_view_button.clicked.connect(self._show_selected_qa_comparison)
-        self.qa_copy_button.clicked.connect(self._copy_selected_qa_entry)
 
     def _prompt_import(self, spectrum_type: str) -> None:
         start_dir = self._last_import_dir or os.path.expanduser("~")
@@ -466,14 +437,6 @@ class BatchRunDialog(QDialog):
         self.point_progress_label.setText(self.tr("Current Point Progress:"))
         self.toggle_summary_button.setText(self.tr("Pause Overlay"))
         self.clear_summary_button.setText(self.tr("Clear Summary Plot"))
-        self.qa_group.setTitle(self.tr("QA Feedback"))
-        self.qa_view_button.setText(self.tr("Show Comparison"))
-        self.qa_copy_button.setText(self.tr("Copy Info"))
-        self.qa_group.setTitle(self.tr("QA Feedback"))
-        self.qa_view_button.setText(self.tr("Show Comparison"))
-        self.qa_focus_button.setText(self.tr("Focus Well"))
-        self.qa_mark_button.setText(self.tr("Mark Reviewed"))
-        self.qa_copy_button.setText(self.tr("Copy Info"))
 
     def _open_popout_window(self, plot_type: str) -> None:
         for item in self.popout_windows:
@@ -575,124 +538,6 @@ class BatchRunDialog(QDialog):
         self.summary_curves.clear()
         self._redraw_summary_plot(None, [])
 
-    @pyqtSlot(str)
-    def focus_on_well(self, well_id: str) -> None:
-        if not well_id:
-            return
-        self.update_dialog.emit(
-            {
-                "instruction_key": "Please review QA for well {well_id}",
-                "params": {"well_id": well_id},
-                "phase": self._current_phase,
-                "button_enabled": True,
-                "import_enabled": True,
-            }
-        )
-
-    def handle_qa_feedback(self, payload: Dict[str, Any]) -> None:
-        if not payload:
-            return
-        angle = payload.get("sam_angle_deg")
-        if angle is None:
-            return
-        self.qa_events.append(payload)
-        well_id = payload.get("well_id", "?")
-        label = payload.get("label", "")
-        display = self.tr("{well} [{label}] — {angle:.2f}°").format(
-            well=well_id, label=label, angle=float(angle)
-        )
-        item = QListWidgetItem(display)
-        if payload.get("needs_review"):
-            item.setForeground(QColor("#FF7043"))
-        else:
-            item.setForeground(QColor("#90A4AE"))
-        self.qa_list.addItem(item)
-        self.qa_list.setCurrentItem(item)
-        self._update_qa_buttons()
-
-    def _update_qa_buttons(self):
-        has_selection = self.qa_list.currentRow() >= 0
-        self.qa_view_button.setEnabled(has_selection)
-        self.qa_focus_button.setEnabled(has_selection)
-        self.qa_mark_button.setEnabled(has_selection)
-        self.qa_copy_button.setEnabled(has_selection)
-
-    def _get_selected_qa_payload(self) -> Optional[Dict[str, Any]]:
-        idx = self.qa_list.currentRow()
-        if idx < 0 or idx >= len(self.qa_events):
-            return None
-        return self.qa_events[idx]
-
-    def _copy_selected_qa_entry(self):
-        payload = self._get_selected_qa_payload()
-        if not payload:
-            return
-        text = f"{payload.get('well_id')} {payload.get('label')} — angle {payload.get('sam_angle_deg')}°"
-        QApplication.clipboard().setText(text)
-
-    def _show_selected_qa_comparison(self):
-        payload = self._get_selected_qa_payload()
-        if not payload:
-            return
-        sample_wl = payload.get("sample_wavelengths") or []
-        sample_vals = payload.get("sample_intensities") or []
-        ref_wl = payload.get("reference_wavelengths") or []
-        ref_vals = payload.get("reference_intensities") or []
-        if len(sample_wl) < 2 or len(ref_wl) < 2:
-            QMessageBox.information(
-                self,
-                self.tr("Info"),
-                self.tr("Comparison data is unavailable for this entry."),
-            )
-            return
-        dialog = QDialog(self)
-        dialog.setWindowTitle(
-            self.tr("QA Comparison — Well {0}").format(payload.get("well_id", "?"))
-        )
-        layout = QVBoxLayout(dialog)
-        plot = pg.PlotWidget()
-        plot.addLegend()
-        plot.showGrid(x=True, y=True, alpha=0.3)
-        plot.plot(sample_wl, sample_vals, pen=pg.mkPen("y"), name=self.tr("Sample"))
-        plot.plot(ref_wl, ref_vals, pen=pg.mkPen("c"), name=self.tr("Reference"))
-        layout.addWidget(plot)
-        close_btn = QPushButton(self.tr("Close"))
-        close_btn.clicked.connect(dialog.accept)
-        layout.addWidget(close_btn)
-        dialog.resize(640, 420)
-        dialog.exec_()
-
-    def _focus_selected_well(self):
-        payload = self._get_selected_qa_payload()
-        if not payload:
-            return
-        well_id = payload.get("well_id")
-        if not well_id:
-            return
-        self.focus_well_requested.emit(well_id)
-
-    def _mark_selected_reviewed(self):
-        payload = self._get_selected_qa_payload()
-        if not payload or not payload.get("item_id"):
-            return
-        if not self.db_manager:
-            QMessageBox.warning(self, self.tr("Info"), self.tr("Database connection is not available."))
-            return
-        item_id = payload["item_id"]
-        qa_record = {
-            "sam_angle_deg": payload.get("sam_angle_deg"),
-            "threshold_deg": payload.get("threshold_deg"),
-            "qa_flag": "reviewed",
-        }
-        self.db_manager.update_batch_item_metadata(item_id, {"qa": qa_record})
-        payload["needs_review"] = False
-        payload["qa_flag"] = "reviewed"
-        row = self.qa_list.currentRow()
-        if row >= 0:
-            item = self.qa_list.item(row)
-            if item:
-                item.setForeground(QColor("#90A4AE"))
-
     def _confirm_abort(self) -> None:
         reply = QMessageBox.question(
             self,
@@ -745,7 +590,6 @@ class BatchAcquisitionWorker(QObject):
     error = pyqtSignal(str)
     update_dialog = pyqtSignal(dict)
     live_preview_data = pyqtSignal(dict)
-    qa_feedback = pyqtSignal(dict)
 
     def __init__(
         self,
@@ -766,8 +610,6 @@ class BatchAcquisitionWorker(QObject):
         operator: str = "",
         instrument_info: Optional[Dict[str, Any]] = None,
         processing_info: Optional[Dict[str, Any]] = None,
-        sam_threshold_deg: Optional[float] = 5.0,
-        reference_templates: Optional[Dict[str, Dict[str, Any]]] = None,
     ):
         super().__init__()
         self.controller = controller
@@ -832,8 +674,6 @@ class BatchAcquisitionWorker(QObject):
         base_processing["parameters"] = {
             key: value for key, value in parameters.items() if value is not None
         }
-        self.default_sam_threshold = sam_threshold_deg
-        self.reference_templates = reference_templates or {}
         self.processing_info = base_processing
         self.wavelengths = np.array(self.controller.wavelengths)
         if self.crop_start_wl is not None and self.crop_end_wl is not None:
@@ -1033,59 +873,6 @@ class BatchAcquisitionWorker(QObject):
             payload["parameters"]["spectrum_label"] = spectrum_label
         return payload
 
-    def _reference_blueprint_for_well(self, well_id: str) -> Optional[Dict[str, Any]]:
-        meta = self.layout_data.get(well_id)
-        if not isinstance(meta, dict):
-            return None
-        reference = meta.get("reference")
-        if isinstance(reference, dict):
-            return reference
-        qa_meta = meta.get("qa")
-        if isinstance(qa_meta, dict) and isinstance(qa_meta.get("reference"), dict):
-            return qa_meta["reference"]
-        return None
-
-    def _evaluate_sam_metric(
-        self, well_id: str, wavelengths: List[float], intensities: List[float]
-    ) -> Optional[Dict[str, Any]]:
-        blueprint = self._reference_blueprint_for_well(well_id)
-        if not blueprint:
-            return None
-        source = blueprint.get("source")
-        ref_waves = blueprint.get("wavelengths")
-        ref_values = blueprint.get("intensities")
-        if source == "reference_capture":
-            ref_capture = self.collected_data.get(well_id, {}).get("reference")
-            if ref_capture is None:
-                return None
-            ref_values = ref_capture
-            ref_waves = self.wavelengths.tolist()
-        elif source == "template":
-            template_id = blueprint.get("template_id")
-            template = self.reference_templates.get(template_id)
-            if not template:
-                return None
-            ref_waves = template.get("wavelengths")
-            ref_values = template.get("intensities")
-        if ref_waves is None or ref_values is None:
-            return None
-        angle = compute_sam_angle(ref_waves, ref_values, wavelengths, intensities)
-        if angle is None:
-            return None
-        threshold = blueprint.get("sam_threshold_deg", self.default_sam_threshold)
-        needs_review = bool(threshold is not None and angle > threshold)
-        qa_flag = "needs_review" if needs_review else "ok"
-        return {
-            "sam_angle_deg": angle,
-            "threshold_deg": threshold,
-            "needs_review": needs_review,
-            "qa_flag": qa_flag,
-            "reference_wavelengths": ref_waves,
-            "reference_intensities": ref_values,
-            "reference_source": source,
-            "reference_template_id": blueprint.get("template_id") if source == "template" else None,
-        }
-
     def _save_spectrum_to_db(
         self, well_id: str, spec_label: str, wavelengths, intensities
     ) -> Optional[int]:
@@ -1103,10 +890,6 @@ class BatchAcquisitionWorker(QObject):
             int_list = intensities.tolist()
         else:
             int_list = list(intensities)
-        spec_label_lower = spec_label.lower()
-        qa_payload = None
-        if spec_label_lower.startswith("signal") or spec_label_lower.startswith("result"):
-            qa_payload = self._evaluate_sam_metric(well_id, wl_list, int_list)
 
         try:
             item_id = self.batch_item_map.get(well_id) if self.batch_item_map else None
@@ -1131,35 +914,6 @@ class BatchAcquisitionWorker(QObject):
                     )
                 )
                 self.spectrum_registry[well_id][bucket].append(spectrum_id)
-
-            if qa_payload:
-                if item_id:
-                    qa_record = {
-                        "sam_angle_deg": round(float(qa_payload["sam_angle_deg"]), 4),
-                        "threshold_deg": qa_payload.get("threshold_deg"),
-                        "qa_flag": qa_payload.get("qa_flag"),
-                    }
-                    self.db_manager.update_batch_item_metadata(
-                        item_id,
-                        {"qa": qa_record},
-                    )
-                    if qa_payload.get("needs_review"):
-                        self.db_manager.update_batch_item_progress(item_id, status="needs_review")
-                event_payload = {
-                    "well_id": well_id,
-                    "label": spec_label,
-                    "sam_angle_deg": qa_payload.get("sam_angle_deg"),
-                    "threshold_deg": qa_payload.get("threshold_deg"),
-                    "needs_review": qa_payload.get("needs_review"),
-                    "item_id": item_id,
-                    "sample_wavelengths": wl_list,
-                    "sample_intensities": int_list,
-                    "reference_wavelengths": qa_payload.get("reference_wavelengths"),
-                    "reference_intensities": qa_payload.get("reference_intensities"),
-                    "reference_source": qa_payload.get("reference_source"),
-                    "reference_template_id": qa_payload.get("reference_template_id"),
-                }
-                self.qa_feedback.emit(event_payload)
 
             return spectrum_id
         except Exception as e:

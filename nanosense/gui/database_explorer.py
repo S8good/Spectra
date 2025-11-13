@@ -43,7 +43,6 @@ import csv
 from datetime import datetime
 import time
 from nanosense.core.data_access import ExplorerDataAccess
-from nanosense.core.reference_templates import load_reference_templates, resolve_template_path
 
 
 class SortableTableWidgetItem(QTableWidgetItem):
@@ -83,15 +82,6 @@ class DatabaseExplorerDialog(QDialog):
         self._detail_watcher: Optional["QFutureWatcher"] = None
         self._current_batch_rows: List[Dict[str, Any]] = []
         self._filtered_batch_rows: List[Dict[str, Any]] = []
-        template_setting = None
-        if isinstance(self.app_settings, dict):
-            template_setting = self.app_settings.get("reference_template_path")
-        template_path = resolve_template_path(template_setting)
-        if isinstance(self.app_settings, dict):
-            self.app_settings["reference_template_path"] = str(template_path)
-        self.reference_template_path = str(template_path)
-        self.reference_templates = load_reference_templates(self.reference_template_path)
-
         self._init_ui()
         self._connect_signals()
         self._retranslate_ui()
@@ -219,18 +209,16 @@ class DatabaseExplorerDialog(QDialog):
         self.batch_position_filter.setPlaceholderText(self.tr("Filter by position label"))
         self.batch_apply_filter_button = QPushButton(self.tr("Apply"))
         self.batch_clear_filter_button = QPushButton(self.tr("Clear"))
-        self.batch_review_only_checkbox = QCheckBox()
         self.batch_filter_bar.addWidget(self.batch_status_label)
         self.batch_filter_bar.addWidget(self.batch_status_filter)
         self.batch_filter_bar.addWidget(self.batch_position_label)
         self.batch_filter_bar.addWidget(self.batch_position_filter, 1)
         self.batch_filter_bar.addWidget(self.batch_apply_filter_button)
         self.batch_filter_bar.addWidget(self.batch_clear_filter_button)
-        self.batch_filter_bar.addWidget(self.batch_review_only_checkbox)
         self.batch_filter_bar.addStretch()
         batch_layout.addLayout(self.batch_filter_bar)
         self.batch_table = QTableWidget()
-        self.batch_table.setColumnCount(10)
+        self.batch_table.setColumnCount(8)
         self.batch_table.setHorizontalHeaderLabels(
             [
                 self.tr("Item ID"),
@@ -241,29 +229,12 @@ class DatabaseExplorerDialog(QDialog):
                 self.tr("Item Status"),
                 self.tr("Capture Count"),
                 self.tr("Last Captured At"),
-                self.tr("SAM Angle (°)"),
-                self.tr("QA Flag"),
             ]
         )
         self.batch_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.batch_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.batch_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         batch_layout.addWidget(self.batch_table)
-        self.batch_template_group = QGroupBox()
-        template_layout = QFormLayout(self.batch_template_group)
-        self.batch_template_source_label = QLabel()
-        self.batch_template_source_value = QLabel("-")
-        self.batch_template_name_label = QLabel()
-        self.batch_template_name_value = QLabel("-")
-        self.batch_template_threshold_label = QLabel()
-        self.batch_template_threshold_value = QLabel("-")
-        self.batch_template_preview_button = QPushButton()
-        self.batch_template_preview_button.setEnabled(False)
-        template_layout.addRow(self.batch_template_source_label, self.batch_template_source_value)
-        template_layout.addRow(self.batch_template_name_label, self.batch_template_name_value)
-        template_layout.addRow(self.batch_template_threshold_label, self.batch_template_threshold_value)
-        template_layout.addRow(self.batch_template_preview_button)
-        batch_layout.addWidget(self.batch_template_group)
         self.detail_tabs.addTab(batch_tab, self.tr("Batch Overview"))
 
         self.results_hint_label = QLabel()
@@ -301,9 +272,6 @@ class DatabaseExplorerDialog(QDialog):
         self.batch_apply_filter_button.clicked.connect(self._apply_batch_filters)
         self.batch_clear_filter_button.clicked.connect(self._reset_batch_filters)
         self.batch_position_filter.returnPressed.connect(self._apply_batch_filters)
-        self.batch_review_only_checkbox.stateChanged.connect(self._apply_batch_filters)
-        self.batch_table.itemSelectionChanged.connect(self._update_batch_template_panel)
-        self.batch_template_preview_button.clicked.connect(self._show_template_preview_from_selection)
 
     def changeEvent(self, event):
         if event.type() == QEvent.LanguageChange:
@@ -328,12 +296,6 @@ class DatabaseExplorerDialog(QDialog):
         self.batch_position_filter.setPlaceholderText(self.tr("Filter by position label"))
         self.batch_apply_filter_button.setText(self.tr("Apply"))
         self.batch_clear_filter_button.setText(self.tr("Clear"))
-        self.batch_review_only_checkbox.setText(self.tr("Show needs review only"))
-        self.batch_template_group.setTitle(self.tr("Reference Details"))
-        self.batch_template_source_label.setText(self.tr("Source:"))
-        self.batch_template_name_label.setText(self.tr("Template:"))
-        self.batch_template_threshold_label.setText(self.tr("Threshold:"))
-        self.batch_template_preview_button.setText(self.tr("Preview Template"))
         self.search_button.setText(self.tr("Search"))
         self.reset_button.setText(self.tr("Reset Filters"))
 
@@ -797,10 +759,6 @@ class DatabaseExplorerDialog(QDialog):
         self._current_batch_rows = []
         self._filtered_batch_rows = []
         placeholder = self.tr("—")
-        self.batch_template_source_value.setText(placeholder)
-        self.batch_template_name_value.setText(placeholder)
-        self.batch_template_threshold_value.setText(placeholder)
-        self.batch_template_preview_button.setEnabled(False)
 
     def _update_experiment_tab(self, overview: Optional[Dict[str, Any]]):
         if not overview:
@@ -865,21 +823,12 @@ class DatabaseExplorerDialog(QDialog):
         self.batch_status_filter.setCurrentIndex(0)
         self.batch_status_filter.blockSignals(False)
         self.batch_position_filter.clear()
-        if hasattr(self, "batch_review_only_checkbox"):
-            self.batch_review_only_checkbox.blockSignals(True)
-            self.batch_review_only_checkbox.setChecked(False)
-            self.batch_review_only_checkbox.blockSignals(False)
         self._apply_batch_filters()
 
     def _apply_batch_filters(self):
         rows = self._current_batch_rows or []
         status_value = self.batch_status_filter.currentData()
         position_text = self.batch_position_filter.text().strip().lower()
-        review_only = (
-            self.batch_review_only_checkbox.isChecked()
-            if hasattr(self, "batch_review_only_checkbox")
-            else False
-        )
         filtered: List[Dict[str, Any]] = []
         for row in rows:
             if status_value and row.get("batch_status") != status_value:
@@ -887,12 +836,9 @@ class DatabaseExplorerDialog(QDialog):
             label_value = (row.get("position_label") or "").lower()
             if position_text and position_text not in label_value:
                 continue
-            if review_only and row.get("qa_flag") != "needs_review":
-                continue
             filtered.append(row)
         self._filtered_batch_rows = filtered
         self._render_batch_rows(filtered)
-        self._update_batch_template_panel()
 
     def _render_batch_rows(self, batch_rows: List[Dict[str, Any]]):
         self.batch_table.setRowCount(0)
@@ -907,21 +853,15 @@ class DatabaseExplorerDialog(QDialog):
             "item_status",
             "capture_count",
             "last_captured_at",
-            "sam_angle_deg",
-            "qa_flag",
         ]
         self.batch_table.setRowCount(len(batch_rows))
         for row_idx, row in enumerate(batch_rows):
             for col_idx, key in enumerate(columns):
                 value = row.get(key)
-                if key == "sam_angle_deg" and value is not None:
-                    value = f"{float(value):.2f}"
                 item = QTableWidgetItem("" if value is None else str(value))
                 self.batch_table.setItem(row_idx, col_idx, item)
         if self.batch_table.rowCount() > 0:
             self.batch_table.selectRow(0)
-        else:
-            self._update_batch_template_panel()
 
     def _get_selected_batch_row(self) -> Optional[Dict[str, Any]]:
         if not self._filtered_batch_rows:
@@ -931,72 +871,4 @@ class DatabaseExplorerDialog(QDialog):
             return None
         return self._filtered_batch_rows[row_index]
 
-    def _update_batch_template_panel(self):
-        placeholder = self.tr("—")
-        row = self._get_selected_batch_row()
-        if not row:
-            self.batch_template_source_value.setText(placeholder)
-            self.batch_template_name_value.setText(placeholder)
-            self.batch_template_threshold_value.setText(placeholder)
-            self.batch_template_preview_button.setEnabled(False)
-            return
-        source = row.get("reference_source") or "reference_capture"
-        template_name = row.get("reference_template_id")
-        threshold = row.get("reference_threshold_deg")
-        source_text = self.tr("Template") if source == "template" else self.tr("Reference Capture")
-        self.batch_template_source_value.setText(source_text)
-        self.batch_template_name_value.setText(template_name or placeholder)
-        self.batch_template_threshold_value.setText(
-            f"{float(threshold):.2f}°" if isinstance(threshold, (int, float)) else placeholder
-        )
-        self.batch_template_preview_button.setEnabled(bool(template_name))
-
-    def _show_template_preview_from_selection(self):
-        row = self._get_selected_batch_row()
-        if not row:
-            return
-        template_id = row.get("reference_template_id")
-        if not template_id:
-            QMessageBox.information(
-                self,
-                self.tr("Info"),
-                self.tr("The selected record does not reference a template."),
-            )
-            return
-        self.reference_templates = load_reference_templates(self.reference_template_path)
-        template = self.reference_templates.get(template_id)
-        if not template:
-            QMessageBox.warning(
-                self,
-                self.tr("Template Missing"),
-                self.tr("Template '{0}' was not found.").format(template_id),
-            )
-            return
-        wavelengths = template.get("wavelengths") or []
-        intensities = template.get("intensities") or []
-        if len(wavelengths) < 2 or len(intensities) != len(wavelengths):
-            QMessageBox.warning(
-                self,
-                self.tr("Invalid Template"),
-                self.tr("Template '{0}' has invalid data.").format(template_id),
-            )
-            return
-        dialog = QDialog(self)
-        dialog.setWindowTitle(self.tr("Template Preview — {0}").format(template_id))
-        layout = QVBoxLayout(dialog)
-        info_label = QLabel(
-            self.tr("Points: {cnt} | Range: {start:.2f} - {end:.2f} nm").format(
-                cnt=len(wavelengths), start=wavelengths[0], end=wavelengths[-1]
-            )
-        )
-        layout.addWidget(info_label)
-        plot = pg.PlotWidget()
-        plot.showGrid(x=True, y=True, alpha=0.3)
-        plot.plot(wavelengths, intensities, pen=pg.mkPen("c"))
-        layout.addWidget(plot)
-        close_button = QPushButton(self.tr("Close"))
-        close_button.clicked.connect(dialog.accept)
-        layout.addWidget(close_button)
-        dialog.resize(640, 420)
-        dialog.exec_()
 

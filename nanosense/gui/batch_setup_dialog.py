@@ -22,7 +22,7 @@ class BatchSetupDialog(QDialog):
 
         self._init_ui()
         self._connect_signals()
-        self._retranslate_ui()  # 设置初始文本
+        self._retranslate_ui()  # è®¾ç½®åå§ææ¬
 
     def _init_ui(self):
         """
@@ -43,19 +43,19 @@ class BatchSetupDialog(QDialog):
         self.output_folder_label = QLabel()
         form_layout.addRow(self.output_folder_label, folder_layout)
 
-        # 文件格式选择
+        # æä»¶æ ¼å¼éæ©
         self.format_combo = QComboBox()
         self.format_label = QLabel()
         form_layout.addRow(self.format_label, self.format_combo)
 
-        # “每个孔位的点数”设置
+        # âæ¯ä¸ªå­ä½çç¹æ°âè®¾ç½?
         self.points_per_well_spinbox = QSpinBox()
-        self.points_per_well_spinbox.setRange(1, 512)  # 允许采集 1 到 512 个点
-        self.points_per_well_spinbox.setValue(16)  # 默认值仍然是 16
-        self.points_per_well_label = QLabel()  # 创建空标签，文本在翻译函数中设置
+        self.points_per_well_spinbox.setRange(1, 512)  # åè®¸éé 1 å?512 ä¸ªç¹
+        self.points_per_well_spinbox.setValue(16)  # é»è®¤å¼ä»ç¶æ¯ 16
+        self.points_per_well_label = QLabel()  # åå»ºç©ºæ ç­¾ï¼ææ¬å¨ç¿»è¯å½æ°ä¸­è®¾ç½®
         form_layout.addRow(self.points_per_well_label, self.points_per_well_spinbox)
 
-        # ---添加裁切范围设置 ---
+        # ---æ·»å è£åèå´è®¾ç½® ---
         self.enable_cropping_checkbox = QCheckBox(self.tr("Enable wavelength cropping"))
         self.enable_cropping_checkbox.setChecked(True)
         form_layout.addRow(self.enable_cropping_checkbox)
@@ -74,12 +74,11 @@ class BatchSetupDialog(QDialog):
         self.crop_start_label = QLabel(self.tr("Crop Start Wavelength:"))
         self.crop_end_label = QLabel(self.tr("Crop End Wavelength:"))
 
-        # --- 【新增】添加自动化采集设置 ---
+        # --- ãæ°å¢ãæ·»å èªå¨åééè®¾ç½® ---
         self.auto_group = QGroupBox()
         auto_layout = QFormLayout(self.auto_group)
         self.enable_auto_checkbox = QCheckBox()
-        self.enable_auto_checkbox.setChecked(False)  # 默认不启用
-
+        self.enable_auto_checkbox.setChecked(False)  # é»è®¤ä¸å¯ç?
         self.intra_well_interval_spinbox = QDoubleSpinBox()
         self.intra_well_interval_spinbox.setDecimals(1)
         self.intra_well_interval_spinbox.setRange(0.5, 300.0)
@@ -99,52 +98,28 @@ class BatchSetupDialog(QDialog):
         auto_layout.addRow(self.intra_well_interval_label, self.intra_well_interval_spinbox)
         auto_layout.addRow(self.inter_well_interval_label, self.inter_well_interval_spinbox)
 
-        main_layout.addLayout(form_layout)
-        main_layout.addWidget(self.auto_group)  # 将新的Group添加到主布局
-
-        self.qa_group = QGroupBox()
-        qa_layout = QFormLayout(self.qa_group)
-        self.enable_sam_checkbox = QCheckBox()
-        self.sam_threshold_spinbox = QDoubleSpinBox()
-        self.sam_threshold_spinbox.setDecimals(2)
-        self.sam_threshold_spinbox.setRange(0.1, 90.0)
-        self.sam_threshold_spinbox.setSingleStep(0.5)
-        self.sam_threshold_spinbox.setValue(5.0)
-        self.sam_threshold_spinbox.setSuffix(" °")
-        default_sam_enabled = bool(self.app_settings.get("batch_sam_enabled", False))
-        self.enable_sam_checkbox.setChecked(default_sam_enabled)
-        default_sam_threshold = self.app_settings.get("batch_sam_threshold_deg")
-        if isinstance(default_sam_threshold, (int, float)):
-            self.sam_threshold_spinbox.setValue(float(default_sam_threshold))
-        self.sam_threshold_spinbox.setEnabled(default_sam_enabled)
-        self.sam_threshold_label = QLabel()
-        qa_layout.addRow(self.enable_sam_checkbox)
-        qa_layout.addRow(self.sam_threshold_label, self.sam_threshold_spinbox)
-        main_layout.addWidget(self.qa_group)
-
         form_layout.addRow(self.crop_start_label, self.crop_start_spinbox)
         form_layout.addRow(self.crop_end_label, self.crop_end_spinbox)
 
         main_layout.addLayout(form_layout)
+        main_layout.addWidget(self.auto_group)
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
 
         self._on_auto_acquisition_toggled(self.enable_auto_checkbox.isChecked())
-        self._on_sam_toggled(self.enable_sam_checkbox.isChecked())
         main_layout.addWidget(self.button_box)
 
     def _connect_signals(self):
         """
-        连接所有控件的信号与槽。
+        è¿æ¥æææ§ä»¶çä¿¡å·ä¸æ§½ã?
         """
         self.browse_button.clicked.connect(self._select_output_folder)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         self.enable_cropping_checkbox.toggled.connect(self._on_cropping_toggled)
         self.enable_auto_checkbox.toggled.connect(self._on_auto_acquisition_toggled)
-        self.enable_sam_checkbox.toggled.connect(self._on_sam_toggled)
 
     def _on_auto_acquisition_toggled(self, checked):
-        """当自动采集复选框状态改变时，更新UI。"""
+        """Update auto-acquisition controls when the checkbox toggles."""
         self.intra_well_interval_spinbox.setEnabled(checked)
         self.inter_well_interval_spinbox.setEnabled(checked)
         self.intra_well_interval_label.setEnabled(checked)
@@ -156,13 +131,8 @@ class BatchSetupDialog(QDialog):
         self.crop_start_label.setEnabled(checked)
         self.crop_end_label.setEnabled(checked)
 
-    def _on_sam_toggled(self, checked):
-        self.sam_threshold_spinbox.setEnabled(checked)
-
     def get_settings(self):
-        """
-        返回用户选择的所有设置。
-        """
+        """Return all user-selected settings."""
         folder = self.output_folder_edit.text()
         format_text = self.format_combo.currentText()
 
@@ -178,44 +148,44 @@ class BatchSetupDialog(QDialog):
         crop_start = self.crop_start_spinbox.value() if self.enable_cropping_checkbox.isChecked() else None
         crop_end = self.crop_end_spinbox.value() if self.enable_cropping_checkbox.isChecked() else None
 
-        # 【新增】获取自动化设置
+        # Get automatic acquisition settings
         is_auto_enabled = self.enable_auto_checkbox.isChecked()
         intra_well_interval = self.intra_well_interval_spinbox.value()
         inter_well_interval = self.inter_well_interval_spinbox.value()
 
-        # 【修改】返回所有设置
-        sam_enabled = self.enable_sam_checkbox.isChecked()
-        sam_threshold = self.sam_threshold_spinbox.value() if sam_enabled else None
-
-        return (folder, extension, points_per_well, crop_start, crop_end,
-                is_auto_enabled, intra_well_interval, inter_well_interval,
-                sam_enabled, sam_threshold)
+        return (
+            folder,
+            extension,
+            points_per_well,
+            crop_start,
+            crop_end,
+            is_auto_enabled,
+            intra_well_interval,
+            inter_well_interval,
+        )
 
     def changeEvent(self, event):
-        """ 新增：响应语言变化事件 """
+        """ æ°å¢ï¼ååºè¯­è¨ååäºä»¶ """
         if event.type() == QEvent.LanguageChange:
             self._retranslate_ui()
         super().changeEvent(event)
 
     def _retranslate_ui(self):
-        """ 新增：重新翻译此控件内的所有UI文本 """
+        """ æ°å¢ï¼éæ°ç¿»è¯æ­¤æ§ä»¶åçææUIææ¬ """
         self.setWindowTitle(self.tr("Batch Task Settings"))
         self.output_folder_label.setText(self.tr("Select Report Output Folder:"))
         self.browse_button.setText(self.tr("Browse..."))
         self.format_label.setText(self.tr("Select File Format:"))
-        # 【新增】翻译自动化采集相关的UI
+        # ãæ°å¢ãç¿»è¯èªå¨åééç¸å³çUI
         self.auto_group.setTitle(self.tr("Automatic Acquisition Settings"))
         self.enable_auto_checkbox.setText(self.tr("Enable Automatic Acquisition"))
         self.intra_well_interval_label.setText(self.tr("Point-to-Point Interval (s):"))
         self.inter_well_interval_label.setText(self.tr("Well-to-Well Interval (s):"))
-        self.qa_group.setTitle(self.tr("Spectral QA (SAM)"))
-        self.enable_sam_checkbox.setText(self.tr("Enable SAM QA"))
-        self.sam_threshold_label.setText(self.tr("SAM Threshold (deg):"))
 
-        # 为新增的标签设置文本
+        # ä¸ºæ°å¢çæ ç­¾è®¾ç½®ææ¬
         self.points_per_well_label.setText(self.tr("Points per Well:"))
 
-        # 刷新下拉框内容
+        # å·æ°ä¸ææ¡åå®?
         current_text = self.format_combo.currentText()
         self.format_combo.clear()
         items = [
@@ -224,7 +194,7 @@ class BatchSetupDialog(QDialog):
             self.tr("Text File (*.txt)")
         ]
         self.format_combo.addItems(items)
-        # 尝试恢复之前的选择
+        # å°è¯æ¢å¤ä¹åçéæ©
         index = self.format_combo.findText(current_text)
         if index != -1:
             self.format_combo.setCurrentIndex(index)
@@ -234,7 +204,7 @@ class BatchSetupDialog(QDialog):
 
     def _select_output_folder(self):
         """
-        打开文件夹选择对话框。
+        æå¼æä»¶å¤¹éæ©å¯¹è¯æ¡ã?
         """
         start_path = self.output_folder_edit.text()
         path = QFileDialog.getExistingDirectory(self, self.tr("Select Report Output Folder"), start_path)

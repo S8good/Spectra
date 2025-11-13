@@ -46,7 +46,6 @@ from .noise_analysis_dialog import NoiseAnalysisDialog
 from .three_file_import_dialog import ThreeFileImportDialog
 
 from nanosense.core.batch_acquisition import BatchRunDialog, BatchAcquisitionWorker
-from nanosense.core.reference_templates import load_reference_templates, resolve_template_path
 
 from .batch_setup_dialog import BatchSetupDialog
 
@@ -1564,12 +1563,6 @@ class AppWindow(QMainWindow):
 
             return
 
-        template_path = getattr(plate_setup_dialog, "template_path", None)
-        reference_templates = load_reference_templates(template_path)
-        if hasattr(self, "app_settings"):
-            self.app_settings["reference_template_path"] = template_path
-
-
 
         batch_setup_dialog = BatchSetupDialog(self)
 
@@ -1579,24 +1572,17 @@ class AppWindow(QMainWindow):
 
 
 
-        (output_folder, file_extension, points_per_well, crop_start, crop_end,
-         is_auto_enabled, intra_well_interval, inter_well_interval,
-         sam_enabled, sam_threshold) = batch_setup_dialog.get_settings()
+        (
+            output_folder,
+            file_extension,
+            points_per_well,
+            crop_start,
+            crop_end,
+            is_auto_enabled,
+            intra_well_interval,
+            inter_well_interval,
+        ) = batch_setup_dialog.get_settings()
 
-
-
-        if hasattr(self, "app_settings"):
-            self.app_settings["batch_sam_enabled"] = sam_enabled
-            if sam_threshold is not None:
-                self.app_settings["batch_sam_threshold_deg"] = sam_threshold
-
-        if sam_enabled and sam_threshold is not None:
-            for meta in layout_data.values():
-                if not isinstance(meta, dict):
-                    continue
-                reference_block = meta.setdefault("reference", {})
-                reference_block.setdefault("source", "reference_capture")
-                reference_block["sam_threshold_deg"] = sam_threshold
 
         if not output_folder:
 
@@ -1742,15 +1728,6 @@ class AppWindow(QMainWindow):
 
         operator_name = operator_name or self.tr("Batch Operator")
 
-        default_sam_threshold = sam_threshold
-        if default_sam_threshold is None:
-            if hasattr(self, "app_settings") and isinstance(self.app_settings, dict):
-                default_sam_threshold = self.app_settings.get("batch_sam_threshold_deg", 5.0)
-            else:
-                default_sam_threshold = 5.0
-
-
-
         self.run_dialog = BatchRunDialog(self)
 
         self.batch_thread = QThread()
@@ -1773,8 +1750,6 @@ class AppWindow(QMainWindow):
             operator=operator_name,
             instrument_info=instrument_info,
             processing_info=processing_info,
-            sam_threshold_deg=default_sam_threshold,
-            reference_templates=reference_templates,
         )
 
         self.batch_worker.moveToThread(self.batch_thread)
@@ -1805,11 +1780,6 @@ class AppWindow(QMainWindow):
 
         self.batch_worker.update_dialog.connect(self.run_dialog.update_state)
         self.batch_worker.live_preview_data.connect(self.run_dialog.update_all_plots)
-        self.run_dialog.focus_well_requested.connect(
-            self.batch_worker.focus_on_well, Qt.QueuedConnection
-        )
-        self.batch_worker.qa_feedback.connect(self.run_dialog.handle_qa_feedback)
-
         for signal in (
             self.run_dialog.background_collect_requested,
             self.run_dialog.reference_collect_requested,

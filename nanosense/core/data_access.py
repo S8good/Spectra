@@ -4,7 +4,6 @@ Batch-friendly data access helpers for the database explorer.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -242,14 +241,6 @@ class ExplorerDataAccess:
         rows = cursor.fetchall()
         overview: List[Dict[str, Any]] = []
         for row in rows:
-            metadata = {}
-            if row[8]:
-                try:
-                    metadata = json.loads(row[8])
-                except json.JSONDecodeError:
-                    metadata = {}
-            qa_block = metadata.get("qa", {}) if isinstance(metadata, dict) else {}
-            reference_block = metadata.get("reference", {}) if isinstance(metadata, dict) else {}
             overview.append(
                 {
                     "item_id": row[0],
@@ -260,11 +251,6 @@ class ExplorerDataAccess:
                     "item_status": row[5],
                     "capture_count": row[6],
                     "last_captured_at": row[7],
-                    "sam_angle_deg": qa_block.get("sam_angle_deg"),
-                    "qa_flag": qa_block.get("qa_flag"),
-                    "reference_source": reference_block.get("source"),
-                    "reference_template_id": reference_block.get("template_id"),
-                    "reference_threshold_deg": reference_block.get("sam_threshold_deg"),
                 }
             )
         return overview

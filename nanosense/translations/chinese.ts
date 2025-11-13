@@ -1028,67 +1028,12 @@ Please install it via `pip install PyOpenGL PyOpenGL_accelerate`.</source>
         <source>Loaded data has mismatched wavelength and intensity lengths.</source>
         <translation>加载的数据中波长与强度数组长度不一致。</translation>
     </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="140"/>
-        <source>Please review QA for well {well_id}</source>
-        <translation>请检查孔位 {well_id} 的质控（QA）</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="141"/>
-        <source>[Review Required]</source>
-        <translation>【需要复核】</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="142"/>
-        <source>Well {well_id} [{label}] SAM angle {angle:.2f}°, threshold {threshold}</source>
-        <translation>孔位 {well_id}【{label}】SAM 角度 {angle:.2f}°，阈值 {threshold}</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="472"/>
-        <source>QA Feedback</source>
-        <translation>质控反馈</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="473"/>
-        <source>Show Comparison</source>
-        <translation>显示对比</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="476"/>
-        <source>Copy Info</source>
-        <translation>复制信息</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="474"/>
-        <source>Focus Well</source>
-        <translation>聚焦到该孔位</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="475"/>
-        <source>Mark Reviewed</source>
-        <translation>标记为已复核</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="601"/>
-        <source>{well} [{label}] — {angle:.2f}°</source>
-        <translation>{well}【{label}】— {angle:.2f}°</translation>
-    </message>
-    <message>
+        <message>
         <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="679"/>
         <source>Info</source>
         <translation>提示</translation>
     </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="642"/>
-        <source>Comparison data is unavailable for this entry.</source>
-        <translation>此条目没有可用的对比数据。</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="649"/>
-        <source>QA Comparison — Well {0}</source>
-        <translation>质控对比 — 孔位 {0}</translation>
-    </message>
-    <message>
+            <message>
         <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="656"/>
         <source>Sample</source>
         <translation>样品</translation>
@@ -1211,22 +1156,7 @@ Please install it via `pip install PyOpenGL PyOpenGL_accelerate`.</source>
         <source>Well-to-Well Interval (s):</source>
         <translation>样品间间隔 (秒)：</translation>
     </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="211"/>
-        <source>Spectral QA (SAM)</source>
-        <translation>光谱质控（SAM）</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="212"/>
-        <source>Enable SAM QA</source>
-        <translation>启用 SAM 质控</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/batch_setup_dialog.py" line="213"/>
-        <source>SAM Threshold (deg):</source>
-        <translation>SAM 阈值（度）：</translation>
-    </message>
-</context>
+            </context>
 <context>
     <name>CalibrationDialog</name>
     <message>
@@ -2026,17 +1956,7 @@ This action cannot be undone.</source>
         <source>Clear</source>
         <translation>清除</translation>
     </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
-        <source>SAM Angle (°)</source>
-        <translation>SAM 角度（°）</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="234"/>
-        <source>QA Flag</source>
-        <translation>质控标记</translation>
-    </message>
-    <message>
+            <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="326"/>
         <source>Batch Status:</source>
         <translation>批次状态：</translation>
@@ -2051,32 +1971,7 @@ This action cannot be undone.</source>
         <source>Show needs review only</source>
         <translation>仅显示需复核的项</translation>
     </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="332"/>
-        <source>Reference Details</source>
-        <translation>参考信息</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="333"/>
-        <source>Source:</source>
-        <translation>来源：</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="334"/>
-        <source>Template:</source>
-        <translation>模板：</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="335"/>
-        <source>Threshold:</source>
-        <translation>阈值：</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="336"/>
-        <source>Preview Template</source>
-        <translation>预览模板</translation>
-    </message>
-    <message>
+                        <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="515"/>
         <source>Search failed: {0}</source>
         <translation>搜索失败：{0}</translation>
@@ -2111,52 +2006,17 @@ This action cannot be undone.</source>
         <source>Unknown error</source>
         <translation>未知错误</translation>
     </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="946"/>
-        <source>Template</source>
-        <translation>模板</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="946"/>
-        <source>Reference Capture</source>
-        <translation>参考采集</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="960"/>
-        <source>The selected record does not reference a template.</source>
-        <translation>所选记录没有关联任何模板。</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="969"/>
-        <source>Template Missing</source>
-        <translation>模板缺失</translation>
-    </message>
-    <message>
+                    <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="969"/>
         <source>Template &apos;{0}&apos; was not found.</source>
         <translation>未找到模板“{0}”。</translation>
     </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="978"/>
-        <source>Invalid Template</source>
-        <translation>模板无效</translation>
-    </message>
-    <message>
+        <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="978"/>
         <source>Template &apos;{0}&apos; has invalid data.</source>
         <translation>模板“{0}”包含无效数据。</translation>
     </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="985"/>
-        <source>Template Preview — {0}</source>
-        <translation>模板预览 — {0}</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="987"/>
-        <source>Points: {cnt} | Range: {start:.2f} - {end:.2f} nm</source>
-        <translation>点数：{cnt} | 范围：{start:.2f}–{end:.2f} nm</translation>
-    </message>
-    <message>
+            <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/database_explorer.py" line="997"/>
         <source>Close</source>
         <translation>关闭</translation>
@@ -4243,22 +4103,7 @@ Experiment ID: {0}</source>
         <source>Use Reference Capture</source>
         <translation>使用参考采集</translation>
     </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="92"/>
-        <source>Use Template</source>
-        <translation>使用模板</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="254"/>
-        <source>Select Template</source>
-        <translation>选择模板</translation>
-    </message>
-    <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="140"/>
-        <source>Manage Templates...</source>
-        <translation>管理模板…</translation>
-    </message>
-    <message>
+                <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/plate_setup_dialog.py" line="141"/>
         <source>Concentration &amp; QA Layout</source>
         <translation>浓度与质控布局</translation>

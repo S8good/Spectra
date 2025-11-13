@@ -14,7 +14,6 @@
 11. **Legacy 操作手册**：`docs/operations/legacy_tables.md` 明确只读切换、备份回滚、审计流程与脚本准备。
 12. **数据库浏览器增强（阶段一）**：界面新增实验状态/操作员筛选、查询耗时提示与 CSV 导出，并补充“实验详情 / 光谱集合 / 批次概览”标签页自动联动展示；最新版本引入 QtConcurrent + QFutureWatcher 异步加载机制并为批次概览增加状态/孔位过滤器，避免查询/详情阻塞同时提升大板位定位效率，相关逻辑已同步更新 `nanosense/gui/database_explorer.py`、`nanosense/core/data_access.py`、`nanosense/core/database_manager.py`。
 13. **治理自动化脚本补齐**：新增 `scripts/run_snapshot_governance.py`（一键生成快照报表、可选清理与 Markdown 摘要）以及 `scripts/legacy_freeze.py`（备份、回填、冻结报告），并在 `tests/test_legacy_freeze.py` 覆盖关键校验逻辑。
-14. **批量 QA（SAM）落地**：Plate Setup/Batch Setup 新增参考模板管理与 SAM 阈值配置（支持管理器导入标准光谱）；`BatchAcquisitionWorker` 在线读取模板、实时计算 Spectral Angle Mapper，并在 Batch 运行对话框内推送告警日志；结果写入 `batch_run_items.metadata_json->qa`，`ExplorerDataAccess`/数据库浏览器可筛出 `needs_review` 孔位并显示谱角、阈值，`generate_demo_database.py` 注入示例元数据以便演示。
 
 ## 待处理事项
 1. **仪器 / 处理快照治理迭代**：在 `run_snapshot_governance.py` 的基础上补充趋势分析、CI 告警与审批记录沉淀，确保历史数据可审计。

@@ -74,14 +74,12 @@ def test_fetch_batch_overview_returns_items_for_experiment():
     conn = setup_conn()
     conn.execute("INSERT INTO batch_runs VALUES (2, 1, 'Batch A', 'in_progress', '2025-01-01', NULL)")
     conn.execute(
-        "INSERT INTO batch_run_items VALUES (10, 2, 'A1', 1, 'completed', 3, 5, '2025-01-02', '{\"qa\": {\"sam_angle_deg\": 7.5, \"qa_flag\": \"needs_review\"}, \"reference\": {\"source\": \"template\", \"template_id\": \"Baseline\", \"sam_threshold_deg\": 4.5}}')"
+        "INSERT INTO batch_run_items VALUES (10, 2, 'A1', 1, 'completed', 3, 5, '2025-01-02', '{}')"
     )
     access = ExplorerDataAccess(conn)
     rows = access.fetch_batch_overview(3)
     assert len(rows) == 1
     assert rows[0]["batch_name"] == "Batch A"
-    assert rows[0]["qa_flag"] == "needs_review"
-    assert rows[0]["sam_angle_deg"] == 7.5
-    assert rows[0]["reference_source"] == "template"
-    assert rows[0]["reference_template_id"] == "Baseline"
-    assert rows[0]["reference_threshold_deg"] == 4.5
+    assert rows[0]["position_label"] == "A1"
+    assert rows[0]["item_status"] == "completed"
+    assert rows[0]["capture_count"] == 5
