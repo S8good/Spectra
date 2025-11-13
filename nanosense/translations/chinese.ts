@@ -988,6 +988,21 @@ Please install it via `pip install PyOpenGL PyOpenGL_accelerate`.</source>
         <translation>清空汇总图</translation>
     </message>
     <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="345"/>
+        <source>Hide Reference/Background</source>
+        <translation>隐藏参考/背景</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="345"/>
+        <source>Show Reference/Background</source>
+        <translation>显示参考/背景</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="357"/>
+        <source>Total progress: {total}% | Current well: {point}%</source>
+        <translation>总进度：{total}% | 当前孔位：{point}%</translation>
+    </message>
+    <message>
         <location filename="../../../25.10.23 - ����/nanosense/core/batch_acquisition.py" line="569"/>
         <source>Resume Overlay</source>
         <translation>恢复叠加</translation>

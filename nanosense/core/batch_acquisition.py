@@ -39,11 +39,26 @@ QProgressBar {
     text-align: center;
     background-color: rgba(0, 0, 0, 0.2);
     color: white;
+    min-height: 18px;
 }
 QProgressBar::chunk {
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                                       stop:0 #4169E1, stop:1 #483D8B);
     border-radius: 4px;
+}
+"""
+
+MINI_PROGRESS_STYLE = """
+QProgressBar {
+    border: 1px solid rgba(224, 224, 224, 0.4);
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.08);
+    min-height: 4px;
+}
+QProgressBar::chunk {
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                      stop:0 #8EC5FC, stop:1 #3F5EFB);
+    border-radius: 2px;
 }
 """
 
@@ -239,6 +254,7 @@ class BatchRunDialog(QDialog):
         top_row.setSpacing(12)
         bottom_row = QHBoxLayout()
         bottom_row.setSpacing(12)
+        self.bottom_row_layout = bottom_row
 
         def create_plot_container(plot_widget: pg.PlotWidget, title_key: str, popout_handler) -> QWidget:
             container = QWidget()
@@ -288,12 +304,12 @@ class BatchRunDialog(QDialog):
         signal_container = create_plot_container(
             self.signal_plot, "Live Signal", lambda: self._open_popout_window("signal")
         )
-        background_container = create_plot_container(
+        self.background_container = create_plot_container(
             self.background_plot,
             "Current Background",
             lambda: self._open_popout_window("background"),
         )
-        reference_container = create_plot_container(
+        self.reference_container = create_plot_container(
             self.reference_plot,
             "Current Reference",
             lambda: self._open_popout_window("reference"),
@@ -303,18 +319,18 @@ class BatchRunDialog(QDialog):
             "Live Result (Absorbance)",
             lambda: self._open_popout_window("result"),
         )
-        summary_container = create_plot_container(
+        self.summary_container = create_plot_container(
             self.summary_plot,
             "Accumulated Results Summary",
             lambda: self._open_popout_window("summary"),
         )
 
         top_row.addWidget(signal_container, 1)
-        top_row.addWidget(background_container, 1)
-        top_row.addWidget(reference_container, 1)
+        top_row.addWidget(self.background_container, 1)
+        top_row.addWidget(self.reference_container, 1)
 
         bottom_row.addWidget(result_container, 1)
-        bottom_row.addWidget(summary_container, 1)
+        bottom_row.addWidget(self.summary_container, 1)
 
         plots_layout.addLayout(top_row, 1)
         plots_layout.addLayout(bottom_row, 1)
@@ -324,23 +340,32 @@ class BatchRunDialog(QDialog):
         self.toggle_summary_button = QPushButton()
         self.toggle_summary_button.setCheckable(True)
         self.clear_summary_button = QPushButton()
+        self.toggle_reference_button = QPushButton()
+        self.toggle_reference_button.setCheckable(True)
         summary_controls_layout.addStretch()
         summary_controls_layout.addWidget(self.toggle_summary_button)
         summary_controls_layout.addWidget(self.clear_summary_button)
+        summary_controls_layout.addWidget(self.toggle_reference_button)
         main_layout.addLayout(summary_controls_layout)
 
         self.progress_panel = QWidget()
-        progress_layout = QGridLayout(self.progress_panel)
+        progress_layout = QVBoxLayout(self.progress_panel)
+        progress_layout.setContentsMargins(0, 4, 0, 0)
+        progress_layout.setSpacing(4)
+        self.progress_info_label = QLabel()
+        self.progress_info_label.setStyleSheet("color: #90A4AE; font-size: 11px;")
         self.total_progress_bar = QProgressBar()
+        self.total_progress_bar.setStyleSheet(PROGRESS_BAR_STYLE)
         self.point_progress_bar = QProgressBar()
-        for bar in (self.total_progress_bar, self.point_progress_bar):
-            bar.setStyleSheet(PROGRESS_BAR_STYLE)
-        self.total_progress_label = QLabel()
-        self.point_progress_label = QLabel()
-        progress_layout.addWidget(self.total_progress_label, 0, 0)
-        progress_layout.addWidget(self.total_progress_bar, 0, 1)
-        progress_layout.addWidget(self.point_progress_label, 1, 0)
-        progress_layout.addWidget(self.point_progress_bar, 1, 1)
+        self.point_progress_bar.setStyleSheet(MINI_PROGRESS_STYLE)
+        self.point_progress_bar.setTextVisible(False)
+        self.point_progress_bar.setFixedHeight(6)
+        self._total_progress_value = 0
+        self._point_progress_value = 0
+        self.progress_info_label.setText(self._progress_text())
+        progress_layout.addWidget(self.progress_info_label)
+        progress_layout.addWidget(self.total_progress_bar)
+        progress_layout.addWidget(self.point_progress_bar)
         main_layout.addWidget(self.progress_panel)
 
         for btn in (
@@ -363,6 +388,7 @@ class BatchRunDialog(QDialog):
         self.abort_button.clicked.connect(self._confirm_abort)
         self.toggle_summary_button.toggled.connect(self._toggle_summary_pause)
         self.clear_summary_button.clicked.connect(self._clear_summary_plot)
+        self.toggle_reference_button.toggled.connect(self._toggle_reference_sections)
 
     def _prompt_import(self, spectrum_type: str) -> None:
         start_dir = self._last_import_dir or os.path.expanduser("~")
@@ -450,10 +476,10 @@ class BatchRunDialog(QDialog):
         self.result_plot.setTitle(self.tr("Live Result (Absorbance)"), **title_style)
         self.summary_plot.setTitle(self.tr("Accumulated Results Summary"), **title_style)
 
-        self.total_progress_label.setText(self.tr("Total Well Progress:"))
-        self.point_progress_label.setText(self.tr("Current Point Progress:"))
         self.toggle_summary_button.setText(self.tr("Pause Overlay"))
         self.clear_summary_button.setText(self.tr("Clear Summary Plot"))
+        self._toggle_reference_sections(self.toggle_reference_button.isChecked())
+        self.progress_info_label.setText(self._progress_text())
 
     def _open_popout_window(self, plot_type: str) -> None:
         for item in self.popout_windows:
@@ -555,6 +581,25 @@ class BatchRunDialog(QDialog):
         self.summary_curves.clear()
         self._redraw_summary_plot(None, [])
 
+    def _toggle_reference_sections(self, hidden: bool) -> None:
+        self.background_container.setVisible(not hidden)
+        self.reference_container.setVisible(not hidden)
+        stretch = 1 if not hidden else 2
+        if hasattr(self, "bottom_row_layout"):
+            self.bottom_row_layout.setStretchFactor(self.summary_container, stretch)
+        label = (
+            self.tr("Show Reference/Background")
+            if hidden
+            else self.tr("Hide Reference/Background")
+        )
+        self.toggle_reference_button.setText(label)
+
+    def _progress_text(self) -> str:
+        return self.tr("Total progress: {total}% | Current well: {point}%").format(
+            total=int(self._total_progress_value),
+            point=int(self._point_progress_value),
+        )
+
     def _confirm_abort(self) -> None:
         reply = QMessageBox.question(
             self,
@@ -587,9 +632,14 @@ class BatchRunDialog(QDialog):
             params = status.get("params", {})
             self.instruction_label.setText(self.tr(instruction_key).format(**params))
         if "total_progress" in status:
-            self.total_progress_bar.setValue(status["total_progress"])
+            value = int(status["total_progress"])
+            self._total_progress_value = value
+            self.total_progress_bar.setValue(value)
         if "point_progress" in status:
-            self.point_progress_bar.setValue(status["point_progress"])
+            value = int(status["point_progress"])
+            self._point_progress_value = value
+            self.point_progress_bar.setValue(value)
+        self.progress_info_label.setText(self._progress_text())
 
         phase = status.get("phase", self._current_phase)
         collect_enabled = status.get("button_enabled", False)
