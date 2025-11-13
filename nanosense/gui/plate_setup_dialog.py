@@ -16,15 +16,22 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QMessageBox,
     QFormLayout,
+    QScrollArea,
+    QSizePolicy,
 )
-from PyQt5.QtCore import Qt, QEvent  # 导入 QEvent
+from PyQt5.QtCore import Qt, QEvent  # required for changeEvent
 from PyQt5.QtGui import QDoubleValidator
 
 
 class PlateSetupDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, rows: int = 8, cols: int = 12, layout_label: str = ""):
         super().__init__(parent)
-        self.setMinimumSize(800, 600)
+        self.rows = max(1, min(rows, 26))
+        self.cols = max(1, cols)
+        self.layout_label = layout_label or f"{self.rows} x {self.cols}"
+        self.total_wells = self.rows * self.cols
+
+        self.setMinimumSize(900, 620)
 
         if parent and hasattr(parent, 'app_settings'):
             self.app_settings = self.parent().app_settings
@@ -36,7 +43,7 @@ class PlateSetupDialog(QDialog):
 
         self._init_ui()
         self._connect_signals()
-        self._retranslate_ui()  # 设置初始文本
+        self._retranslate_ui()  # initialize translated text
 
     def _init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -52,17 +59,24 @@ class PlateSetupDialog(QDialog):
         toolbar_layout.addStretch()
         main_layout.addLayout(toolbar_layout)
 
-        # --- 96-Well Plate Grid ---
-        self.plate_group = QGroupBox()  # 创建空分组框
-        plate_grid_layout = QGridLayout(self.plate_group)
-        plate_grid_layout.setSpacing(5)
+        self.layout_summary_label = QLabel()
+        self.layout_summary_label.setAlignment(Qt.AlignCenter)
+        self.layout_summary_label.setStyleSheet("color: #90A4AE; font-weight: 500;")
+        main_layout.addWidget(self.layout_summary_label)
 
-        for col in range(12):
+        # --- Plate Grid ---
+        self.plate_group = QGroupBox()
+        plate_grid_layout = QGridLayout()
+        plate_grid_layout.setSpacing(5)
+        self.plate_group.setLayout(plate_grid_layout)
+        self.plate_group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+
+        for col in range(self.cols):
             plate_grid_layout.addWidget(QLabel(f"{col + 1}"), 0, col + 1, Qt.AlignCenter)
-        for row in range(8):
+        for row in range(self.rows):
             row_char = chr(ord('A') + row)
             plate_grid_layout.addWidget(QLabel(row_char), row + 1, 0, Qt.AlignCenter)
-            for col in range(12):
+            for col in range(self.cols):
                 well_id = f"{row_char}{col + 1}"
                 well_widget = QWidget()
                 well_layout = QVBoxLayout(well_widget)
@@ -74,8 +88,14 @@ class PlateSetupDialog(QDialog):
                 well_layout.addWidget(concentration_edit)
                 plate_grid_layout.addWidget(well_widget, row + 1, col + 1)
                 self.well_widgets[well_id] = concentration_edit
+            plate_grid_layout.setRowStretch(row + 1, 0)
 
-        main_layout.addWidget(self.plate_group)
+        plate_grid_layout.setRowStretch(self.rows + 1, 1)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.plate_group)
+        main_layout.addWidget(scroll_area, 1)
 
         # --- Confirmation Buttons ---
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -89,18 +109,25 @@ class PlateSetupDialog(QDialog):
         self.button_box.rejected.connect(self.reject)
 
     def changeEvent(self, event):
-        """ 新增：响应语言变化事件 """
+        """Handle language change events."""
         if event.type() == QEvent.LanguageChange:
             self._retranslate_ui()
         super().changeEvent(event)
 
     def _retranslate_ui(self):
-        """ 新增：重新翻译此控件内的所有UI文本 """
-        self.setWindowTitle(self.tr("Batch Acquisition Setup (96-Well Plate Layout)"))
+        """Refresh translated UI text."""
+        self.setWindowTitle(
+            self.tr("Batch Acquisition Setup - {label}").format(label=self.layout_label)
+        )
+        self.layout_summary_label.setText(
+            self.tr("{rows} rows x {cols} columns ({total} wells)").format(
+                rows=self.rows, cols=self.cols, total=self.total_wells
+            )
+        )
         self.save_button.setText(self.tr("Save Layout"))
         self.load_button.setText(self.tr("Load Layout"))
         self.clear_button.setText(self.tr("Clear Layout"))
-        self.plate_group.setTitle(self.tr("Concentration & QA Layout"))
+        self.plate_group.setTitle(self.tr("Concentration Layout"))
         self.button_box.button(QDialogButtonBox.Ok).setText(self.tr("OK"))
         self.button_box.button(QDialogButtonBox.Cancel).setText(self.tr("Cancel"))
 

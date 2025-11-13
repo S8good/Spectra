@@ -32,6 +32,21 @@ from .controller import FX2000Controller
 from ..utils.file_io import save_batch_spectrum_data, load_spectrum_from_path
 from ..gui.single_plot_window import SinglePlotWindow
 
+PROGRESS_BAR_STYLE = """
+QProgressBar {
+    border: 1px solid rgba(224, 224, 224, 0.6);
+    border-radius: 5px;
+    text-align: center;
+    background-color: rgba(0, 0, 0, 0.2);
+    color: white;
+}
+QProgressBar::chunk {
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                      stop:0 #4169E1, stop:1 #483D8B);
+    border-radius: 4px;
+}
+"""
+
 
 def _calculate_absorbance(signal, background, reference):
     """Compute absorbance from signal, background, and reference spectra."""
@@ -318,6 +333,8 @@ class BatchRunDialog(QDialog):
         progress_layout = QGridLayout(self.progress_panel)
         self.total_progress_bar = QProgressBar()
         self.point_progress_bar = QProgressBar()
+        for bar in (self.total_progress_bar, self.point_progress_bar):
+            bar.setStyleSheet(PROGRESS_BAR_STYLE)
         self.total_progress_label = QLabel()
         self.point_progress_label = QLabel()
         progress_layout.addWidget(self.total_progress_label, 0, 0)

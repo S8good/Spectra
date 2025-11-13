@@ -36,6 +36,7 @@ from .measurement_widget import MeasurementWidget
 from .menu_bar import MenuBar
 
 from .plate_setup_dialog import PlateSetupDialog
+from .plate_layout_selector import PlateLayoutSelectionDialog
 
 from .sensitivity_dialog import SensitivityDialog
 
@@ -1551,7 +1552,24 @@ class AppWindow(QMainWindow):
 
     def _start_batch_acquisition(self):
 
-        plate_setup_dialog = PlateSetupDialog(self)
+        default_layout_key = None
+        if hasattr(self, "app_settings") and isinstance(self.app_settings, dict):
+            default_layout_key = self.app_settings.get("plate_layout_key")
+
+        layout_selector = PlateLayoutSelectionDialog(self, default_layout_key)
+        if layout_selector.exec_() != QDialog.Accepted or not layout_selector.selected_layout:
+            return
+
+        layout_choice = layout_selector.selected_layout
+        if hasattr(self, "app_settings") and isinstance(self.app_settings, dict):
+            self.app_settings["plate_layout_key"] = layout_choice.key
+
+        plate_setup_dialog = PlateSetupDialog(
+            self,
+            rows=layout_choice.rows,
+            cols=layout_choice.cols,
+            layout_label=layout_choice.name,
+        )
 
         if plate_setup_dialog.exec_() != QDialog.Accepted:
 
