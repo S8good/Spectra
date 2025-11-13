@@ -17,6 +17,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, QPoint
 from PyQt5.QtGui import QCursor, QImage, QMatrix4x4, QVector3D, QVector4D
 from PyQt5.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDoubleSpinBox,
@@ -28,11 +29,14 @@ from PyQt5.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QToolTip,
     QVBoxLayout,
+    QWidget,
 )
 
 from nanosense.algorithms.peak_analysis import find_main_resonance_peak
@@ -261,8 +265,14 @@ class DeltaLambdaVisualizationDialog(QDialog):
     def _build_ui(self):
         layout = QVBoxLayout(self)
 
-        top_split = QHBoxLayout()
-        left_panel = QVBoxLayout()
+        self.main_splitter = QSplitter(Qt.Horizontal)
+        self.main_splitter.setChildrenCollapsible(False)
+        layout.addWidget(self.main_splitter, 1)
+
+        controls_widget = QWidget()
+        controls_layout = QVBoxLayout(controls_widget)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(10)
 
         self.folder_group = QGroupBox(self.tr("Input Folder (two batch files required)"))
         folder_layout = QVBoxLayout(self.folder_group)
@@ -280,11 +290,34 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.post_combo = QComboBox()
         combo_form.addRow(self.tr("Baseline file:"), self.baseline_combo)
         combo_form.addRow(self.tr("Post-reaction file:"), self.post_combo)
+
+        margin_default = float(self.app_settings.get("analysis_wl_margin", 20.0))
+        self.margin_spinbox = QDoubleSpinBox()
+        self.margin_spinbox.setRange(0.0, 200.0)
+        self.margin_spinbox.setDecimals(1)
+        self.margin_spinbox.setValue(margin_default)
+        self.margin_spinbox.setSuffix(" nm")
+        self.margin_spinbox.setMaximumWidth(110)
+        combo_form.addRow(self.tr("Safety margin:"), self.margin_spinbox)
+
+        preprocess_row = QHBoxLayout()
+        preprocess_row.setContentsMargins(0, 0, 0, 0)
+        preprocess_row.setSpacing(8)
+        baseline_default = bool(self.app_settings.get("analysis_baseline_enabled", True))
+        smoothing_default = bool(self.app_settings.get("analysis_smoothing_enabled", True))
+        self.baseline_checkbox = QCheckBox(self.tr("ALS baseline"))
+        self.baseline_checkbox.setChecked(baseline_default)
+        self.smoothing_checkbox = QCheckBox(self.tr("Savitzky-Golay"))
+        self.smoothing_checkbox.setChecked(smoothing_default)
+        preprocess_row.addWidget(self.baseline_checkbox)
+        preprocess_row.addWidget(self.smoothing_checkbox)
+        preprocess_widget = QWidget()
+        preprocess_widget.setLayout(preprocess_row)
+        combo_form.addRow(self.tr("Preprocessing:"), preprocess_widget)
         folder_layout.addLayout(combo_form)
 
         self.compute_button = QPushButton(self.tr("Load && Compute Δλ"))
         folder_layout.addWidget(self.compute_button)
-        left_panel.addWidget(self.folder_group)
 
         self.meta_group = QGroupBox(self.tr("Metadata & Export Settings"))
         meta_layout = QFormLayout(self.meta_group)
@@ -315,8 +348,13 @@ class DeltaLambdaVisualizationDialog(QDialog):
         gif_row.addWidget(self.export_gif_button)
         meta_layout.addRow(self.tr("GIF Export (optional):"), gif_row)
 
-        left_panel.addWidget(self.meta_group)
-        top_split.addLayout(left_panel, 2)
+        self.folder_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.meta_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        controls_layout.addWidget(self.folder_group)
+        controls_layout.addWidget(self.meta_group)
+        controls_layout.addStretch(1)
+        self.controls_widget = controls_widget
+        self.main_splitter.addWidget(controls_widget)
 
         self.point_table = QTableWidget(0, 2)
         self.point_table.setHorizontalHeaderLabels([self.tr("Point"), self.tr("Δλ (nm)")])
@@ -327,13 +365,20 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.point_table.horizontalHeader().setStretchLastSection(True)
         self.point_table.setMinimumWidth(220)
 
-        self.table_container = QVBoxLayout()
         self.point_table_label = QLabel(self.tr("Point Δλ Summary"))
-        self.table_container.addWidget(self.point_table_label)
-        self.table_container.addWidget(self.point_table)
-        top_split.addLayout(self.table_container, 1)
+        table_layout = QVBoxLayout()
+        table_layout.setContentsMargins(0, 0, 0, 0)
+        table_layout.setSpacing(6)
+        table_layout.addWidget(self.point_table_label)
+        table_layout.addWidget(self.point_table, 1)
+        table_widget = QWidget()
+        table_widget.setLayout(table_layout)
+        self.table_widget = table_widget
 
-        layout.addLayout(top_split)
+        central_widget = QWidget()
+        central_layout = QVBoxLayout(central_widget)
+        central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.setSpacing(6)
 
         self.gl_view = DeltaLambdaGLView()
         self.gl_view.setBackgroundColor(20, 20, 20)
@@ -344,7 +389,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
             "background-color: rgba(0, 0, 0, 180); color: #FFEE58; padding: 3px 6px; border-radius: 4px;"
         )
         self.hover_overlay_label.hide()
-        layout.addWidget(self.gl_view, 1)
+        central_layout.addWidget(self.gl_view, 1)
 
         footer_row = QHBoxLayout()
         footer_left = QHBoxLayout()
@@ -354,7 +399,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
 
         footer_text_layout = QVBoxLayout()
         footer_text_layout.setContentsMargins(12, 0, 0, 0)
-        self.summary_label = QLabel(self.tr("Δλ surface not generated yet."))
+        self.summary_label = QLabel(self.tr("???? surface not generated yet."))
         self.summary_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         footer_text_layout.addWidget(self.summary_label)
         self.hover_label = QLabel(self.tr("Hover a bar to see details."))
@@ -362,7 +407,13 @@ class DeltaLambdaVisualizationDialog(QDialog):
         footer_left.addLayout(footer_text_layout)
 
         footer_row.addLayout(footer_left, 1)
-        layout.addLayout(footer_row)
+        central_layout.addLayout(footer_row)
+
+        self.main_splitter.addWidget(central_widget)
+        self.main_splitter.addWidget(table_widget)
+        self.main_splitter.setStretchFactor(0, 0)
+        self.main_splitter.setStretchFactor(1, 1)
+        self.main_splitter.setStretchFactor(2, 0)
 
     def _connect_signals(self):
         self.select_folder_button.clicked.connect(self._select_folder)
@@ -381,10 +432,12 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.export_gif_button.setEnabled(has_data)
 
     def _toggle_expanded_view(self, checked):
-        self.folder_group.setVisible(not checked)
-        self.meta_group.setVisible(not checked)
+        if hasattr(self, "controls_widget"):
+            self.controls_widget.setVisible(not checked)
         self.point_table_label.setVisible(not checked)
         self.point_table.setVisible(not checked)
+        if hasattr(self, "table_widget"):
+            self.table_widget.setVisible(not checked)
         self.toggle_view_button.setText(
             self.tr("Exit Expanded View") if checked else self.tr("Expand 3D View")
         )
@@ -478,6 +531,10 @@ class DeltaLambdaVisualizationDialog(QDialog):
             QMessageBox.warning(self, self.tr("File Missing"), self.tr("Selected files no longer exist."))
             return
 
+        self.app_settings["analysis_wl_margin"] = float(self.margin_spinbox.value())
+        self.app_settings["analysis_baseline_enabled"] = bool(self.baseline_checkbox.isChecked())
+        self.app_settings["analysis_smoothing_enabled"] = bool(self.smoothing_checkbox.isChecked())
+
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
         try:
             baseline_peaks = self._compute_peak_positions(baseline_path)
@@ -566,6 +623,9 @@ class DeltaLambdaVisualizationDialog(QDialog):
 
         wl_start = self.app_settings.get("analysis_wl_start", 450.0)
         wl_end = self.app_settings.get("analysis_wl_end", 750.0)
+        wl_margin = max(0.0, float(self.app_settings.get("analysis_wl_margin", 20.0)))
+        apply_baseline = bool(self.app_settings.get("analysis_baseline_enabled", True))
+        apply_smoothing = bool(self.app_settings.get("analysis_smoothing_enabled", True))
 
         als_lambda = self.preprocessing_params.get("als_lambda", 1e9)
         als_p = self.preprocessing_params.get("als_p", 0.01)
@@ -586,26 +646,47 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 peaks[str(col)] = np.nan
                 continue
 
-            baseline = baseline_als(intensities, lam=als_lambda, p=als_p)
-            corrected = intensities - baseline
-            mask = (wavelengths >= wl_start) & (wavelengths <= wl_end)
-            if not np.any(mask):
+            wl_min = float(np.nanmin(wavelengths))
+            wl_max = float(np.nanmax(wavelengths))
+            margin_start = max(wl_min, wl_start - wl_margin)
+            margin_end = min(wl_max, wl_end + wl_margin)
+
+            margin_mask = (wavelengths >= margin_start) & (wavelengths <= margin_end)
+            if not np.any(margin_mask):
                 peaks[str(col)] = np.nan
                 continue
 
-            sub_wl = wavelengths[mask]
-            sub_int = corrected[mask]
-            if sub_wl.size < 20:
+            margin_wl = wavelengths[margin_mask]
+            margin_int = intensities[margin_mask]
+            if margin_wl.size < 20:
                 peaks[str(col)] = np.nan
                 continue
 
-            coarse = smooth_savitzky_golay(sub_int, sg_window_coarse, sg_poly_coarse)
-            fine = smooth_savitzky_golay(coarse, sg_window_fine, sg_poly_fine)
-            peak_idx, _ = find_main_resonance_peak(fine, min_height=0)
-            if peak_idx is None or peak_idx >= sub_wl.size:
+            working = margin_int
+            if apply_baseline:
+                baseline = baseline_als(margin_int, lam=als_lambda, p=als_p)
+                working = margin_int - baseline
+
+            if apply_smoothing:
+                coarse = smooth_savitzky_golay(working, sg_window_coarse, sg_poly_coarse)
+                fine = smooth_savitzky_golay(coarse, sg_window_fine, sg_poly_fine)
+            else:
+                fine = working
+
+            final_mask = (margin_wl >= wl_start) & (margin_wl <= wl_end)
+            if not np.any(final_mask):
                 peaks[str(col)] = np.nan
             else:
-                peaks[str(col)] = float(sub_wl[peak_idx])
+                sub_wl = margin_wl[final_mask]
+                sub_int = fine[final_mask]
+                if sub_wl.size < 20:
+                    peaks[str(col)] = np.nan
+                    continue
+                peak_idx, _ = find_main_resonance_peak(sub_int, min_height=0)
+                if peak_idx is None or peak_idx >= sub_wl.size:
+                    peaks[str(col)] = np.nan
+                else:
+                    peaks[str(col)] = float(sub_wl[peak_idx])
 
         return peaks
 
@@ -626,9 +707,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 continue
 
             kept_columns.append(col)
-            if re.fullmatch(r"\d{1,3}", name_str):
-                new_name = f"Point_{int(name_str):03d}"
-            elif lower_name.startswith("point"):
+            if lower_name.startswith("point"):
                 new_name = name_str
             elif re.search(r"[A-Za-z]", name_str):
                 new_name = name_str
