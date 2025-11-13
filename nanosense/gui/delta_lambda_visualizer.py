@@ -347,15 +347,20 @@ class DeltaLambdaVisualizationDialog(QDialog):
         layout.addWidget(self.gl_view, 1)
 
         footer_row = QHBoxLayout()
-        footer_left = QVBoxLayout()
+        footer_left = QHBoxLayout()
         self.toggle_view_button = QPushButton(self.tr("Expand 3D View"))
         self.toggle_view_button.setCheckable(True)
         footer_left.addWidget(self.toggle_view_button, alignment=Qt.AlignLeft)
+
+        footer_text_layout = QVBoxLayout()
+        footer_text_layout.setContentsMargins(12, 0, 0, 0)
         self.summary_label = QLabel(self.tr("Δλ surface not generated yet."))
         self.summary_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        footer_left.addWidget(self.summary_label)
+        footer_text_layout.addWidget(self.summary_label)
         self.hover_label = QLabel(self.tr("Hover a bar to see details."))
-        footer_left.addWidget(self.hover_label)
+        footer_text_layout.addWidget(self.hover_label)
+        footer_left.addLayout(footer_text_layout)
+
         footer_row.addLayout(footer_left, 1)
         layout.addLayout(footer_row)
 
@@ -795,12 +800,19 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.grid_item.translate((cols + 1) / 2, (rows + 1) / 2, 0)
         self.gl_view.addItem(self.grid_item)
 
-        z_extent = max(float(np.nanmax(bar_heights)), 0.2)
+        pos_mask = raw_matrix > 0
+        neg_mask = raw_matrix < 0
+        max_pos_height = float(np.nanmax(np.where(pos_mask, bar_heights, 0.0))) if pos_mask.any() else 0.0
+        max_neg_height = float(np.nanmax(np.where(neg_mask, bar_heights, 0.0))) if neg_mask.any() else 0.0
+        total_height = max(max_pos_height + max_neg_height, 0.2)
         self.axis_item = GLAxisItem()
-        self.axis_item.setSize(cols + 1, rows + 1, z_extent * 1.2)
+        self.axis_item.setSize(cols + 1, rows + 1, total_height * 1.2)
         self.gl_view.addItem(self.axis_item)
 
-        max_extent = max(rows, cols, z_extent)
+        center_z = (max_pos_height - max_neg_height) / 2.0
+        self.gl_view.opts["center"] = QVector3D((cols + 1) / 2, (rows + 1) / 2, center_z)
+
+        max_extent = max(rows, cols, total_height)
         self.gl_view.opts["distance"] = max_extent * 3.0
         self.gl_view.opts["elevation"] = 30
         self.gl_view.opts["azimuth"] = 45
@@ -850,8 +862,8 @@ class DeltaLambdaVisualizationDialog(QDialog):
             value_text = "" if np.isnan(value) else f"{value:.3f}"
             value_item = QTableWidgetItem(value_text)
             self.point_table.setItem(row, 0, label_item)
-        self.point_table.setItem(row, 1, value_item)
-        self.table_row_lookup[label] = row
+            self.point_table.setItem(row, 1, value_item)
+            self.table_row_lookup[label] = row
         self.point_table.resizeColumnsToContents()
 
     # --------------------------------------------------------------- Export ---
