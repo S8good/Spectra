@@ -250,11 +250,13 @@ class BatchRunDialog(QDialog):
         plots_layout.setContentsMargins(0, 0, 0, 0)
         plots_layout.setSpacing(12)
 
-        top_row = QHBoxLayout()
-        top_row.setSpacing(12)
-        bottom_row = QHBoxLayout()
-        bottom_row.setSpacing(12)
-        self.bottom_row_layout = bottom_row
+        self.plot_grid = QGridLayout()
+        self.plot_grid.setSpacing(12)
+        self.plot_grid.setColumnStretch(0, 1)
+        self.plot_grid.setColumnStretch(1, 1)
+        self.plot_grid.setColumnStretch(2, 1)
+        self.plot_grid.setRowStretch(0, 1)
+        self.plot_grid.setRowStretch(1, 1)
 
         def create_plot_container(plot_widget: pg.PlotWidget, title_key: str, popout_handler) -> QWidget:
             container = QWidget()
@@ -301,7 +303,7 @@ class BatchRunDialog(QDialog):
         self.result_curve = self.result_plot.plot(pen="y")
         self.summary_plot = pg.PlotWidget()
 
-        signal_container = create_plot_container(
+        self.signal_container = create_plot_container(
             self.signal_plot, "Live Signal", lambda: self._open_popout_window("signal")
         )
         self.background_container = create_plot_container(
@@ -314,7 +316,7 @@ class BatchRunDialog(QDialog):
             "Current Reference",
             lambda: self._open_popout_window("reference"),
         )
-        result_container = create_plot_container(
+        self.result_container = create_plot_container(
             self.result_plot,
             "Live Result (Absorbance)",
             lambda: self._open_popout_window("result"),
@@ -325,15 +327,13 @@ class BatchRunDialog(QDialog):
             lambda: self._open_popout_window("summary"),
         )
 
-        top_row.addWidget(signal_container, 1)
-        top_row.addWidget(self.background_container, 1)
-        top_row.addWidget(self.reference_container, 1)
+        self.plot_grid.addWidget(self.signal_container, 0, 0)
+        self.plot_grid.addWidget(self.background_container, 0, 1)
+        self.plot_grid.addWidget(self.reference_container, 0, 2)
+        self.plot_grid.addWidget(self.result_container, 1, 0)
+        self.plot_grid.addWidget(self.summary_container, 1, 1, 1, 2)
 
-        bottom_row.addWidget(result_container, 1)
-        bottom_row.addWidget(self.summary_container, 1)
-
-        plots_layout.addLayout(top_row, 1)
-        plots_layout.addLayout(bottom_row, 1)
+        plots_layout.addLayout(self.plot_grid, 1)
         main_layout.addWidget(plots_container)
 
         summary_controls_layout = QHBoxLayout()
@@ -584,9 +584,12 @@ class BatchRunDialog(QDialog):
     def _toggle_reference_sections(self, hidden: bool) -> None:
         self.background_container.setVisible(not hidden)
         self.reference_container.setVisible(not hidden)
-        stretch = 1 if not hidden else 2
-        if hasattr(self, "bottom_row_layout"):
-            self.bottom_row_layout.setStretchFactor(self.summary_container, stretch)
+        self.plot_grid.removeWidget(self.summary_container)
+        if hidden:
+            # Span both rows and last two columns
+            self.plot_grid.addWidget(self.summary_container, 0, 1, 2, 2)
+        else:
+            self.plot_grid.addWidget(self.summary_container, 1, 1, 1, 2)
         label = (
             self.tr("Show Reference/Background")
             if hidden
