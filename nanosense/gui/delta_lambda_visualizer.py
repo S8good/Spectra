@@ -399,7 +399,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
 
         footer_text_layout = QVBoxLayout()
         footer_text_layout.setContentsMargins(12, 0, 0, 0)
-        self.summary_label = QLabel(self.tr("???? surface not generated yet."))
+        self.summary_label = QLabel(self.tr("\u0394\u03bb surface not generated yet."))
         self.summary_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         footer_text_layout.addWidget(self.summary_label)
         self.hover_label = QLabel(self.tr("Hover a bar to see details."))

@@ -10,18 +10,19 @@ import pyqtgraph as pg
 from PyQt5.QtWidgets import (
     QDialog,
     QVBoxLayout,
+    QHBoxLayout,
     QLabel,
     QProgressBar,
     QPushButton,
     QMessageBox,
     QGridLayout,
-    QHBoxLayout,
     QWidget,
     QToolButton,
     QSizePolicy,
     QStyle,
     QFileDialog,
     QGroupBox,
+    QToolTip,
 )
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QThread, Qt, QEvent, QSize
 from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
@@ -144,6 +145,7 @@ class BatchRunDialog(QDialog):
         self._allow_close = False
         self._current_phase: Optional[str] = None
         self._last_import_dir = ""
+        self._reference_hint_shown = False
         self._dummy_strings_for_translator()
         self._init_ui()
         self._connect_signals()
@@ -590,6 +592,7 @@ class BatchRunDialog(QDialog):
             self.plot_grid.addWidget(self.summary_container, 0, 1, 2, 2)
         else:
             self.plot_grid.addWidget(self.summary_container, 1, 1, 1, 2)
+        self._reference_hint_shown = False
         label = (
             self.tr("Show Reference/Background")
             if hidden
@@ -602,6 +605,17 @@ class BatchRunDialog(QDialog):
             total=int(self._total_progress_value),
             point=int(self._point_progress_value),
         )
+
+    def _show_reference_hint(self) -> None:
+        if self._reference_hint_shown or not self.toggle_reference_button:
+            return
+        message = self.tr(
+            "Reference/background plots are hidden. Click the button to show them."
+        )
+        btn = self.toggle_reference_button
+        pos = btn.mapToGlobal(btn.rect().center())
+        QToolTip.showText(pos, message, btn)
+        self._reference_hint_shown = True
 
     def _confirm_abort(self) -> None:
         reply = QMessageBox.question(
@@ -634,6 +648,7 @@ class BatchRunDialog(QDialog):
         if instruction_key:
             params = status.get("params", {})
             self.instruction_label.setText(self.tr(instruction_key).format(**params))
+        previous_phase = self._current_phase
         if "total_progress" in status:
             value = int(status["total_progress"])
             self._total_progress_value = value
@@ -651,6 +666,12 @@ class BatchRunDialog(QDialog):
 
         if "back_button_enabled" in status:
             self.back_button.setEnabled(status["back_button_enabled"])
+        if (
+            phase == "signal"
+            and previous_phase != "signal"
+            and self.toggle_reference_button.isChecked()
+        ):
+            self._show_reference_hint()
 
 # --------------------------------------------------------------------------------
 class BatchAcquisitionWorker(QObject):
