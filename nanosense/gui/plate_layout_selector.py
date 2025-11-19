@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEasingCurve, pyqtProperty, QPropertyAnimation
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QDialog,
@@ -14,10 +14,13 @@ from PyQt5.QtWidgets import (
     QGridLayout,
     QPushButton,
     QDialogButtonBox,
-    QHBoxLayout,
     QSpinBox,
     QSizePolicy,
     QGraphicsDropShadowEffect,
+    QWidget,
+    QStylePainter,
+    QStyleOptionButton,
+    QStyle,
 )
 
 
@@ -40,17 +43,23 @@ class PlateLayoutButton(QPushButton):
         self.setMinimumHeight(48)
         self.setMinimumWidth(240)
         self._shadow_effect = QGraphicsDropShadowEffect(self)
-        self._shadow_effect.setBlurRadius(18)
-        self._shadow_effect.setOffset(0, 2)
-        self._shadow_effect.setColor(QColor(0, 0, 0, 25))
+        self._shadow_effect.setBlurRadius(12)
+        self._shadow_effect.setOffset(0, 3)
+        self._shadow_effect.setColor(QColor(0, 0, 0, 38))
         self.setGraphicsEffect(self._shadow_effect)
+        self._hover_amount = 0.0
+        self._hover_anim = QPropertyAnimation(self, b"hoverAmount", self)
+        self._hover_anim.setDuration(200)
+        self._hover_anim.setEasingCurve(QEasingCurve.OutCubic)
 
     def enterEvent(self, event):
-        self._apply_shadow(offset_y=3, alpha=38, blur=24)
+        self._animate_hover(1.0)
+        self._apply_shadow(offset_y=4, alpha=51, blur=16)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        self._apply_shadow(offset_y=2, alpha=25, blur=18)
+        self._animate_hover(0.0)
+        self._apply_shadow(offset_y=3, alpha=38, blur=12)
         super().leaveEvent(event)
 
     def _apply_shadow(self, offset_y: int, alpha: int, blur: int) -> None:
@@ -59,6 +68,35 @@ class PlateLayoutButton(QPushButton):
         self._shadow_effect.setOffset(0, offset_y)
         self._shadow_effect.setBlurRadius(blur)
         self._shadow_effect.setColor(QColor(0, 0, 0, alpha))
+
+    def _animate_hover(self, target: float) -> None:
+        if not self._hover_anim:
+            return
+        self._hover_anim.stop()
+        self._hover_anim.setStartValue(self._hover_amount)
+        self._hover_anim.setEndValue(target)
+        self._hover_anim.start()
+
+    def getHoverAmount(self) -> float:
+        return self._hover_amount
+
+    def setHoverAmount(self, value: float) -> None:
+        self._hover_amount = value
+        self.update()
+
+    hoverAmount = pyqtProperty(float, fget=getHoverAmount, fset=setHoverAmount)
+
+    def paintEvent(self, event):
+        scale = 1.0 + (0.02 * self._hover_amount)
+        painter = QStylePainter(self)
+        painter.save()
+        painter.translate(self.width() / 2, self.height() / 2)
+        painter.scale(scale, scale)
+        painter.translate(-self.width() / 2, -self.height() / 2)
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        painter.drawControl(QStyle.CE_PushButton, option)
+        painter.restore()
 
 
 class CustomLayoutDialog(QDialog):
@@ -113,17 +151,19 @@ class PlateLayoutSelectionDialog(QDialog):
     def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 10)
-        layout.setSpacing(16)
+        layout.setSpacing(18)
 
         header = QLabel(self.tr("Choose a plate layout before configuration"))
         header.setObjectName("layoutHeader")
         header.setAlignment(Qt.AlignCenter)
         layout.addWidget(header)
 
-        grid = QGridLayout()
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(12)
-        grid.setVerticalSpacing(12)
+        grid_container = QWidget(self)
+        grid_container.setObjectName("layoutPanel")
+        grid_layout = QGridLayout(grid_container)
+        grid_layout.setContentsMargins(6, 6, 6, 6)
+        grid_layout.setHorizontalSpacing(18)
+        grid_layout.setVerticalSpacing(16)
 
         self.layouts = [
             PlateLayout("48", self.tr("48-well Plate"), rows=6, cols=8),
@@ -136,13 +176,13 @@ class PlateLayoutSelectionDialog(QDialog):
             button.clicked.connect(lambda _=False, d=layout_def: self._select_layout(d))
             row = idx // 2
             col = idx % 2
-            grid.addWidget(button, row, col)
+            grid_layout.addWidget(button, row, col)
 
         custom_button = PlateLayoutButton(self.tr("Custom Layout"))
         custom_button.clicked.connect(self._custom_layout)
 
-        grid.addWidget(custom_button, len(self.layouts) // 2, len(self.layouts) % 2)
-        layout.addLayout(grid)
+        grid_layout.addWidget(custom_button, len(self.layouts) // 2, len(self.layouts) % 2)
+        layout.addWidget(grid_container)
 
         tips = QLabel(
             self.tr("You can always load a saved layout after choosing a plate size.")
@@ -155,6 +195,11 @@ class PlateLayoutSelectionDialog(QDialog):
 
     def _setup_styling(self) -> None:
         self.setObjectName("plateLayoutDialog")
+        container_shadow = QGraphicsDropShadowEffect(self)
+        container_shadow.setBlurRadius(20)
+        container_shadow.setOffset(0, 3)
+        container_shadow.setColor(QColor(0, 0, 0, 38))
+        self.setGraphicsEffect(container_shadow)
         self.setStyleSheet(
             """
             QDialog#plateLayoutDialog {
@@ -164,14 +209,20 @@ class PlateLayoutSelectionDialog(QDialog):
                 color: #F0F2F5;
                 font-size: 16px;
                 font-weight: 600;
+                letter-spacing: 0.5px;
             }
             QLabel#layoutTip {
-                color: #B0B3B8;
+                color: #9CA3AF;
                 font-size: 12px;
+                font-weight: 500;
+            }
+            QWidget#layoutPanel {
+                background-color: #2A2D35;
+                border-radius: 12px;
             }
             QPushButton[plateButton="true"] {
                 background-color: #4A90E2;
-                border: none;
+                border: 1px solid transparent;
                 border-radius: 8px;
                 color: #FFFFFF;
                 font-size: 14px;
@@ -180,10 +231,11 @@ class PlateLayoutSelectionDialog(QDialog):
                 min-height: 48px;
             }
             QPushButton[plateButton="true"]:hover {
-                background-color: #68A8F5;
+                background-color: #5B9EF3;
             }
             QPushButton[plateButton="true"]:pressed {
-                background-color: #357ABD;
+                background-color: #3A80D2;
+                border: 1px solid rgba(255, 255, 255, 0.2);
             }
             """
         )
