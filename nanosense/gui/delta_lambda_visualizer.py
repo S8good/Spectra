@@ -3,6 +3,7 @@
 import math
 import os
 import re
+from collections import OrderedDict
 from datetime import datetime
 import numpy as np
 try:
@@ -14,9 +15,10 @@ except ModuleNotFoundError as exc:  # Missing PyOpenGL backend
     GLMeshItem = GLAxisItem = None
     GL_IMPORT_ERROR = exc
 from PyQt5.QtCore import Qt, pyqtSignal, QPoint
-from PyQt5.QtGui import QCursor, QImage, QMatrix4x4, QVector3D, QVector4D
+from PyQt5.QtGui import QCursor, QImage, QMatrix4x4, QVector3D, QVector4D, QColor
 from PyQt5.QtWidgets import (
     QApplication,
+    QAbstractItemView,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -27,6 +29,8 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QMenu,
     QMessageBox,
     QPushButton,
     QSizePolicy,
@@ -36,7 +40,7 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem,
     QToolTip,
     QVBoxLayout,
-    QWidget,
+    QWidget, QScrollArea,
 )
 
 from nanosense.algorithms.peak_analysis import find_main_resonance_peak
@@ -52,21 +56,25 @@ DEFAULT_EXPORT_DPI = 220
 
 
 class DeltaLambdaGLView(gl.GLViewWidget):
-    """Custom GL view adding right-button panning while keeping default rotation/zoom."""
+    """Custom GL view adding right-button panning/context menu while keeping default rotation/zoom."""
 
     hoverInfoChanged = pyqtSignal(object)
+    barContextRequested = pyqtSignal(object)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._pan_active = False
         self._last_mouse_pos = None
+        self._pan_start_pos = None
         self._bar_metadata = []
+        self._pan_move_threshold = 6
         self.mousePos = QPoint()  # ensure pyqtgraph base class has an initial value
         self.setMouseTracking(True)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
-            self._pan_active = True
+            self._pan_active = False
+            self._pan_start_pos = event.pos()
             self._last_mouse_pos = event.pos()
             event.accept()
         else:
@@ -74,22 +82,33 @@ class DeltaLambdaGLView(gl.GLViewWidget):
             self._emit_hover_info(event.pos())
 
     def mouseMoveEvent(self, event):
-        if self._pan_active and event.buttons() & Qt.RightButton:
-            if self._last_mouse_pos is None:
+        if event.buttons() & Qt.RightButton:
+            if not self._pan_active and self._pan_start_pos is not None:
+                if (event.pos() - self._pan_start_pos).manhattanLength() > self._pan_move_threshold:
+                    self._pan_active = True
+                    self._last_mouse_pos = event.pos()
+            if self._pan_active:
+                if self._last_mouse_pos is None:
+                    self._last_mouse_pos = event.pos()
+                delta = event.pos() - self._last_mouse_pos
+                self.pan(-delta.x() * 0.02, delta.y() * 0.02, 0)
                 self._last_mouse_pos = event.pos()
-            delta = event.pos() - self._last_mouse_pos
-            # Negative X delta pans scene to the right visually; adjust scaling to keep smooth
-            self.pan(-delta.x() * 0.02, delta.y() * 0.02, 0)
-            self._last_mouse_pos = event.pos()
             event.accept()
         else:
             super().mouseMoveEvent(event)
             self._emit_hover_info(event.pos())
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.RightButton and self._pan_active:
-            self._pan_active = False
-            self._last_mouse_pos = None
+        if event.button() == Qt.RightButton:
+            if self._pan_active:
+                self._pan_active = False
+                self._last_mouse_pos = None
+                self._pan_start_pos = None
+            else:
+                info = self._pick_bar(event.pos())
+                if info:
+                    info["cursor_pos"] = event.globalPos()
+                self.barContextRequested.emit(info)
             event.accept()
         else:
             super().mouseReleaseEvent(event)
@@ -233,7 +252,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 "pyqtgraph.opengl (PyOpenGL backend) is unavailable. Please install PyOpenGL and try again."
             ) from GL_IMPORT_ERROR
         self.setWindowTitle(self.tr("Δλ Visualization"))
-        self.resize(1000, 720)
+        self.resize(1200, 720)
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint | Qt.WindowMinimizeButtonHint)
 
         self.preprocessing_params = preprocessing_params or {}
@@ -242,11 +261,17 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.folder_path = None
         self.available_files = []
         self.delta_grid = None
+        self.full_delta_grid = None
         self.delta_map = {}
+        self.filtered_delta_map = OrderedDict()
         self.row_labels = []
         self.col_labels = []
         self.layout_is_plate = False
         self.label_grid = None
+        self.label_positions = {}
+        self.auto_exclusions = {}
+        self.manual_exclusions = OrderedDict()
+        self.manual_history = []
         self.table_row_lookup = {}
         self.bar_items = []
         self.grid_item = None
@@ -254,6 +279,8 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.plate_id = ""
         self._negative_values_present = False
         self._default_camera_opts = {}
+        self._last_warnings = []
+        self._table_updating = False
 
         self._build_ui()
         self._connect_signals()
@@ -269,10 +296,13 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.main_splitter.setChildrenCollapsible(False)
         layout.addWidget(self.main_splitter, 1)
 
-        controls_widget = QWidget()
-        controls_layout = QVBoxLayout(controls_widget)
+        controls_scroll_area = QScrollArea()
+        controls_scroll_area.setWidgetResizable(True)
+        controls_container = QWidget()
+        controls_layout = QVBoxLayout(controls_container)
         controls_layout.setContentsMargins(0, 0, 0, 0)
         controls_layout.setSpacing(10)
+        controls_scroll_area.setWidget(controls_container)
 
         self.folder_group = QGroupBox(self.tr("Input Folder (two batch files required)"))
         folder_layout = QVBoxLayout(self.folder_group)
@@ -348,20 +378,95 @@ class DeltaLambdaVisualizationDialog(QDialog):
         gif_row.addWidget(self.export_gif_button)
         meta_layout.addRow(self.tr("GIF Export (optional):"), gif_row)
 
+        self.filter_group = QGroupBox(self.tr("Data Filtering"))
+        filter_layout = QVBoxLayout(self.filter_group)
+        self.auto_filter_checkbox = QCheckBox(self.tr("Enable anomaly screening"))
+        self.auto_filter_checkbox.setChecked(True)
+        filter_layout.addWidget(self.auto_filter_checkbox)
+
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(QLabel(self.tr("Threshold mode:")))
+        self.filter_mode_combo = QComboBox()
+        self.filter_mode_combo.addItem(self.tr("Auto · mean ± 3σ"), "auto")
+        self.filter_mode_combo.addItem(self.tr("Robust · median ± 3·MAD"), "robust")
+        self.filter_mode_combo.addItem(self.tr("Custom limits"), "custom")
+        mode_row.addWidget(self.filter_mode_combo, 1)
+        filter_layout.addLayout(mode_row)
+
+        custom_row = QHBoxLayout()
+        self.custom_lower_spin = QDoubleSpinBox()
+        self.custom_lower_spin.setRange(-500.0, 500.0)
+        self.custom_lower_spin.setDecimals(2)
+        self.custom_lower_spin.setValue(-5.0)
+        self.custom_lower_spin.setSuffix(" nm")
+        self.custom_upper_spin = QDoubleSpinBox()
+        self.custom_upper_spin.setRange(-500.0, 500.0)
+        self.custom_upper_spin.setDecimals(2)
+        self.custom_upper_spin.setValue(5.0)
+        self.custom_upper_spin.setSuffix(" nm")
+        self.custom_lower_spin.setEnabled(False)
+        self.custom_upper_spin.setEnabled(False)
+        custom_row.addWidget(QLabel(self.tr("Min:")))
+        custom_row.addWidget(self.custom_lower_spin)
+        custom_row.addWidget(QLabel(self.tr("Max:")))
+        custom_row.addWidget(self.custom_upper_spin)
+        filter_layout.addLayout(custom_row)
+
+        self.negative_filter_checkbox = QCheckBox(self.tr("Hide negative shifts"))
+        self.negative_filter_checkbox.setChecked(True)
+        filter_layout.addWidget(self.negative_filter_checkbox)
+        self.filter_summary_label = QLabel(self.tr("No points excluded yet."))
+        self.filter_summary_label.setWordWrap(True)
+        filter_layout.addWidget(self.filter_summary_label)
+
+        self.manual_group = QGroupBox(self.tr("Manual Masking"))
+        manual_layout = QVBoxLayout(self.manual_group)
+        self.manual_status_label = QLabel(self.tr("No point selected."))
+        self.manual_status_label.setWordWrap(True)
+        manual_layout.addWidget(self.manual_status_label)
+        manual_btn_row = QHBoxLayout()
+        self.mask_selected_button = QPushButton(self.tr("Mask selected"))
+        self.restore_selected_button = QPushButton(self.tr("Restore selected"))
+        manual_btn_row.addWidget(self.mask_selected_button)
+        manual_btn_row.addWidget(self.restore_selected_button)
+        manual_layout.addLayout(manual_btn_row)
+        manual_btn_row2 = QHBoxLayout()
+        self.clear_manual_button = QPushButton(self.tr("Restore all"))
+        self.undo_manual_button = QPushButton(self.tr("Undo last"))
+        manual_btn_row2.addWidget(self.clear_manual_button)
+        manual_btn_row2.addWidget(self.undo_manual_button)
+        manual_layout.addLayout(manual_btn_row2)
+        manual_layout.addWidget(QLabel(self.tr("Masked points preview:")))
+        self.manual_list_widget = QListWidget()
+        self.manual_list_widget.setMaximumHeight(120)
+        manual_layout.addWidget(self.manual_list_widget)
+
+        self.export_options_group = QGroupBox(self.tr("Export Options"))
+        export_opt_layout = QVBoxLayout(self.export_options_group)
+        self.include_masked_checkbox = QCheckBox(self.tr("Include masked points in exports"))
+        self.include_masked_checkbox.setChecked(False)
+        self.export_log_checkbox = QCheckBox(self.tr("Export exclusion log (CSV)"))
+        self.export_log_checkbox.setChecked(True)
+        export_opt_layout.addWidget(self.include_masked_checkbox)
+        export_opt_layout.addWidget(self.export_log_checkbox)
+
         self.folder_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.meta_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         controls_layout.addWidget(self.folder_group)
         controls_layout.addWidget(self.meta_group)
+        controls_layout.addWidget(self.filter_group)
+        controls_layout.addWidget(self.manual_group)
+        controls_layout.addWidget(self.export_options_group)
         controls_layout.addStretch(1)
-        self.controls_widget = controls_widget
-        self.main_splitter.addWidget(controls_widget)
+        self.controls_widget = controls_scroll_area
+        self.main_splitter.addWidget(controls_scroll_area)
 
-        self.point_table = QTableWidget(0, 2)
-        self.point_table.setHorizontalHeaderLabels([self.tr("Point"), self.tr("Δλ (nm)")])
+        self.point_table = QTableWidget(0, 4)
+        self.point_table.setHorizontalHeaderLabels([self.tr('Point'), self.tr('���� (nm)'), self.tr('Status'), self.tr('Mask')])
         self.point_table.verticalHeader().setVisible(False)
         self.point_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.point_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.point_table.setSelectionMode(QTableWidget.SingleSelection)
+        self.point_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.point_table.horizontalHeader().setStretchLastSection(True)
         self.point_table.setMinimumWidth(220)
 
@@ -423,6 +528,18 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.export_table_button.clicked.connect(self._export_delta_table)
         self.toggle_view_button.toggled.connect(self._toggle_expanded_view)
         self.gl_view.hoverInfoChanged.connect(self._on_hover_info)
+        self.gl_view.barContextRequested.connect(self._on_bar_context_request)
+        self.auto_filter_checkbox.toggled.connect(self._filter_controls_changed)
+        self.filter_mode_combo.currentIndexChanged.connect(self._filter_mode_changed)
+        self.custom_lower_spin.valueChanged.connect(self._filter_controls_changed)
+        self.custom_upper_spin.valueChanged.connect(self._filter_controls_changed)
+        self.negative_filter_checkbox.toggled.connect(self._filter_controls_changed)
+        self.mask_selected_button.clicked.connect(self._mask_selected_points)
+        self.restore_selected_button.clicked.connect(self._restore_selected_points)
+        self.clear_manual_button.clicked.connect(self._restore_all_points)
+        self.undo_manual_button.clicked.connect(self._undo_last_manual_action)
+        self.point_table.itemChanged.connect(self._on_table_item_changed)
+        self.point_table.itemSelectionChanged.connect(self._update_manual_status_label)
 
     def _update_controls_state(self):
         has_folder = bool(self.folder_path and len(self.available_files) >= 2)
@@ -430,6 +547,9 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.compute_button.setEnabled(has_folder)
         self.export_matplotlib_button.setEnabled(has_data)
         self.export_gif_button.setEnabled(has_data)
+        self.export_table_button.setEnabled(has_data)
+        self.filter_group.setEnabled(has_data)
+        self.manual_group.setEnabled(has_data)
 
     def _toggle_expanded_view(self, checked):
         if hasattr(self, "controls_widget"):
@@ -452,7 +572,14 @@ class DeltaLambdaVisualizationDialog(QDialog):
             self.point_table.clearSelection()
             self.hover_overlay_label.hide()
             return
-        text = f"{info['label']}: {info['delta']:.3f} nm"
+        delta_val = info.get("delta")
+        if delta_val is None or (isinstance(delta_val, float) and np.isnan(delta_val)):
+            text = f"{info['label']}: {self.tr('N/A')}"
+        else:
+            text = f"{info['label']}: {delta_val:.3f} nm"
+        status = info.get("status")
+        if status == "manual":
+            text += " " + self.tr("(masked)")
         self.hover_label.setText(text)
         widget_pos = info.get("widget_pos")
         if widget_pos:
@@ -470,6 +597,236 @@ class DeltaLambdaVisualizationDialog(QDialog):
         row = self.table_row_lookup.get(info["label"])
         if row is not None:
             self.point_table.selectRow(row)
+
+    # ----------------------------------------------- Filtering & Masking ---
+    def _on_bar_context_request(self, info):
+        if not info or not info.get("label"):
+            return
+        label = info["label"]
+        menu = QMenu(self)
+        is_masked = label in self.manual_exclusions
+        action_text = self.tr("Restore point") if is_masked else self.tr("Mask this point")
+        toggle_action = menu.addAction(action_text)
+        menu.addSeparator()
+        copy_action = menu.addAction(self.tr("Copy summary"))
+        chosen = menu.exec_(info.get("cursor_pos"))
+        if chosen == toggle_action:
+            self._set_manual_mask([label], not is_masked)
+        elif chosen == copy_action:
+            delta = info.get("delta")
+            text = f"{label}: {delta:.4f} nm" if delta is not None else label
+            QApplication.clipboard().setText(text)
+
+    def _filter_mode_changed(self):
+        is_custom = self.filter_mode_combo.currentData() == "custom"
+        self.custom_lower_spin.setEnabled(is_custom)
+        self.custom_upper_spin.setEnabled(is_custom)
+        self._filter_controls_changed()
+
+    def _filter_controls_changed(self):
+        if not self.delta_map:
+            return
+        self._refresh_after_filter_change()
+
+    def _mask_selected_points(self):
+        self._set_manual_mask(self._get_selected_labels(), True)
+
+    def _restore_selected_points(self):
+        self._set_manual_mask(self._get_selected_labels(), False)
+
+    def _restore_all_points(self):
+        if not self.manual_exclusions:
+            return
+        self._set_manual_mask(list(self.manual_exclusions.keys()), False)
+        self.manual_history.clear()
+
+    def _undo_last_manual_action(self):
+        if not self.manual_history:
+            return
+        action, labels = self.manual_history.pop()
+        revert_to_mask = action == "restore"
+        self._set_manual_mask(labels, revert_to_mask, record_history=False)
+
+    def _get_selected_labels(self):
+        if not self.point_table.selectionModel():
+            return []
+        rows = {index.row() for index in self.point_table.selectionModel().selectedRows()}
+        labels = []
+        for row in rows:
+            item = self.point_table.item(row, 0)
+            if item:
+                labels.append(item.text())
+        return labels
+
+    def _update_manual_status_label(self):
+        labels = self._get_selected_labels()
+        if not labels:
+            self.manual_status_label.setText(self.tr("No point selected."))
+            return
+        if len(labels) == 1:
+            label = labels[0]
+            value = self.delta_map.get(label, np.nan)
+            val_text = self.tr("N/A") if np.isnan(value) else f"{value:.3f} nm"
+            self.manual_status_label.setText(self.tr("{0}: {1}").format(label, val_text))
+        else:
+            self.manual_status_label.setText(self.tr("{0} points selected.").format(len(labels)))
+
+    def _on_table_item_changed(self, item):
+        if self._table_updating or item.column() != 3:
+            return
+        label_item = self.point_table.item(item.row(), 0)
+        if not label_item:
+            return
+        label = label_item.text()
+        if label in self.auto_exclusions and self.auto_filter_checkbox.isChecked():
+            self._table_updating = True
+            item.setCheckState(Qt.Unchecked)
+            self._table_updating = False
+            return
+        self._set_manual_mask([label], item.checkState() == Qt.Checked)
+
+    def _set_manual_mask(self, labels, masked, record_history=True):
+        if not labels:
+            return
+        changed = False
+        for label in labels:
+            if label not in self.delta_map:
+                continue
+            if masked:
+                if label not in self.manual_exclusions:
+                    self.manual_exclusions[label] = self.tr("Manually masked")
+                    changed = True
+            else:
+                if label in self.manual_exclusions:
+                    self.manual_exclusions.pop(label, None)
+                    changed = True
+        if not changed:
+            return
+        if record_history:
+            self.manual_history.append(("mask" if masked else "restore", list(labels)))
+        self._refresh_after_filter_change()
+
+    def _update_manual_widgets(self):
+        self.manual_list_widget.clear()
+        for label in self.manual_exclusions:
+            value = self.delta_map.get(label, np.nan)
+            val_text = self.tr("N/A") if np.isnan(value) else f"{value:.3f} nm"
+            self.manual_list_widget.addItem(f"{label} · {val_text}")
+        self._update_manual_status_label()
+
+    def _refresh_after_filter_change(self):
+        self._compute_exclusion_sets()
+        self._build_filtered_grid()
+        self._render_surface()
+        stats_source = self.filtered_delta_map if self.filtered_delta_map else OrderedDict()
+        stats_map = stats_source if stats_source else self.filtered_delta_map
+        total_points = len(self.delta_map)
+        self.summary_label.setText(self._format_stats_text(stats_map, self._last_warnings, total_points))
+        self._populate_point_table()
+        self._update_filter_summary()
+        self._update_manual_widgets()
+
+    def _update_filter_summary(self):
+        total = len(self.delta_map)
+        auto_count = len(self.auto_exclusions)
+        manual_count = len(self.manual_exclusions)
+        active = len(self.filtered_delta_map)
+        text = self.tr("Active: {0} / Total: {1}").format(active, total)
+        if auto_count or manual_count:
+            text += self.tr(" (auto: {0}, manual: {1})").format(auto_count, manual_count)
+        self.filter_summary_label.setText(text)
+
+    def _point_status(self, label):
+        if label in self.manual_exclusions:
+            return self.tr("Manual masked"), self.manual_exclusions[label]
+        if label in self.auto_exclusions:
+            return self.tr("Auto filtered"), self.auto_exclusions[label]
+        value = self.delta_map.get(label, np.nan)
+        if np.isnan(value):
+            return self.tr("Missing"), ""
+        return self.tr("Active"), ""
+
+    def _compute_exclusion_sets(self):
+        self.auto_exclusions = {}
+        filtered = OrderedDict()
+        if not self.delta_map:
+            self.filtered_delta_map = filtered
+            return
+
+        finite_values = np.array([v for v in self.delta_map.values() if np.isfinite(v)], dtype=np.float64)
+        bounds = self._determine_thresholds(finite_values) if finite_values.size else (None, None)
+        hide_negative = self.negative_filter_checkbox.isChecked()
+        auto_enabled = self.auto_filter_checkbox.isChecked()
+
+        for label, value in self.delta_map.items():
+            reason = None
+            if np.isnan(value):
+                reason = self.tr("Missing value")
+            elif auto_enabled:
+                if hide_negative and value < 0:
+                    reason = self.tr("Negative shift")
+                else:
+                    lower, upper = bounds
+                    if lower is not None and value < lower:
+                        reason = self.tr("Below limit ({0:.2f})").format(lower)
+                    elif upper is not None and value > upper:
+                        reason = self.tr("Above limit ({0:.2f})").format(upper)
+            if reason:
+                self.auto_exclusions[label] = reason
+                continue
+            if label in self.manual_exclusions:
+                continue
+            if np.isnan(value):
+                continue
+            filtered[label] = value
+        self.filtered_delta_map = filtered
+
+    def _determine_thresholds(self, values):
+        if values.size == 0:
+            return (None, None)
+        mode = self.filter_mode_combo.currentData()
+        if mode == "auto":
+            mean = float(np.mean(values))
+            std = float(np.std(values))
+            span = 3 * std if std > 0 else 0.0
+            return (mean - span, mean + span)
+        if mode == "robust":
+            median = float(np.median(values))
+            mad = float(np.median(np.abs(values - median)))
+            scaled = 1.4826 * mad
+            span = 3 * scaled if scaled > 0 else 0.0
+            return (median - span, median + span)
+        # custom
+        return (self.custom_lower_spin.value(), self.custom_upper_spin.value())
+
+    def _build_filtered_grid(self):
+        if self.label_grid is None:
+            self.delta_grid = self.full_delta_grid
+            return
+        base_shape = (len(self.row_labels), len(self.col_labels))
+        visible = np.full(base_shape, np.nan, dtype=np.float64)
+        for ridx, row in enumerate(self.label_grid):
+            for cidx, label in enumerate(row):
+                if not label:
+                    continue
+                value = self.delta_map.get(label, np.nan)
+                if (
+                    label in self.auto_exclusions
+                    or label in self.manual_exclusions
+                    or np.isnan(value)
+                ):
+                    continue
+                visible[ridx, cidx] = value
+        self.delta_grid = visible
+
+    def _rebuild_label_positions(self):
+        self.label_positions = {}
+        if self.label_grid is None:
+            return
+        for ridx, row in enumerate(self.label_grid):
+            for cidx, label in enumerate(row):
+                if label:
+                    self.label_positions[label] = (ridx, cidx)
 
     # ------------------------------------------------------------ Workflow ---
     def _select_folder(self):
@@ -595,15 +952,19 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 )
                 return
 
-            self.delta_grid = grid
-            self._render_surface()
-            self._populate_point_table()
-            stats_text = self._format_stats_text(delta_map, warnings)
-            self.summary_label.setText(stats_text)
+            self.full_delta_grid = np.array(grid, copy=True)
+            self.delta_grid = np.array(grid, copy=True)
+            self.manual_exclusions.clear()
+            self.manual_history.clear()
+            self.filtered_delta_map = OrderedDict()
+            self._last_warnings = warnings
+            self._rebuild_label_positions()
+            self._refresh_after_filter_change()
 
         except Exception as exc:  # pylint: disable=broad-except
             QMessageBox.critical(
                 self,
+                self.tr("Unexpected Error"),
                 self.tr("Unexpected Error"),
                 self.tr("Δλ calculation failed:\n{0}").format(str(exc)),
             )
@@ -804,16 +1165,23 @@ class DeltaLambdaVisualizationDialog(QDialog):
         if rows == 0 or cols == 0:
             return
 
-        raw_matrix = np.nan_to_num(self.delta_grid, nan=0.0)
-        bar_heights = np.abs(raw_matrix)
+        if self.delta_grid is None:
+            raw_matrix = np.full((rows, cols), np.nan, dtype=np.float64)
+        else:
+            raw_matrix = np.array(self.delta_grid, copy=True)
+        bar_heights = np.abs(np.nan_to_num(raw_matrix, nan=0.0))
         raw_values_flat = raw_matrix.flatten()
-        label_flat = self.label_grid.flatten() if self.label_grid is not None else [None] * raw_values_flat.size
+        color_values = np.nan_to_num(raw_values_flat, nan=0.0)
+        if self.label_grid is not None:
+            label_flat = np.asarray(self.label_grid, dtype=object).flatten()
+        else:
+            label_flat = [None] * raw_values_flat.size
         x_coords, y_coords = np.meshgrid(
             np.arange(1, cols + 1, dtype=np.float32),
             np.arange(1, rows + 1, dtype=np.float32),
         )
         heights_flat = bar_heights.flatten()
-        colors = self._build_bar_colors(raw_values_flat)
+        colors = self._build_bar_colors(color_values)
 
         vertices = np.array(
             [
@@ -848,13 +1216,15 @@ class DeltaLambdaVisualizationDialog(QDialog):
         cube_mesh = gl.MeshData(vertices, faces)
         self.bar_items = []
         metadata = []
-        for idx, (x, y, magnitude, color, label) in enumerate(
-            zip(x_coords.flatten(), y_coords.flatten(), heights_flat, colors, label_flat)
-        ):
+        flat_x = x_coords.flatten()
+        flat_y = y_coords.flatten()
+        for idx, (x, y, magnitude, color, label) in enumerate(zip(flat_x, flat_y, heights_flat, colors, label_flat)):
             if label is None or idx >= raw_values_flat.size:
                 continue
             raw_value = raw_values_flat[idx]
-            if np.isnan(raw_value):
+            if np.isnan(raw_value) or label in self.manual_exclusions:
+                continue
+            if label in self.auto_exclusions:
                 continue
             mesh = GLMeshItem(meshdata=cube_mesh, smooth=False, color=color, shader="shaded", glOptions="opaque")
             effective_height = max(magnitude, 0.02)
@@ -869,8 +1239,34 @@ class DeltaLambdaVisualizationDialog(QDialog):
                     "delta": float(raw_value),
                     "center": QVector3D(float(x), float(y), float(z_offset)),
                     "extent": (0.4, 0.4, effective_height / 2.0),
+                    "status": "active",
                 }
             )
+        if self.manual_exclusions:
+            manual_color = (0.6, 0.6, 0.6, 0.8)
+            for label in self.manual_exclusions:
+                position = self.label_positions.get(label)
+                if not position:
+                    continue
+                row_idx, col_idx = position
+                x = float(col_idx + 1)
+                y = float(row_idx + 1)
+                value = self.delta_map.get(label, np.nan)
+                magnitude = max(abs(value) * 0.05 if np.isfinite(value) else 0.05, 0.05)
+                mesh = GLMeshItem(meshdata=cube_mesh, smooth=False, color=manual_color, shader="shaded", glOptions="opaque")
+                mesh.scale(0.8, 0.8, magnitude)
+                mesh.translate(x, y, magnitude / 2.0)
+                self.gl_view.addItem(mesh)
+                self.bar_items.append(mesh)
+                metadata.append(
+                    {
+                        "label": label,
+                        "delta": float(value) if np.isfinite(value) else float("nan"),
+                        "center": QVector3D(x, y, magnitude / 2.0),
+                        "extent": (0.4, 0.4, magnitude / 2.0),
+                        "status": "manual",
+                    }
+                )
         self.gl_view.set_bar_metadata(metadata)
 
         self.grid_item = gl.GLGridItem()
@@ -915,40 +1311,72 @@ class DeltaLambdaVisualizationDialog(QDialog):
         colors[~pos_mask] = neg_base + (neg_high - neg_base) * norm[~pos_mask][:, None]
         return colors
 
-    def _format_stats_text(self, delta_map, warnings):
+    def _format_stats_text(self, delta_map, warnings, total_points=None):
         values = np.array(list(delta_map.values()), dtype=np.float64)
         finite_values = values[np.isfinite(values)]
+        total = total_points if total_points is not None else len(delta_map)
         if finite_values.size == 0:
-            stats = self.tr("Δλ computed, but all values are NaN.")
+            stats = self.tr("???? count: 0 / {0} (filtered)").format(total)
         else:
-            stats = self.tr("Δλ count: {0}, min: {1:.2f} nm, max: {2:.2f} nm").format(
+            stats = self.tr("???? count: {0} / {1}, min: {2:.2f} nm, max: {3:.2f} nm").format(
                 finite_values.size,
+                total,
                 np.min(finite_values),
                 np.max(finite_values),
             )
         if not self.layout_is_plate:
-            stats += " · " + self.tr("Layout auto-arranged (row/column labels inferred).")
+            stats += " ?? " + self.tr("Layout auto-arranged (row/column labels inferred).")
         if warnings:
-            stats += " · " + " | ".join(warnings)
+            stats += " ?? " + " | ".join(warnings)
         return stats
-
     def _populate_point_table(self):
         sorted_items = sorted(self.delta_map.items())
         self.point_table.setRowCount(len(sorted_items))
         self.table_row_lookup = {}
+        self._table_updating = True
         for row, (label, value) in enumerate(sorted_items):
             label_item = QTableWidgetItem(label)
+            label_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             value_text = "" if np.isnan(value) else f"{value:.3f}"
             value_item = QTableWidgetItem(value_text)
+            value_item.setTextAlignment(Qt.AlignCenter)
+            status_text, reason = self._point_status(label)
+            status_display = status_text if not reason else f"{status_text} · {reason}"
+            status_item = QTableWidgetItem(status_display)
+            if label in self.manual_exclusions:
+                status_item.setForeground(QColor("#F97316"))
+            elif label in self.auto_exclusions:
+                status_item.setForeground(QColor("#EF4444"))
+            else:
+                status_item.setForeground(QColor("#16A34A"))
+            mask_item = QTableWidgetItem()
+            mask_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable | Qt.ItemIsSelectable)
+            check_state = Qt.Checked if label in self.manual_exclusions else Qt.Unchecked
+            mask_item.setCheckState(check_state)
+            if label in self.auto_exclusions and self.auto_filter_checkbox.isChecked():
+                mask_item.setFlags(Qt.ItemIsEnabled)
+                mask_item.setToolTip(self.tr("Auto filtered: {0}").format(self.auto_exclusions[label]))
+            else:
+                mask_item.setToolTip(self.tr("Toggle to mask/unmask this point."))
             self.point_table.setItem(row, 0, label_item)
             self.point_table.setItem(row, 1, value_item)
+            self.point_table.setItem(row, 2, status_item)
+            self.point_table.setItem(row, 3, mask_item)
             self.table_row_lookup[label] = row
+        self._table_updating = False
         self.point_table.resizeColumnsToContents()
 
     # --------------------------------------------------------------- Export ---
+    def _get_grid_for_export(self, include_masked=False):
+        source = self.full_delta_grid if include_masked else self.delta_grid
+        if source is None:
+            return None
+        return np.array(source, copy=True)
+
     def _export_matplotlib_png(self):
-        if self.delta_grid is None:
-            QMessageBox.information(self, self.tr("Info"), self.tr("Please generate the Δλ surface first."))
+        grid = self._get_grid_for_export(self.include_masked_checkbox.isChecked())
+        if grid is None:
+            QMessageBox.information(self, self.tr("Info"), self.tr("Please generate the ???? surface first."))
             return
         try:
             import matplotlib
@@ -977,7 +1405,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
         if not path:
             return
 
-        z_matrix = np.clip(np.nan_to_num(self.delta_grid, nan=0.0), 0.0, None)
+        z_matrix = np.clip(np.nan_to_num(grid, nan=0.0), 0.0, None)
         rows, cols = z_matrix.shape
         xpos, ypos = np.meshgrid(np.arange(cols), np.arange(rows))
         xpos = xpos.flatten()
@@ -1009,6 +1437,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
 
         try:
             fig.savefig(path, dpi=export_dpi, bbox_inches="tight")
+            fig.savefig(path, dpi=export_dpi, bbox_inches="tight")
             QMessageBox.information(self, self.tr("Done"), self.tr("Matplotlib PNG saved:\n{0}").format(path))
         except Exception as exc:  # pragma: no cover
             QMessageBox.critical(self, self.tr("Export Error"), str(exc))
@@ -1017,7 +1446,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
 
     def _export_delta_table(self):
         if not self.delta_map:
-            QMessageBox.information(self, self.tr("Info"), self.tr("No Δλ data to export."))
+            QMessageBox.information(self, self.tr("Info"), self.tr("No ???? data to export."))
             return
 
         plate_id = self.plate_id_edit.text().strip() or "plate"
@@ -1025,7 +1454,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
         default_name = f"{timestamp}_{plate_id}_delta_lambda_table.csv"
         path, _ = QFileDialog.getSaveFileName(
             self,
-            self.tr("Export Δλ Table"),
+            self.tr("Export ???? Table"),
             os.path.join(self.folder_path or os.path.expanduser("~"), default_name),
             "CSV Files (*.csv)",
         )
@@ -1033,16 +1462,44 @@ class DeltaLambdaVisualizationDialog(QDialog):
             return
 
         try:
-            lines = ["Point,DeltaLambda_nm"]
+            include_masked = self.include_masked_checkbox.isChecked()
+            rows = []
+            excluded_rows = []
             for label, value in sorted(self.delta_map.items()):
+                status, reason = self._point_status(label)
                 val_text = "" if np.isnan(value) else f"{value:.6f}"
-                lines.append(f"{label},{val_text}")
+                entry = (label, val_text, status, reason or "")
+                if status == self.tr("Active"):
+                    rows.append(entry)
+                else:
+                    excluded_rows.append(entry)
+                    if include_masked:
+                        rows.append(entry)
+
+            if not rows:
+                QMessageBox.warning(self, self.tr("Export Error"), self.tr("No active points are available for export."))
+                return
+
+            lines_out = ["Point,DeltaLambda_nm,Status,Reason"]
+            for label, val_text, status, reason in rows:
+                safe_reason = reason.replace(",", ";")
+                lines_out.append(f"{label},{val_text},{status},{safe_reason}")
             with open(path, "w", encoding="utf-8") as fptr:
-                fptr.write("\n".join(lines))
-            QMessageBox.information(self, self.tr("Done"), self.tr("Δλ table exported:\n{0}").format(path))
+                fptr.write("\n".join(lines_out))
+
+            if self.export_log_checkbox.isChecked() and excluded_rows:
+                base, ext = os.path.splitext(path)
+                log_path = f"{base}_excluded{ext}"
+                log_lines = ["Point,DeltaLambda_nm,Status,Reason"]
+                for label, val_text, status, reason in excluded_rows:
+                    safe_reason = reason.replace(",", ";")
+                    log_lines.append(f"{label},{val_text},{status},{safe_reason}")
+                with open(log_path, "w", encoding="utf-8") as log_ptr:
+                    log_ptr.write("\n".join(log_lines))
+
+            QMessageBox.information(self, self.tr("Done"), self.tr("???? table exported:\n{0}").format(path))
         except Exception as exc:
             QMessageBox.critical(self, self.tr("Export Error"), str(exc))
-
     def _export_gif(self):
         if self.delta_grid is None:
             QMessageBox.information(self, self.tr("Info"), self.tr("Please generate the Δλ surface first."))
@@ -1078,12 +1535,17 @@ class DeltaLambdaVisualizationDialog(QDialog):
             self._apply_default_camera_view()
             self.gl_view.update()
             QApplication.processEvents()
+            target_size = None
             for _ in range(frames_needed):
                 self.gl_view.orbit(step, 0)
                 QApplication.processEvents()
                 frame = self.gl_view.readQImage()
                 if frame.isNull():
                     continue
+                if target_size is None:
+                    target_size = (frame.width(), frame.height())
+                elif frame.width() != target_size[0] or frame.height() != target_size[1]:
+                    frame = frame.scaled(target_size[0], target_size[1])
                 frames.append(self._qimage_to_array(frame))
 
             if not frames:
@@ -1106,6 +1568,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 )
                 return
 
+            saver(path, frames, duration=delay, loop=0)
             saver(path, frames, duration=delay, loop=0)
             QMessageBox.information(self, self.tr("Done"), self.tr("GIF saved:\n{0}").format(path))
         except Exception as exc:  # pylint: disable=broad-except
