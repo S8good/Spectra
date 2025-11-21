@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from PyQt5.QtCore import Qt, QEasingCurve, pyqtProperty, QPropertyAnimation
+from PyQt5.QtCore import Qt, QEasingCurve, pyqtProperty, QPropertyAnimation, QEvent
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QDialog,
@@ -104,28 +104,49 @@ class CustomLayoutDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(self.tr("Custom Plate Layout"))
+        self._init_ui()
+        self._retranslate_ui()
+
+    def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
 
         form = QGridLayout()
+        self.row_label = QLabel()
         self.row_spin = QSpinBox()
         self.row_spin.setRange(1, 26)  # At most letters A-Z
         self.row_spin.setValue(8)
-        form.addWidget(QLabel(self.tr("Number of Rows")), 0, 0)
+        form.addWidget(self.row_label, 0, 0)
         form.addWidget(self.row_spin, 0, 1)
 
+        self.col_label = QLabel()
         self.col_spin = QSpinBox()
         self.col_spin.setRange(1, 48)
         self.col_spin.setValue(12)
-        form.addWidget(QLabel(self.tr("Number of Columns")), 1, 0)
+        form.addWidget(self.col_label, 1, 0)
         form.addWidget(self.col_spin, 1, 1)
 
         layout.addLayout(form)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+        layout.addWidget(self.button_box)
+
+    def _retranslate_ui(self) -> None:
+        self.setWindowTitle(self.tr("Custom Plate Layout"))
+        self.row_label.setText(self.tr("Number of Rows"))
+        self.col_label.setText(self.tr("Number of Columns"))
+        ok_button = self.button_box.button(QDialogButtonBox.Ok)
+        cancel_button = self.button_box.button(QDialogButtonBox.Cancel)
+        if ok_button:
+            ok_button.setText(self.tr("OK"))
+        if cancel_button:
+            cancel_button.setText(self.tr("Cancel"))
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.LanguageChange:
+            self._retranslate_ui()
+        super().changeEvent(event)
 
     def values(self) -> PlateLayout:
         rows = self.row_spin.value()

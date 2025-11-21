@@ -581,7 +581,7 @@ Please verify:
         <source>Switching hardware mode requires restarting the application.
 
 Click &apos;OK&apos; to return to the launcher.</source>
-        <translation>切换硬件模式需要重新启动应用程序。点击 'OK' 将返回到启动器。</translation>
+        <translation>切换硬件模式需要重新启动应用程序。点击 &apos;OK&apos; 将返回到启动器。</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1904"/>
@@ -677,7 +677,7 @@ Open Settings -&gt; Customize Parameters... to set the database file path and en
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1541"/>
         <source>Feature &apos;{feature_name}&apos; is under development.</source>
-        <translation>功能 '{feature_name}' 正在开发中。</translation>
+        <translation>功能 &apos;{feature_name}&apos; 正在开发中。</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/main_window.py" line="1785"/>
@@ -1461,24 +1461,34 @@ Please install it via `pip install PyOpenGL PyOpenGL_accelerate`.</source>
 <context>
     <name>CustomLayoutDialog</name>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="107"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="136"/>
         <source>Custom Plate Layout</source>
         <translation>自定义孔板布局</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="114"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="137"/>
         <source>Number of Rows</source>
         <translation>行数</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="120"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="138"/>
         <source>Number of Columns</source>
         <translation>列数</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="133"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="154"/>
         <source>{rows} x {cols} Custom</source>
         <translation>{rows} x {cols} 自定义</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="142"/>
+        <source>OK</source>
+        <translation>确定</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="144"/>
+        <source>Cancel</source>
+        <translation>取消</translation>
     </message>
 </context>
 <context>
@@ -3642,7 +3652,7 @@ This action cannot be undone.</source>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/measurement_widget.py" line="850"/>
         <source>Comparison spectrum &apos;{0}&apos; loaded and displayed.</source>
-        <translation>对比光谱 '{0}' 已加载并显示。</translation>
+        <translation>对比光谱 &apos;{0}&apos; 已加载并显示。</translation>
     </message>
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/measurement_widget.py" line="1081"/>
@@ -4323,37 +4333,37 @@ Experiment ID: {0}</source>
 <context>
     <name>PlateLayoutSelectionDialog</name>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="142"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="163"/>
         <source>Select Plate Layout</source>
         <translation>选择孔板布局</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="156"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="177"/>
         <source>Choose a plate layout before configuration</source>
         <translation>在配置前请先选择孔板布局</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="169"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="190"/>
         <source>48-well Plate</source>
         <translation>48 孔板</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="170"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="191"/>
         <source>96-well Plate</source>
         <translation>96 孔板</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="171"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="192"/>
         <source>384-well Plate</source>
         <translation>384 孔板</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="181"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="202"/>
         <source>Custom Layout</source>
         <translation>自定义布局</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="187"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/plate_layout_selector.py" line="208"/>
         <source>You can always load a saved layout after choosing a plate size.</source>
         <translation>选择孔板尺寸后仍可以加载已保存的布局。</translation>
     </message>
