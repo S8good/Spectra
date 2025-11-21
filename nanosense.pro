@@ -28,6 +28,7 @@ SOURCES = main.py \
           nanosense/gui/mock_api_config_dialog.py \
           nanosense/gui/noise_analysis_dialog.py \
           nanosense/gui/noise_tools.py \
+          nanosense/gui/plate_layout_selector.py \
           nanosense/gui/peak_metrics_dialog.py \
           nanosense/gui/performance_dialog.py \
           nanosense/gui/plate_setup_dialog.py \
