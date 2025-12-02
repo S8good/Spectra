@@ -352,9 +352,18 @@ class DeltaLambdaVisualizationDialog(QDialog):
         
         # 添加峰检测算法选择控件
         self.peak_method_combo = QComboBox()
+        # 显式添加翻译标记，确保Qt Linguist能检测到这些字符串
+        peak_labels = {
+            'highest_point': self.tr('Highest Point'),
+            'centroid': self.tr('Centroid'),
+            'gaussian_fit': self.tr('Gaussian Fit'),
+            'parabolic': self.tr('Parabolic Interpolation'),
+            'wavelet': self.tr('Wavelet Transform'),
+            'threshold': self.tr('Threshold-based'),
+        }
         for method_key in PEAK_METHOD_KEYS:
-            label = PEAK_METHOD_LABELS[method_key]
-            self.peak_method_combo.addItem(self.tr(label), userData=method_key)
+            label = peak_labels[method_key]
+            self.peak_method_combo.addItem(label, userData=method_key)
         combo_form.addRow(self.tr("Main Peak Algorithm:"), self.peak_method_combo)
         
         folder_layout.addLayout(combo_form)

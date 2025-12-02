@@ -2113,17 +2113,17 @@ This action cannot be undone.</source>
         <translation>反应后文件：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="362"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="371"/>
         <source>Load &amp;&amp; Compute Δλ</source>
         <translation>加载并计算 Δλ</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="365"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="374"/>
         <source>Metadata &amp; Export Settings</source>
         <translation>元数据与导出设置</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="368"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="377"/>
         <source>Plate ID (for filenames):</source>
         <translation>板片 ID（用于文件名）：</translation>
     </message>
@@ -2138,42 +2138,42 @@ This action cannot be undone.</source>
         <translation type="obsolete">交互式 PNG：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="371"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="380"/>
         <source>Export Matplotlib PNG</source>
         <translation>导出 Matplotlib PNG</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="373"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="382"/>
         <source>Export Δλ Table</source>
         <translation>导出 Δλ 表格</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="375"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="384"/>
         <source>High-quality PNG / Data:</source>
         <translation>高质量 PNG / 数据：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="386"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="395"/>
         <source>Step:</source>
         <translation>步进：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="388"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="397"/>
         <source>Frame delay:</source>
         <translation>帧间延时：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="390"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="399"/>
         <source>Export Orbit GIF</source>
         <translation>导出环绕 GIF</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="392"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="401"/>
         <source>GIF Export (optional):</source>
         <translation>GIF 导出（可选）：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="478"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="487"/>
         <source>Point</source>
         <translation>点位</translation>
     </message>
@@ -2183,12 +2183,12 @@ This action cannot be undone.</source>
         <translation type="obsolete">Δλ（nm）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="486"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="495"/>
         <source>Point Δλ Summary</source>
         <translation>点位 Δλ 汇总</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="574"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="583"/>
         <source>Expand 3D View</source>
         <translation>展开 3D 视图</translation>
     </message>
@@ -2198,112 +2198,112 @@ This action cannot be undone.</source>
         <translation type="obsolete">尚未生成 Δλ 曲面。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="584"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="593"/>
         <source>Hover a bar to see details.</source>
         <translation>将鼠标悬停在柱子上查看详情。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="574"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="583"/>
         <source>Exit Expanded View</source>
         <translation>退出展开视图</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="847"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="856"/>
         <source>Select folder containing two batch files</source>
         <translation>请选择包含两个批次文件的文件夹</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="860"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="869"/>
         <source>Folder Error</source>
         <translation>文件夹错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="860"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="869"/>
         <source>Folder must contain at least two supported files (*.csv / *.txt / *.xlsx).</source>
         <translation>文件夹中至少需包含两个受支持的文件（.csv / .txt / .xlsx）。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="883"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="892"/>
         <source>Folder selected. Click “Load &amp; Compute Δλ” to generate the surface.</source>
         <translation>已选择文件夹。点击“加载并计算 Δλ”生成曲面。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1525"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1534"/>
         <source>Info</source>
         <translation>提示</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="889"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="898"/>
         <source>Please select a folder first.</source>
         <translation>请先选择文件夹。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="895"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="904"/>
         <source>Selection Error</source>
         <translation>选择错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="895"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="904"/>
         <source>Please choose two different files.</source>
         <translation>请选择两个不同的文件。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="901"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="910"/>
         <source>File Missing</source>
         <translation>文件缺失</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="901"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="910"/>
         <source>Selected files no longer exist.</source>
         <translation>所选文件已不存在。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="913"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="922"/>
         <source>Analysis Error</source>
         <translation>分析错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="913"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="922"/>
         <source>Unable to extract peak wavelengths from one or both files.</source>
         <translation>无法从一个或两个文件中提取峰值波长。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="924"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="933"/>
         <source>Column Mismatch</source>
         <translation>列不匹配</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="924"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="933"/>
         <source>No matching measurement columns between the two files.</source>
         <translation>两个文件之间没有匹配的测量列。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="935"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="944"/>
         <source>Columns only in post file: {0}</source>
         <translation>仅存在于反应后文件的列：{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="937"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="946"/>
         <source>Columns only in baseline file: {0}</source>
         <translation>仅存在于基线文件的列：{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="961"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="970"/>
         <source>Visualization Error</source>
         <translation>可视化错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="961"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="970"/>
         <source>No valid Δλ values were computed; cannot render the surface.</source>
         <translation>未计算出有效的 Δλ 值；无法渲染曲面。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="978"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="987"/>
         <source>Unexpected Error</source>
         <translation>意外错误</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="978"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="987"/>
         <source>Δλ calculation failed:
 {0}</source>
         <translation>Δλ 计算失败：{0}</translation>
@@ -2319,12 +2319,12 @@ This action cannot be undone.</source>
         <translation type="obsolete">Δλ 数量：{0}，最小：{1:.2f} nm，最大：{2:.2f} nm</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1348"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1357"/>
         <source>Layout auto-arranged (row/column labels inferred).</source>
         <translation>布局已自动排布（已推断行/列标签）。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1525"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1534"/>
         <source>Please generate the Δλ surface first.</source>
         <translation>请先生成 Δλ 曲面。</translation>
     </message>
@@ -2334,7 +2334,7 @@ This action cannot be undone.</source>
         <translation type="obsolete">保存 PNG 快照</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1595"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1604"/>
         <source>Export Error</source>
         <translation>导出错误</translation>
     </message>
@@ -2349,7 +2349,7 @@ This action cannot be undone.</source>
         <translation type="obsolete">保存 PNG 文件失败。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1593"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1602"/>
         <source>Done</source>
         <translation>完成</translation>
     </message>
@@ -2360,32 +2360,32 @@ This action cannot be undone.</source>
         <translation type="obsolete">PNG 快照已保存：{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1528"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1537"/>
         <source>Dependency Missing</source>
         <translation>缺少依赖</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1409"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1418"/>
         <source>Matplotlib is required for high-quality export: {0}</source>
         <translation>高质量导出需要 Matplotlib：{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1419"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1428"/>
         <source>Save Matplotlib PNG</source>
         <translation>保存 Matplotlib PNG</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1447"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1456"/>
         <source>Column (x)</source>
         <translation>列（x）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1448"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1457"/>
         <source>Row (y)</source>
         <translation>行（y）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1461"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1470"/>
         <source>Matplotlib PNG saved:
 {0}</source>
         <translation>Matplotlib PNG 已保存：{0}</translation>
@@ -2402,27 +2402,27 @@ This action cannot be undone.</source>
         <translation type="obsolete">Δλ 表格已导出：{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1528"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1537"/>
         <source>imageio is required for GIF export. Please install it via `pip install imageio`.</source>
         <translation>导出 GIF 需要 imageio。请通过 pip install imageio 安装。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1538"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1547"/>
         <source>Save Orbit GIF</source>
         <translation>保存环绕 GIF</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1572"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1581"/>
         <source>Failed to capture any frames.</source>
         <translation>未能捕获到任何帧。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1584"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1593"/>
         <source>Installed imageio package does not provide GIF saving (`mimsave`).</source>
         <translation>已安装的 imageio 不支持保存 GIF（缺少 mimsave）。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1593"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1602"/>
         <source>GIF saved:
 {0}</source>
         <translation>GIF 已保存：{0}</translation>
@@ -2448,270 +2448,300 @@ This action cannot be undone.</source>
         <translation>预处理：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1449"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1458"/>
         <source>u0394u03bb (nm)</source>
         <translation>Δλ（nm）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="520"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="529"/>
         <source>u0394u03bb surface not generated yet.</source>
         <translation>尚未生成Δλ曲面</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="394"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="403"/>
         <source>Data Filtering</source>
         <translation>数据筛选</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="396"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="405"/>
         <source>Enable anomaly screening</source>
         <translation>启用异常筛选</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="401"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="410"/>
         <source>Threshold mode:</source>
         <translation>阈值模式：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="403"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="412"/>
         <source>Auto · mean ± 3σ</source>
         <translation>自动 · 均值 ± 3σ</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="404"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="413"/>
         <source>Robust · median ± 3·MAD</source>
         <translation>稳健 · 中位数 ± 3×MAD</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="405"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="414"/>
         <source>Custom limits</source>
         <translation>自定义范围</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="422"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="431"/>
         <source>Min:</source>
         <translation>最小值：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="424"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="433"/>
         <source>Max:</source>
         <translation>最大值：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="428"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="437"/>
         <source>Hide negative shifts</source>
         <translation>隐藏负偏移值</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="431"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="440"/>
         <source>No points excluded yet.</source>
         <translation>尚未排除任何点。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="435"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="444"/>
         <source>Manual Masking</source>
         <translation>手动屏蔽</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="677"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="686"/>
         <source>No point selected.</source>
         <translation>当前未选择任何点。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="441"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="450"/>
         <source>Mask selected</source>
         <translation>屏蔽所选点</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="442"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="451"/>
         <source>Restore selected</source>
         <translation>恢复所选点</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="447"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="456"/>
         <source>Restore all</source>
         <translation>恢复全部</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="448"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="457"/>
         <source>Undo last</source>
         <translation>撤销上一步</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="452"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="461"/>
         <source>Masked points preview:</source>
         <translation>已屏蔽点预览：</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="457"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="466"/>
         <source>Export Options</source>
         <translation>导出选项</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="459"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="468"/>
         <source>Include masked points in exports</source>
         <translation>导出时包含已屏蔽点</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="461"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="470"/>
         <source>Export exclusion log (CSV)</source>
         <translation>导出排除日志（CSV）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="478"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="487"/>
         <source>���� (nm)</source>
         <translation>Δλ（nm）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="478"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="487"/>
         <source>Status</source>
         <translation>状态</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="478"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="487"/>
         <source>Mask</source>
         <translation>屏蔽</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="595"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="604"/>
         <source>(masked)</source>
         <translation>（已屏蔽）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="621"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="630"/>
         <source>Restore point</source>
         <translation>恢复该点</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="621"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="630"/>
         <source>Mask this point</source>
         <translation>屏蔽该点</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="624"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="633"/>
         <source>Copy summary</source>
         <translation>复制概要</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="726"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="735"/>
         <source>N/A</source>
         <translation>N/A</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="683"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="692"/>
         <source>{0}: {1}</source>
         <translation>{0}：{1}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="685"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="694"/>
         <source>{0} points selected.</source>
         <translation>已选择 {0} 个点。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="710"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="719"/>
         <source>Manually masked</source>
         <translation>手动屏蔽</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="747"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="756"/>
         <source>Active: {0} / Total: {1}</source>
         <translation>有效：{0} / 总计：{1}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="749"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="758"/>
         <source> (auto: {0}, manual: {1})</source>
         <translation>（自动：{0}，手动：{1}）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="754"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="763"/>
         <source>Manual masked</source>
         <translation>手动屏蔽（状态）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="756"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="765"/>
         <source>Auto filtered</source>
         <translation>自动筛除</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="759"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="768"/>
         <source>Missing</source>
         <translation>缺失</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1492"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1501"/>
         <source>Active</source>
         <translation>有效</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="777"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="786"/>
         <source>Missing value</source>
         <translation>缺失值</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="780"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="789"/>
         <source>Negative shift</source>
         <translation>负偏移</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="784"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="793"/>
         <source>Below limit ({0:.2f})</source>
         <translation>低于下限（{0:.2f}）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="786"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="795"/>
         <source>Above limit ({0:.2f})</source>
         <translation>高于上限（{0:.2f}）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1339"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1348"/>
         <source>???? count: 0 / {0} (filtered)</source>
         <translation>Δλ 计数：{0} / {1}（已筛选）</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1341"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1350"/>
         <source>???? count: {0} / {1}, min: {2:.2f} nm, max: {3:.2f} nm</source>
         <translation>Δλ 计数：{0} / {1}，最小：{2:.2f} nm，最大：{3:.2f} nm</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1378"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1387"/>
         <source>Auto filtered: {0}</source>
         <translation>自动筛除：{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1380"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1389"/>
         <source>Toggle to mask/unmask this point.</source>
         <translation>点击以切换该点的屏蔽/取消屏蔽。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1399"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1408"/>
         <source>Please generate the ???? surface first.</source>
         <translation>请先生成 Δλ 曲面。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1469"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1478"/>
         <source>No ???? data to export.</source>
         <translation>无可导出的 Δλ 数据。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1475"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1484"/>
         <source>Export ???? Table</source>
         <translation>导出 Δλ 表格</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1500"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1509"/>
         <source>No active points are available for export.</source>
         <translation>没有可用于导出的有效点。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1520"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="1529"/>
         <source>???? table exported:
 {0}</source>
         <translation>Δλ 表格已导出：{0}</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="358"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="367"/>
         <source>Main Peak Algorithm:</source>
         <translation>主峰算法:</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="357"/>
+        <source>Highest Point</source>
+        <translation>最高点算法</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="358"/>
+        <source>Centroid</source>
+        <translation>质心法</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="359"/>
+        <source>Gaussian Fit</source>
+        <translation>高斯拟合</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="360"/>
+        <source>Parabolic Interpolation</source>
+        <translation>二次多项式拟合</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="361"/>
+        <source>Wavelet Transform</source>
+        <translation>小波变换</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/delta_lambda_visualizer.py" line="362"/>
+        <source>Threshold-based</source>
+        <translation>阈值法</translation>
     </message>
 </context>
 <context>
