@@ -18,7 +18,7 @@ PEAK_METHOD_KEYS = tuple(PEAK_METHOD_LABELS.keys())
 def find_spectral_peaks(y_data, min_height=None, min_distance=None):
     """
     一个通用的光谱寻峰函数。
-    【已简化】不再请求scipy计算宽度。
+    不再请求scipy计算宽度。
     """
     try:
         indices, properties = find_peaks(y_data, height=min_height, distance=min_distance)

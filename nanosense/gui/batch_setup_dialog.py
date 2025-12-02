@@ -22,7 +22,7 @@ class BatchSetupDialog(QDialog):
 
         self._init_ui()
         self._connect_signals()
-        self._retranslate_ui()  # è®¾ç½®åå§ææ¬
+        self._retranslate_ui()  # 设置初始文本
 
     def _init_ui(self):
         """
@@ -43,19 +43,19 @@ class BatchSetupDialog(QDialog):
         self.output_folder_label = QLabel()
         form_layout.addRow(self.output_folder_label, folder_layout)
 
-        # æä»¶æ ¼å¼éæ©
+        # 文件格式选择
         self.format_combo = QComboBox()
         self.format_label = QLabel()
         form_layout.addRow(self.format_label, self.format_combo)
 
-        # âæ¯ä¸ªå­ä½çç¹æ°âè®¾ç½?
+        # "每个孔位的点数"设置
         self.points_per_well_spinbox = QSpinBox()
-        self.points_per_well_spinbox.setRange(1, 512)  # åè®¸éé 1 å?512 ä¸ªç¹
-        self.points_per_well_spinbox.setValue(16)  # é»è®¤å¼ä»ç¶æ¯ 16
-        self.points_per_well_label = QLabel()  # åå»ºç©ºæ ç­¾ï¼ææ¬å¨ç¿»è¯å½æ°ä¸­è®¾ç½®
+        self.points_per_well_spinbox.setRange(1, 512)  # 允许采集 1 到 512 个点
+        self.points_per_well_spinbox.setValue(16)  # 默认值仍然是 16
+        self.points_per_well_label = QLabel()  # 创建空标签，文本在翻译函数中设置
         form_layout.addRow(self.points_per_well_label, self.points_per_well_spinbox)
 
-        # ---æ·»å è£åèå´è®¾ç½® ---
+        # ---添加裁切范围设置 ---
         self.enable_cropping_checkbox = QCheckBox(self.tr("Enable wavelength cropping"))
         self.enable_cropping_checkbox.setChecked(True)
         form_layout.addRow(self.enable_cropping_checkbox)
@@ -74,11 +74,11 @@ class BatchSetupDialog(QDialog):
         self.crop_start_label = QLabel(self.tr("Crop Start Wavelength:"))
         self.crop_end_label = QLabel(self.tr("Crop End Wavelength:"))
 
-        # --- ãæ°å¢ãæ·»å èªå¨åééè®¾ç½® ---
+        # --- 【新增】添加自动化采集设置 ---
         self.auto_group = QGroupBox()
         auto_layout = QFormLayout(self.auto_group)
         self.enable_auto_checkbox = QCheckBox()
-        self.enable_auto_checkbox.setChecked(False)  # é»è®¤ä¸å¯ç?
+        self.enable_auto_checkbox.setChecked(False)  # 默认不启用
         self.intra_well_interval_spinbox = QDoubleSpinBox()
         self.intra_well_interval_spinbox.setDecimals(1)
         self.intra_well_interval_spinbox.setRange(0.5, 300.0)
@@ -110,7 +110,7 @@ class BatchSetupDialog(QDialog):
 
     def _connect_signals(self):
         """
-        è¿æ¥æææ§ä»¶çä¿¡å·ä¸æ§½ã?
+        连接所有控件的信号与槽
         """
         self.browse_button.clicked.connect(self._select_output_folder)
         self.button_box.accepted.connect(self.accept)
@@ -165,27 +165,27 @@ class BatchSetupDialog(QDialog):
         )
 
     def changeEvent(self, event):
-        """ æ°å¢ï¼ååºè¯­è¨ååäºä»¶ """
+        """ 新增：响应语言变化事件 """
         if event.type() == QEvent.LanguageChange:
             self._retranslate_ui()
         super().changeEvent(event)
 
     def _retranslate_ui(self):
-        """ æ°å¢ï¼éæ°ç¿»è¯æ­¤æ§ä»¶åçææUIææ¬ """
+        """ 新增：重新翻译此控件内的所有UI文本 """
         self.setWindowTitle(self.tr("Batch Task Settings"))
         self.output_folder_label.setText(self.tr("Select Report Output Folder:"))
         self.browse_button.setText(self.tr("Browse..."))
         self.format_label.setText(self.tr("Select File Format:"))
-        # ãæ°å¢ãç¿»è¯èªå¨åééç¸å³çUI
+        # 【新增】翻译自动化采集相关的UI
         self.auto_group.setTitle(self.tr("Automatic Acquisition Settings"))
         self.enable_auto_checkbox.setText(self.tr("Enable Automatic Acquisition"))
         self.intra_well_interval_label.setText(self.tr("Point-to-Point Interval (s):"))
         self.inter_well_interval_label.setText(self.tr("Well-to-Well Interval (s):"))
 
-        # ä¸ºæ°å¢çæ ç­¾è®¾ç½®ææ¬
+        # 为新增的标签设置文本
         self.points_per_well_label.setText(self.tr("Points per Well:"))
 
-        # å·æ°ä¸ææ¡åå®?
+        # 刷新下拉框内容
         current_text = self.format_combo.currentText()
         self.format_combo.clear()
         items = [
@@ -194,7 +194,7 @@ class BatchSetupDialog(QDialog):
             self.tr("Text File (*.txt)")
         ]
         self.format_combo.addItems(items)
-        # å°è¯æ¢å¤ä¹åçéæ©
+        # 尝试恢复之前的选择
         index = self.format_combo.findText(current_text)
         if index != -1:
             self.format_combo.setCurrentIndex(index)
@@ -204,7 +204,7 @@ class BatchSetupDialog(QDialog):
 
     def _select_output_folder(self):
         """
-        æå¼æä»¶å¤¹éæ©å¯¹è¯æ¡ã?
+        打开文件夹选择对话框
         """
         start_path = self.output_folder_edit.text()
         path = QFileDialog.getExistingDirectory(self, self.tr("Select Report Output Folder"), start_path)

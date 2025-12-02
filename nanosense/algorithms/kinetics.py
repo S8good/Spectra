@@ -5,7 +5,6 @@ from scipy.optimize import curve_fit
 
 
 def linear_fit(x_values, y_values):
-    # ... (此函数不变) ...
     if len(x_values) < 2: return None
     m, b = np.polyfit(x_values, y_values, 1)
     r_squared = np.corrcoef(x_values, y_values)[0, 1] ** 2
@@ -16,8 +15,6 @@ def mono_exponential_decay(t, a, b, c):
     """单指数衰减模型: f(t) = a * e^(-bt) + c"""
     return a * np.exp(-b * t) + c
 
-
-# 在 nanosense/algorithms/kinetics.py 文件中
 
 def fit_kinetics_curve(time_data, y_data):
     """
@@ -72,14 +69,12 @@ def fit_kinetics_curve(time_data, y_data):
         return None
 
 def calculate_residuals(time_data, y_data, fit_params):
-    # ... (此函数不变) ...
     if fit_params is None: return np.zeros_like(y_data)
     fitted_y = mono_exponential_decay(time_data, **fit_params)
     return y_data - fitted_y
 
 
 def correct_drift(time_data, y_data, baseline_start_time, baseline_end_time):
-    # ... (此函数不变) ...
     time_data, y_data = np.array(time_data), np.array(y_data)
     baseline_mask = (time_data >= baseline_start_time) & (time_data <= baseline_end_time)
     baseline_time, baseline_y = time_data[baseline_mask], y_data[baseline_mask]

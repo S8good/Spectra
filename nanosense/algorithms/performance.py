@@ -25,7 +25,7 @@ def saturation_binding_model(concentration, R_max, KD):
     """饱和结合模型 (Langmuir / Michaelis-Menten)"""
     return (R_max * concentration) / (KD + concentration)
 
-# 【新增】为 saturation_binding_model 添加一个更通用的别名
+#为 saturation_binding_model 添加一个更通用的别名
 michaelis_menten = saturation_binding_model
 
 def calculate_affinity_kd(concentrations, responses):

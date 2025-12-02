@@ -4,7 +4,7 @@ import inspect
 
 def calculate_colorimetric_values(wavelengths, spectral_data, illuminant='D65', observer='2'):
     """
-    【最终稳定版】根据光谱数据计算色度学参数（兼容 colour 0.3.x / 0.4.x 全版本）。
+    根据光谱数据计算色度学参数（兼容 colour 0.3.x / 0.4.x 全版本）。
     自动检测函数参数、异常安全，不会影响上层 GUI。
     """
     if wavelengths is None or spectral_data is None or len(wavelengths) < 2:

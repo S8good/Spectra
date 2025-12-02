@@ -7,13 +7,13 @@ from scipy.sparse.linalg import spsolve
 
 """
 光谱预处理函数 (平滑, 基线校正等)
-这部分代码实现了论文第3章中讨论的关键数据预处理算法。
+这部分代码实现了关键数据预处理算法。
 """
 
 def smooth_savitzky_golay(spectrum, window_length=11, polyorder=3):
     """
     【Savitzky-Golay 平滑】
-    这是论文中最推荐的光谱平滑方法之一，因为它能在有效去噪的同时，很好地保留峰形特征。
+    这是最推荐的光谱平滑方法之一，因为它能在有效去噪的同时，很好地保留峰形特征。
     """
     if len(spectrum) < window_length:
         return spectrum
@@ -33,7 +33,7 @@ def smooth_moving_average(spectrum, window_size=5):
 def smooth_median(spectrum, kernel_size=5):
     """
     【中值滤波】
-    论文中特别提到，该方法对于去除突然的、不连续的脉冲噪声（异常值）非常有效。
+    该方法对于去除突然的、不连续的脉冲噪声（异常值）非常有效。
     """
     if kernel_size % 2 == 0:
         kernel_size += 1
@@ -43,7 +43,7 @@ def smooth_median(spectrum, kernel_size=5):
 def baseline_als(y, lam=1e6, p=0.01, niter=10):
     """
     【不对称最小二乘法 (Asymmetric Least Squares, ALS) 基线校正】
-    这是一种强大且自动化的基线校正算法，与论文中提到的“惩罚最小二乘法”思想一致。
+    这是一种强大且自动化的基线校正算法，与“惩罚最小二乘法”思想一致。
     """
     L = len(y)
     D = diags([1, -2, 1], [0, -1, -2], shape=(L, L - 2))
