@@ -43,7 +43,12 @@ from PyQt5.QtWidgets import (
     QWidget, QScrollArea,
 )
 
-from nanosense.algorithms.peak_analysis import find_main_resonance_peak
+from nanosense.algorithms.peak_analysis import (
+    find_main_resonance_peak,
+    estimate_peak_position,
+    PEAK_METHOD_KEYS,
+    PEAK_METHOD_LABELS
+)
 from nanosense.algorithms.preprocessing import baseline_als, smooth_savitzky_golay
 from nanosense.utils.file_io import load_wide_format_spectrum
 
@@ -344,6 +349,14 @@ class DeltaLambdaVisualizationDialog(QDialog):
         preprocess_widget = QWidget()
         preprocess_widget.setLayout(preprocess_row)
         combo_form.addRow(self.tr("Preprocessing:"), preprocess_widget)
+        
+        # 添加峰检测算法选择控件
+        self.peak_method_combo = QComboBox()
+        for method_key in PEAK_METHOD_KEYS:
+            label = PEAK_METHOD_LABELS[method_key]
+            self.peak_method_combo.addItem(self.tr(label), userData=method_key)
+        combo_form.addRow(self.tr("Main Peak Algorithm:"), self.peak_method_combo)
+        
         folder_layout.addLayout(combo_form)
 
         self.compute_button = QPushButton(self.tr("Load && Compute Δλ"))
@@ -1043,11 +1056,18 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 if sub_wl.size < 20:
                     peaks[str(col)] = np.nan
                     continue
-                peak_idx, _ = find_main_resonance_peak(sub_int, min_height=0)
+                # 获取选择的寻峰算法
+                method_key = self.peak_method_combo.currentData() or 'highest_point'
+                
+                # 使用estimate_peak_position函数支持所有寻峰算法
+                peak_idx, peak_wavelength = estimate_peak_position(
+                    sub_wl, sub_int, method=method_key
+                )
+                
                 if peak_idx is None or peak_idx >= sub_wl.size:
                     peaks[str(col)] = np.nan
                 else:
-                    peaks[str(col)] = float(sub_wl[peak_idx])
+                    peaks[str(col)] = float(peak_wavelength)
 
         return peaks
 

@@ -400,9 +400,16 @@ class MeasurementWidget(QWidget):
             return
 
         start_index = region_indices[0]
+        x_subset = x_data[region_indices]
         y_subset = y_data[region_indices]
 
-        main_peak_index_subset, _ = find_main_resonance_peak(y_subset, min_height=min_height)
+        # 获取选择的寻峰算法
+        method_key = self.peak_method_combo.currentData() or 'highest_point'
+        
+        # 使用estimate_peak_position函数支持所有寻峰算法
+        main_peak_index_subset, peak_wavelength = estimate_peak_position(
+            x_subset, y_subset, method=method_key
+        )
 
         if main_peak_index_subset is not None:
             main_peak_index_global = main_peak_index_subset + start_index

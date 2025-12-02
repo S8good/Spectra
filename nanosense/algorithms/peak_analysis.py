@@ -8,6 +8,9 @@ PEAK_METHOD_LABELS = {
     'highest_point': 'Highest Point',
     'centroid': 'Centroid',
     'gaussian_fit': 'Gaussian Fit',
+    'parabolic': 'Parabolic Interpolation',
+    'wavelet': 'Wavelet Transform',
+    'threshold': 'Threshold-based',
 }
 PEAK_METHOD_KEYS = tuple(PEAK_METHOD_LABELS.keys())
 
@@ -67,9 +70,9 @@ def calculate_fwhm(x_data, y_data, peak_indices):
 
     return fwhms
 
-def find_main_resonance_peak(y_data, min_height=None, min_distance=None):
+def find_main_resonance_peak(y_data, min_height=None, min_distance=None, method='highest_point'):
     """
-    从索引中找到强度最高的主共振峰。
+    从索引中找到主共振峰。
     """
     # 1. 首先，使用通用函数找到所有可能的候选峰
     all_indices, all_properties = find_spectral_peaks(y_data, min_height, min_distance)
@@ -78,14 +81,43 @@ def find_main_resonance_peak(y_data, min_height=None, min_distance=None):
     if len(all_indices) == 0:
         return None, None
 
-    # 3. 从所有找到的峰中，找到高度最高的那个峰的索引
+    # 3. 根据指定的方法选择主峰
+    method_key = (method or 'highest_point').lower()
+    if method_key not in PEAK_METHOD_LABELS:
+        method_key = 'highest_point'
+
+    if method_key == 'highest_point':
+        # 从所有找到的峰中，找到高度最高的那个峰的索引
+        heights = y_data[all_indices]
+        index_of_highest_peak_in_list = np.argmax(heights)
+
+        # 获取这个最高峰在原始数据中的索引
+        main_peak_original_index = all_indices[index_of_highest_peak_in_list]
+
+        # 提取这个最高峰的所有属性
+        main_peak_properties = {key: value[index_of_highest_peak_in_list] for key, value in all_properties.items()}
+
+        return main_peak_original_index, main_peak_properties
+    else:
+        # 对于其他方法，我们使用estimate_peak_position函数
+        # 需要构造完整的波长数组
+        wavelengths = np.arange(len(y_data))
+        peak_index, peak_wavelength = estimate_peak_position(wavelengths, y_data, method=method_key)
+        
+        if peak_index is not None:
+            # 找到最接近的候选峰
+            closest_candidate_idx = np.argmin(np.abs(all_indices - peak_index))
+            main_peak_original_index = all_indices[closest_candidate_idx]
+            
+            # 提取这个峰的所有属性
+            main_peak_properties = {key: value[closest_candidate_idx] for key, value in all_properties.items()}
+            
+            return main_peak_original_index, main_peak_properties
+
+    # 如果所有方法都失败了，回退到最高点法
     heights = y_data[all_indices]
     index_of_highest_peak_in_list = np.argmax(heights)
-
-    # 4. 获取这个最高峰在原始数据中的索引
     main_peak_original_index = all_indices[index_of_highest_peak_in_list]
-
-    # 5. 提取这个最高峰的所有属性
     main_peak_properties = {key: value[index_of_highest_peak_in_list] for key, value in all_properties.items()}
 
     return main_peak_original_index, main_peak_properties
@@ -234,6 +266,89 @@ def estimate_peak_position(wavelengths, intensities, method='highest_point'):
             center = float(fit_results['center'])
             approx_index = int(np.argmin(np.abs(wavelengths_arr - center)))
             return approx_index, center
+            
+        if method_key == 'parabolic':
+            # 二次多项式拟合寻峰
+            index = int(np.argmax(intensities_arr))
+            if index <= 0 or index >= len(intensities_arr) - 1:
+                return index, float(wavelengths_arr[index])
+            
+            # 使用峰值点及其左右相邻点进行二次拟合
+            x = wavelengths_arr[index-1:index+2]
+            y = intensities_arr[index-1:index+2]
+            
+            # 二次多项式拟合: y = ax^2 + bx + c
+            coeffs = np.polyfit(x, y, 2)
+            a, b, c = coeffs
+            
+            # 计算极值点: x = -b/(2a)
+            if a != 0:
+                peak_wavelength = -b / (2 * a)
+                approx_index = int(np.argmin(np.abs(wavelengths_arr - peak_wavelength)))
+                return approx_index, peak_wavelength
+            else:
+                return index, float(wavelengths_arr[index])
+
+        if method_key == 'wavelet':
+            # 小波变换寻峰
+            try:
+                from scipy.signal import find_peaks_cwt
+                # 使用连续小波变换寻找峰值
+                peak_indices = find_peaks_cwt(intensities_arr, widths=np.arange(1, 10))
+                if len(peak_indices) > 0:
+                    # 选择幅度最大的峰值
+                    peak_heights = intensities_arr[peak_indices]
+                    max_peak_idx = peak_indices[np.argmax(peak_heights)]
+                    return max_peak_idx, float(wavelengths_arr[max_peak_idx])
+                else:
+                    # 如果没找到峰值，回退到最高点法
+                    index = int(np.argmax(intensities_arr))
+                    return index, float(wavelengths_arr[index])
+            except ImportError:
+                # 如果没有安装scipy或相关模块，回退到最高点法
+                index = int(np.argmax(intensities_arr))
+                return index, float(wavelengths_arr[index])
+
+        if method_key == 'threshold':
+            # 阈值法寻峰
+            # 计算自适应阈值（平均值+标准差）
+            threshold = np.mean(intensities_arr) + np.std(intensities_arr)
+            
+            # 寻找超过阈值的区域
+            above_threshold = intensities_arr > threshold
+            
+            if np.any(above_threshold):
+                # 找到所有连续的超过阈值的区域
+                regions = []
+                start = None
+                
+                for i, is_above in enumerate(above_threshold):
+                    if is_above and start is None:
+                        start = i
+                    elif not is_above and start is not None:
+                        regions.append((start, i-1))
+                        start = None
+                
+                # 处理最后一个区域
+                if start is not None:
+                    regions.append((start, len(intensities_arr)-1))
+                
+                # 在每个区域中找到最大值点
+                peak_candidates = []
+                for start, end in regions:
+                    region_intensities = intensities_arr[start:end+1]
+                    local_max_idx = np.argmax(region_intensities)
+                    global_max_idx = start + local_max_idx
+                    peak_candidates.append((global_max_idx, intensities_arr[global_max_idx]))
+                
+                # 选择幅度最大的峰值
+                if peak_candidates:
+                    peak_idx = max(peak_candidates, key=lambda x: x[1])[0]
+                    return peak_idx, float(wavelengths_arr[peak_idx])
+            
+            # 如果没有找到满足条件的峰值，回退到最高点法
+            index = int(np.argmax(intensities_arr))
+            return index, float(wavelengths_arr[index])
 
     except Exception as exc:
         print(f"estimate_peak_position failed: {exc}")

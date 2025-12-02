@@ -1,4 +1,4 @@
-﻿# nanosense/gui/main_window.py
+# nanosense/gui/main_window.py
 
 import json
 
@@ -373,20 +373,14 @@ class AppWindow(QMainWindow):
 
 
         menu.batch_report_action.triggered.connect(self._open_batch_report_dialog)
-
         menu.sensitivity_action.triggered.connect(self._open_sensitivity_dialog)
-
         menu.affinity_action.triggered.connect(self._open_affinity_analysis_dialog)
-
         menu.kobs_linear_action.triggered.connect(self._open_kobs_linearization_dialog)
-
         menu.import_noise_action.triggered.connect(self._open_noise_analysis_dialog)
-
         menu.realtime_noise_action.triggered.connect(self._trigger_realtime_noise_analysis)
-
         menu.calibration_action.triggered.connect(self._open_calibration_dialog)
-
         menu.performance_action.triggered.connect(self._open_performance_dialog)
+        menu.find_main_peak_action.triggered.connect(self._trigger_find_main_peak)
 
 
 
@@ -1382,6 +1376,16 @@ class AppWindow(QMainWindow):
         else:
 
             print(self.tr("Please switch to the measurement page before using the peak finding feature."))
+
+    def _trigger_find_main_peak(self):
+
+        if self.stacked_widget.currentWidget() is self.measurement_page:
+
+            self.measurement_page._find_main_resonance_peak()
+
+        else:
+
+            print(self.tr("Please switch to the measurement page before using the main peak finding feature."))
 
 
 

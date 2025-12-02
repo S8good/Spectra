@@ -32,6 +32,8 @@ class MenuBar(QMenuBar):
         self.import_noise_action = QAction(self.tr('Import Data Analysis...'), self)
         self.realtime_noise_action = QAction(self.tr('Real-time Data Analysis...'), self)
         self.performance_action = QAction(self.tr('Detection Performance (LOB/LOD/LOQ)...'), self)
+        self.find_main_peak_action = QAction(self.tr('Find Main Peak in Current Spectrum'), self)
+        self.find_main_peak_action.setShortcut('Ctrl+P')
 
         # Data Menu Actions
         self.batch_acquisition_action = QAction(self.tr('Batch Acquisition Setup'), self)
@@ -74,6 +76,8 @@ class MenuBar(QMenuBar):
         self.analysis_menu.addSeparator()
         self.analysis_menu.addAction(self.affinity_action)
         self.analysis_menu.addAction(self.kobs_linear_action)
+        self.analysis_menu.addSeparator()
+        self.analysis_menu.addAction(self.find_main_peak_action)
         self.analysis_menu.addSeparator()
         self.noise_analysis_menu = self.analysis_menu.addMenu(self.tr('Noise Analysis'))
         self.noise_analysis_menu.addAction(self.import_noise_action)
@@ -143,6 +147,8 @@ class MenuBar(QMenuBar):
         self.default_paths_action.setText(self.tr('Customize Parameters...'))
         self.mock_api_config_action.setText(self.tr('Mock API Configuration...'))
         self.logging_system_action.setText(self.tr('Logging System...'))
+
+        self.find_main_peak_action.setText(self.tr('Find Main Peak in Current Spectrum'))
 
         self.about_action.setText(self.tr('About'))
 
