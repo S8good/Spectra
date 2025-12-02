@@ -260,9 +260,18 @@ class AnalysisWindow(QMainWindow):
         analysis_form_layout = QFormLayout()
         self.analysis_target_combo = QComboBox()
         self.peak_method_combo = QComboBox()
+        # 显式添加翻译标记，确保Qt Linguist能检测到这些字符串
+        peak_labels = {
+            'highest_point': self.tr('Highest Point'),
+            'centroid': self.tr('Centroid'),
+            'gaussian_fit': self.tr('Gaussian Fit'),
+            'parabolic': self.tr('Parabolic Interpolation'),
+            'wavelet': self.tr('Wavelet Transform'),
+            'threshold': self.tr('Threshold-based'),
+        }
         for method_key in PEAK_METHOD_KEYS:
-            label = PEAK_METHOD_LABELS[method_key]
-            self.peak_method_combo.addItem(self.tr(label), userData=method_key)
+            label = peak_labels[method_key]
+            self.peak_method_combo.addItem(label, userData=method_key)
         self.peak_height_spinbox = QDoubleSpinBox()
         self.peak_height_spinbox.setDecimals(4)
         self.peak_height_spinbox.setRange(-1000, 10000)
@@ -530,7 +539,6 @@ class AnalysisWindow(QMainWindow):
 
         if y_data is None or len(y_data) == 0: return
 
-        # --- 【核心修改】使用寻峰范围进行数据裁切 ---
         # 1. 从UI获取寻峰范围
         min_wl, max_wl = self.region_selector.getRegion()
 
@@ -542,7 +550,6 @@ class AnalysisWindow(QMainWindow):
 
         x_subset = x_data[region_indices]
         y_subset = y_data[region_indices]
-        # --- 修改结束 ---
 
         method_key = self.peak_method_combo.currentData() or 'highest_point'
         subset_index, peak_wavelength = estimate_peak_position(x_subset, y_subset, method_key)
@@ -631,7 +638,6 @@ class AnalysisWindow(QMainWindow):
             output_folder = os.path.join(folder_path, f"Analysis_{object_name}_{timestamp}")
             os.makedirs(output_folder)
 
-            # ... (内部保存逻辑不变) ...
             if all([self.source_signal, self.source_background, self.source_reference]):
                 df_data = {
                     'Wavelength (nm)': self.source_signal[0], 'Signal Intensity': self.source_signal[1],
@@ -673,7 +679,7 @@ class AnalysisWindow(QMainWindow):
     def _update_curve_visibility(self, item):
         """
         一个专门用于响应列表项勾选状态变化的新函数。
-        【已升级】现在包含智能自动缩放逻辑。
+        包含智能自动缩放逻辑。
         """
         # 通过 "身份证" (UserRole) 获取唯一的 key
         unique_key = item.data(Qt.UserRole)
