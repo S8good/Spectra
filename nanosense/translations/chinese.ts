@@ -16,32 +16,42 @@
     <message>
         <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="66"/>
         <source>Copyright:</source>
-        <translation>版权所有:</translation>
+        <translation type="obsolete">版权所有:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="67"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="68"/>
         <source>This software platform is an integrated system for nanophotonics sensing signal processing and analysis.</source>
         <translation>本软件平台是一个集成的纳米光子学传感信号处理与分析系统。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="69"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="70"/>
         <source>It aims to provide researchers with a one-stop solution from device control and data acquisition to advanced algorithm analysis.</source>
         <translation>旨在为科研人员提供一个从设备控制、数据采集到高级算法分析的一站式解决方案。</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="71"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="72"/>
         <source>Technical Support:</source>
         <translation>技术支持:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="72"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="73"/>
         <source>Core Framework:</source>
         <translation>核心框架:</translation>
     </message>
     <message>
-        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="73"/>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="74"/>
         <source>Scientific Computing:</source>
         <translation>科学计算:</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="66"/>
+        <source>Copyright: Copyright &amp;copy; 2025, Shi Pengcheng (Professor Geng Zhaoxin)</source>
+        <translation>版权所有：Copyright &amp;copy; 2025, 史鹏程（耿照新教授）</translation>
+    </message>
+    <message>
+        <location filename="../../../25.10.23 - ����/nanosense/gui/about_dialog.py" line="67"/>
+        <source>Sensor and Microsystems Laboratory, College of Information Engineering, Minzu University of China</source>
+        <translation>中央民族大学信息工程学院传感器与微系统实验室</translation>
     </message>
 </context>
 <context>

@@ -120,4 +120,7 @@ python scripts/generate_demo_database.py  # 生成示例数据库（可选）
 3. 运行 `pytest` 与关键脚本确保通过。
 4. 提交 Pull Request，并在描述中说明变更核心点及验证方式。
 
-欢迎提交 issues 和 PR，共同完善纳米光子学数据平台。谢谢支持！
+
+- pylupdate5 -verbose nanosense.pro
+- lrelease nanosense/translations/chinese.ts
+- 欢迎提交 issues 和 PR，共同完善纳米光子学数据平台。谢谢支持！

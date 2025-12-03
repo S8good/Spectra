@@ -57,13 +57,14 @@ class AboutDialog(QDialog):
 
     def _retranslate_ui(self):
         """
-        【已优化】重新构建并翻译所有UI文本。
+        重新构建并翻译所有UI文本。
         """
         self.setWindowTitle(self.tr("About Nanosense Platform"))
 
-        # 【核心修改】先将所有需要翻译的短语赋值给变量
+        #先将所有需要翻译的短语赋值给变量
         version_str = self.tr("Version:")
-        copyright_str = self.tr("Copyright:")
+        copyright_str = self.tr("Copyright: Copyright &copy; 2025, Shi Pengcheng (Professor Geng Zhaoxin)")
+        lab_str = self.tr("Sensor and Microsystems Laboratory, College of Information Engineering, Minzu University of China")
         p1_str = self.tr(
             "This software platform is an integrated system for nanophotonics sensing signal processing and analysis.")
         p2_str = self.tr(
@@ -76,7 +77,8 @@ class AboutDialog(QDialog):
         about_text = f"""
         <h2>Nanophotonics Sensing Platform</h2>
         <p><b>{version_str}</b> 1.0.0</p>
-        <p><b>{copyright_str}</b> Copyright &copy; 2025, Professor Geng Lab</p>
+        <p>{copyright_str}</p>
+        <p>{lab_str}</p>
         <hr>
         <p>{p1_str}</p>
         <p>{p2_str}</p>
