@@ -1171,7 +1171,11 @@ class AppWindow(QMainWindow):
             operator=operator_name,
             instrument_info=instrument_info,
             processing_info=processing_info,
+            peak_method=self.run_dialog.get_selected_peak_method(),
         )
+        
+        # 连接对话框的信号，当用户更改寻峰方法时更新工作线程
+        self.run_dialog.peak_method_changed.connect(self.batch_worker.update_peak_method)
         
         # 移动工作线程并连接信号
         self.batch_worker.moveToThread(self.batch_thread)
@@ -1192,6 +1196,9 @@ class AppWindow(QMainWindow):
         # 更新对话框和实时预览
         self.batch_worker.update_dialog.connect(self.run_dialog.update_state)
         self.batch_worker.live_preview_data.connect(self.run_dialog.update_all_plots)
+        # 连接峰值信息信号
+        self.batch_worker.peak_found.connect(self.run_dialog.update_peak_table)
+        self.batch_worker.peak_removed.connect(self.run_dialog.remove_from_peak_table)
         
         # 连接收集和导入信号
         for signal in (

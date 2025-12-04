@@ -21,7 +21,7 @@ def run_analysis_pipeline(wavelengths, spectra_df):
 
             # 2. 寻找主共振峰
             #    这里使用最简单可靠的 np.argmax 来找到最大值点作为峰值
-            peak_index, _ = find_main_resonance_peak(spectrum_data, min_height=-np.inf)
+            peak_index, _ = find_main_resonance_peak(spectrum_data, wavelengths, min_height=-np.inf)
 
             if peak_index is not None:
                 peak_wl = wavelengths[peak_index]

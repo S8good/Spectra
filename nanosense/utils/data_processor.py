@@ -160,7 +160,7 @@ def generate_summary_reports(output_folder, grouped_data, selected_points, prepr
                                                   polyorder=preprocessing_params['sg_polyorder_fine'])
 
             # 步骤 4: 在最终处理后的数据子集上寻找主峰
-            peak_idx, _ = find_main_resonance_peak(fine_smoothed, min_height=0)
+            peak_idx, _ = find_main_resonance_peak(fine_smoothed, wavelengths_subset, min_height=0)
 
             if peak_idx is not None:
                 peak_wavelength = wavelengths_subset[peak_idx]

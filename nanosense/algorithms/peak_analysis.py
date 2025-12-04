@@ -70,9 +70,16 @@ def calculate_fwhm(x_data, y_data, peak_indices):
 
     return fwhms
 
-def find_main_resonance_peak(y_data, min_height=None, min_distance=None, method='highest_point'):
+def find_main_resonance_peak(y_data, wavelengths=None, min_height=None, min_distance=None, method='highest_point'):
     """
     从索引中找到主共振峰。
+    
+    参数:
+    y_data: numpy数组，光谱强度数据
+    wavelengths: numpy数组，对应的波长数据。如果为None，将使用索引作为波长。
+    min_height: 峰的最小高度
+    min_distance: 峰之间的最小距离
+    method: 寻峰方法
     """
     # 1. 首先，使用通用函数找到所有可能的候选峰
     all_indices, all_properties = find_spectral_peaks(y_data, min_height, min_distance)
@@ -85,6 +92,12 @@ def find_main_resonance_peak(y_data, min_height=None, min_distance=None, method=
     method_key = (method or 'highest_point').lower()
     if method_key not in PEAK_METHOD_LABELS:
         method_key = 'highest_point'
+
+    # 如果没有提供波长数据，使用索引作为波长
+    if wavelengths is None:
+        wavelengths = np.arange(len(y_data))
+    else:
+        wavelengths = np.asarray(wavelengths)
 
     if method_key == 'highest_point':
         # 从所有找到的峰中，找到高度最高的那个峰的索引
@@ -100,17 +113,30 @@ def find_main_resonance_peak(y_data, min_height=None, min_distance=None, method=
         return main_peak_original_index, main_peak_properties
     else:
         # 对于其他方法，我们使用estimate_peak_position函数
-        # 需要构造完整的波长数组
-        wavelengths = np.arange(len(y_data))
         peak_index, peak_wavelength = estimate_peak_position(wavelengths, y_data, method=method_key)
         
         if peak_index is not None:
-            # 找到最接近的候选峰
-            closest_candidate_idx = np.argmin(np.abs(all_indices - peak_index))
-            main_peak_original_index = all_indices[closest_candidate_idx]
+            # 直接使用估计的峰位，而不是从候选峰中选择
+            main_peak_original_index = peak_index
             
-            # 提取这个峰的所有属性
-            main_peak_properties = {key: value[closest_candidate_idx] for key, value in all_properties.items()}
+            # 计算峰属性
+            main_peak_properties = {
+                'peak_index': main_peak_original_index,
+                'peak_wavelength': peak_wavelength,
+                'peak_intensity': float(y_data[main_peak_original_index])
+            }
+            
+            # 计算FWHM
+            if len(all_indices) > 0:
+                # 找到最接近的候选峰
+                closest_candidate_idx = np.argmin(np.abs(all_indices - main_peak_original_index))
+                closest_candidate = all_indices[closest_candidate_idx]
+                
+                # 如果接近候选峰，使用候选峰的属性
+                if abs(main_peak_original_index - closest_candidate) < 5:  # 允许5个点的误差
+                    main_peak_properties.update({
+                        key: value[closest_candidate_idx] for key, value in all_properties.items()
+                    })
             
             return main_peak_original_index, main_peak_properties
 

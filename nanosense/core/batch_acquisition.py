@@ -23,6 +23,10 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QGroupBox,
     QToolTip,
+    QComboBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
 )
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QThread, Qt, QEvent, QSize
 from PyQt5.QtGui import QColor, QIcon, QPainter, QPixmap
@@ -125,6 +129,7 @@ class BatchRunDialog(QDialog):
     signal_collect_requested = pyqtSignal()
     back_triggered = pyqtSignal()
     abort_mission = pyqtSignal()
+    peak_method_changed = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -254,11 +259,14 @@ class BatchRunDialog(QDialog):
 
         self.plot_grid = QGridLayout()
         self.plot_grid.setSpacing(12)
-        self.plot_grid.setColumnStretch(0, 1)
-        self.plot_grid.setColumnStretch(1, 1)
-        self.plot_grid.setColumnStretch(2, 1)
-        self.plot_grid.setRowStretch(0, 1)
-        self.plot_grid.setRowStretch(1, 1)
+        # 设置列宽比例：1:1:1:1
+        self.plot_grid.setColumnStretch(0, 1)  # 信号谱/实时结果谱
+        self.plot_grid.setColumnStretch(1, 1)  # 背景谱/累计结果谱
+        self.plot_grid.setColumnStretch(2, 1)  # 参考谱/累计结果谱
+        self.plot_grid.setColumnStretch(3, 1)  # 峰值表
+        # 设置行高比例
+        self.plot_grid.setRowStretch(0, 1)  # 第一行
+        self.plot_grid.setRowStretch(1, 1)  # 第二行
 
         def create_plot_container(plot_widget: pg.PlotWidget, title_key: str, popout_handler) -> QWidget:
             container = QWidget()
@@ -329,15 +337,37 @@ class BatchRunDialog(QDialog):
             lambda: self._open_popout_window("summary"),
         )
 
+        # 添加峰值表
+        self.peak_table_container = self._create_peak_table_container()
+        
+        # 第一行：信号谱、背景谱、参考谱（各占1/3宽度）
         self.plot_grid.addWidget(self.signal_container, 0, 0)
         self.plot_grid.addWidget(self.background_container, 0, 1)
         self.plot_grid.addWidget(self.reference_container, 0, 2)
+        
+        # 第二行：实时结果谱(1/3)、累计结果谱(2/3)
         self.plot_grid.addWidget(self.result_container, 1, 0)
-        self.plot_grid.addWidget(self.summary_container, 1, 1, 1, 2)
+        self.plot_grid.addWidget(self.summary_container, 1, 1, 1, 2)  # 累计结果谱占据两列
+        
+        # 右侧：峰值表(垂直占据两行)
+        self.plot_grid.addWidget(self.peak_table_container, 0, 3, 2, 1)
 
         plots_layout.addLayout(self.plot_grid, 1)
         main_layout.addWidget(plots_container)
 
+        # Peak analysis controls
+        peak_analysis_layout = QHBoxLayout()
+        peak_analysis_layout.addWidget(QLabel(self.tr("Peak Finding Algorithm:")))
+        self.peak_method_combo = QComboBox()
+        from nanosense.algorithms.peak_analysis import PEAK_METHOD_LABELS
+        for method_key, method_label in PEAK_METHOD_LABELS.items():
+            self.peak_method_combo.addItem(self.tr(method_label), method_key)
+        # 默认选择最高峰值法
+        self.peak_method_combo.setCurrentText(self.tr("Highest Point"))
+        peak_analysis_layout.addWidget(self.peak_method_combo)
+        peak_analysis_layout.addStretch()
+        main_layout.addLayout(peak_analysis_layout)
+        
         summary_controls_layout = QHBoxLayout()
         self.toggle_summary_button = QPushButton()
         self.toggle_summary_button.setCheckable(True)
@@ -391,6 +421,7 @@ class BatchRunDialog(QDialog):
         self.toggle_summary_button.toggled.connect(self._toggle_summary_pause)
         self.clear_summary_button.clicked.connect(self._clear_summary_plot)
         self.toggle_reference_button.toggled.connect(self._toggle_reference_sections)
+        self.peak_method_combo.currentIndexChanged.connect(lambda: self.peak_method_changed.emit(self.get_selected_peak_method()))
 
     def _prompt_import(self, spectrum_type: str) -> None:
         start_dir = self._last_import_dir or os.path.expanduser("~")
@@ -455,6 +486,110 @@ class BatchRunDialog(QDialog):
         if event.type() == QEvent.LanguageChange:
             self._retranslate_ui()
         super().changeEvent(event)
+
+    def _create_peak_table_container(self) -> QWidget:
+        """创建峰值表格容器"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # 创建表头
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(5, 2, 5, 2)
+        title_label = QLabel(self.tr("Peak Results"))
+        title_label.setStyleSheet("color: #90A4AE; font-size: 12pt;")
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        
+        layout.addWidget(header_widget)
+        
+        # 创建表格
+        self.peak_table = QTableWidget()
+        self.peak_table.setColumnCount(3)
+        self.peak_table.setHorizontalHeaderLabels([
+            self.tr("Well-Point"),
+            self.tr("Peak Wavelength (nm)"),
+            self.tr("Peak Intensity (Abs)")
+        ])
+        
+        # 设置表格样式
+        self.peak_table.setStyleSheet("""
+            QTableWidget {
+                background-color: rgba(33, 33, 33, 0.8);
+                border: none;
+                color: white;
+            }
+            QTableWidget::item {
+                border-bottom: 1px solid rgba(224, 224, 224, 0.1);
+                padding: 5px;
+            }
+            QTableWidget::item:selected {
+                background-color: rgba(65, 105, 225, 0.5);
+            }
+            QHeaderView::section {
+                background-color: rgba(0, 0, 0, 0.3);
+                border: none;
+                border-bottom: 1px solid rgba(224, 224, 224, 0.2);
+                color: white;
+                padding: 5px;
+            }
+        """)
+        
+        # 设置表头自适应
+        self.peak_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.peak_table.verticalHeader().setVisible(False)
+        
+        layout.addWidget(self.peak_table)
+        
+        return container
+    
+    def update_peak_table(self, well_id: str, point_num: int, peak_wavelength: float, peak_intensity: float) -> None:
+        """更新峰值表格"""
+        # 查找是否已存在相同的孔位-点数据
+        well_point_key = f"{well_id}-{point_num}"
+        existing_row = -1
+        
+        for row in range(self.peak_table.rowCount()):
+            item = self.peak_table.item(row, 0)
+            if item and item.text() == well_point_key:
+                existing_row = row
+                break
+        
+        if existing_row >= 0:
+            # 更新现有行
+            row = existing_row
+        else:
+            # 插入新行
+            row = self.peak_table.rowCount()
+            self.peak_table.insertRow(row)
+        
+        # 设置单元格内容
+        well_point_item = QTableWidgetItem(well_point_key)
+        well_point_item.setTextAlignment(Qt.AlignCenter)
+        peak_wl_item = QTableWidgetItem(f"{peak_wavelength:.2f}")
+        peak_wl_item.setTextAlignment(Qt.AlignCenter)
+        peak_int_item = QTableWidgetItem(f"{peak_intensity:.4f}")
+        peak_int_item.setTextAlignment(Qt.AlignCenter)
+        
+        self.peak_table.setItem(row, 0, well_point_item)
+        self.peak_table.setItem(row, 1, peak_wl_item)
+        self.peak_table.setItem(row, 2, peak_int_item)
+        
+        # 自动滚动到最后一行
+        self.peak_table.scrollToBottom()
+    
+    def remove_from_peak_table(self, well_id: str, point_num: int) -> None:
+        """从峰值表格中删除指定孔位-点的数据"""
+        well_point_key = f"{well_id}-{point_num}"
+        
+        # 查找并删除匹配的行
+        for row in range(self.peak_table.rowCount()):
+            item = self.peak_table.item(row, 0)
+            if item and item.text() == well_point_key:
+                self.peak_table.removeRow(row)
+                break
 
     def _retranslate_ui(self) -> None:
         self.setWindowTitle(self.tr("Batch Acquisition in Progress..."))
@@ -600,6 +735,10 @@ class BatchRunDialog(QDialog):
         )
         self.toggle_reference_button.setText(label)
 
+    def get_selected_peak_method(self) -> str:
+        """获取当前选择的寻峰算法"""
+        return self.peak_method_combo.currentData()
+    
     def _progress_text(self) -> str:
         return self.tr("Total progress: {total}% | Current well: {point}%").format(
             total=int(self._total_progress_value),
@@ -681,6 +820,8 @@ class BatchAcquisitionWorker(QObject):
     error = pyqtSignal(str)
     update_dialog = pyqtSignal(dict)
     live_preview_data = pyqtSignal(dict)
+    peak_found = pyqtSignal(str, int, float, float)  # well_id, point_num, peak_wavelength, peak_intensity
+    peak_removed = pyqtSignal(str, int)  # well_id, point_num - signal to remove peak from table
 
     def __init__(
         self,
@@ -701,6 +842,7 @@ class BatchAcquisitionWorker(QObject):
         operator: str = "",
         instrument_info: Optional[Dict[str, Any]] = None,
         processing_info: Optional[Dict[str, Any]] = None,
+        peak_method: str = "highest_point",
     ):
         super().__init__()
         self.controller = controller
@@ -714,6 +856,9 @@ class BatchAcquisitionWorker(QObject):
         self.is_auto_enabled = is_auto_enabled
         self.intra_well_interval = intra_well_interval
         self.inter_well_interval = inter_well_interval
+        self.peak_method = peak_method
+        
+        # Initialize worker state
         self._is_running = True
         self.run_status = "pending"
         self.command_queue = queue.Queue(maxsize=1)
@@ -731,6 +876,8 @@ class BatchAcquisitionWorker(QObject):
         self.spectrum_registry = defaultdict(lambda: defaultdict(list))
         self.capture_counts = defaultdict(int)
         self.completed_wells = set()
+        
+        # Initialize instrument and processing info
         base_instrument = dict(instrument_info) if instrument_info else {}
         config_meta = dict(base_instrument.get("config") or {})
         config_meta.setdefault("source", "batch_acquisition")
@@ -750,6 +897,8 @@ class BatchAcquisitionWorker(QObject):
                 controller, "serial_number", None
             )
         self.instrument_info = base_instrument if base_instrument else None
+        
+        # Initialize processing info
         base_processing = dict(processing_info) if processing_info else {}
         base_processing["name"] = base_processing.get("name") or "batch_acquisition"
         base_processing["version"] = base_processing.get("version") or "1.0"
@@ -766,6 +915,8 @@ class BatchAcquisitionWorker(QObject):
             key: value for key, value in parameters.items() if value is not None
         }
         self.processing_info = base_processing
+        
+        # Initialize wavelengths
         self.wavelengths = np.array(self.controller.wavelengths)
         if self.crop_start_wl is not None and self.crop_end_wl is not None:
             self.wavelength_mask = (self.wavelengths >= self.crop_start_wl) & (
@@ -775,6 +926,10 @@ class BatchAcquisitionWorker(QObject):
         else:
             self.wavelength_mask = None
             self.cropped_wavelengths = self.wavelengths
+    
+    def update_peak_method(self, new_method: str):
+        """更新寻峰方法"""
+        self.peak_method = new_method
 
 
     def request_collect(self):
@@ -1286,6 +1441,8 @@ class BatchAcquisitionWorker(QObject):
                             point_num = previous_task["point_num"]
                             data["signals"].pop(point_num, None)
                             data["absorbance"].pop(point_num, None)
+                            # 发出信号，通知UI从峰值表格中删除相应数据
+                            self.peak_removed.emit(rollback_well, point_num)
                         self.task_index -= 1
                     continue
 
@@ -1340,6 +1497,31 @@ class BatchAcquisitionWorker(QObject):
                             if self.wavelength_mask is not None
                             else self.wavelengths
                         )
+                        
+                        # 计算寻峰结果
+                        from nanosense.algorithms.peak_analysis import find_main_resonance_peak, calculate_fwhm
+                        peak_index, peak_properties = find_main_resonance_peak(absorbance, result_wavelengths, method=self.peak_method)
+                        
+                        # 计算半峰全宽
+                        peak_info = {"peak_position": None, "peak_intensity": None, "fwhm": None}
+                        if peak_index is not None:
+                            # 获取峰值波长和强度
+                            peak_info["peak_position"] = result_wavelengths[peak_index]
+                            peak_info["peak_intensity"] = absorbance[peak_index]
+                            
+                            # 计算半峰全宽
+                            fwhm = calculate_fwhm(result_wavelengths, absorbance, [peak_index])
+                            if fwhm and len(fwhm) > 0:
+                                peak_info["fwhm"] = fwhm[0]
+                        
+                        # 保存寻峰结果
+                        self.collected_data[well_id]["peak_info"] = self.collected_data[well_id].get("peak_info", {})
+                        self.collected_data[well_id]["peak_info"][point_num] = peak_info
+                        
+                        # 发射峰值信息信号
+                        if peak_info["peak_position"] is not None and peak_info["peak_intensity"] is not None:
+                            self.peak_found.emit(well_id, point_num, peak_info["peak_position"], peak_info["peak_intensity"])
+                        
                         self._save_spectrum_to_db(
                             well_id,
                             f"Result_Point_{point_num}",
@@ -1387,6 +1569,28 @@ class BatchAcquisitionWorker(QObject):
                         summary_filename = f"batch_summary_all_results_{folder_timestamp}.xlsx"
                         summary_output_path = os.path.join(run_output_folder, summary_filename)
                         df_summary.to_excel(summary_output_path, index=False, engine="openpyxl")
+                        
+                        # 保存寻峰结果到Excel文件
+                        peak_results_data = []
+                        for well in sorted_well_ids:
+                            well_data = self.collected_data[well]
+                            if "peak_info" in well_data:
+                                for point_num in sorted(well_data["peak_info"].keys()):
+                                    peak_info = well_data["peak_info"][point_num]
+                                    peak_results_data.append({
+                                        "Well ID": well,
+                                        "Point Number": point_num,
+                                        "Peak Wavelength (nm)": peak_info["peak_position"],
+                                        "Peak Intensity (Abs)": peak_info["peak_intensity"],
+                                        "FWHM (nm)": peak_info["fwhm"],
+                                        "Peak Method": self.peak_method
+                                    })
+                        
+                        if peak_results_data:
+                            df_peak_results = pd.DataFrame(peak_results_data)
+                            peak_results_filename = f"batch_peak_results_{folder_timestamp}.xlsx"
+                            peak_results_output_path = os.path.join(run_output_folder, peak_results_filename)
+                            df_peak_results.to_excel(peak_results_output_path, index=False, engine="openpyxl")
             except Exception as exc:
                 self.run_status = "failed"
                 print(f"Failed to generate batch summary file: {exc}")

@@ -72,7 +72,8 @@ def generate_plots_for_point(point_name, df, output_folder, preprocessing_params
                 processed_data[col] = fine_smoothed
             range_mask = (wavelengths >= wl_start) & (wavelengths <= wl_end)
             y_subset = processed_data[col][range_mask]
-            peak_index_in_subset, _ = find_main_resonance_peak(y_subset)
+            x_subset = wavelengths[range_mask]
+            peak_index_in_subset, _ = find_main_resonance_peak(y_subset, x_subset)
             if peak_index_in_subset is not None:
                 global_indices_in_range = np.where(range_mask)[0]
                 peak_index_global = global_indices_in_range[peak_index_in_subset]
