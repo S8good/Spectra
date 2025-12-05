@@ -52,12 +52,14 @@ class AppWindow(QMainWindow):
         
         # 应用设置和翻译
         self.app_settings = load_settings()
+        print(f"加载的应用设置: {self.app_settings}")
         self.translator = None
         initial_language = self.app_settings.get('language', 'en')
         self.current_language = self._load_translator(initial_language)
         
         # 硬件模式状态
         self.use_real_hardware = use_real_hardware
+        print(f"硬件模式设置: {'真实硬件' if use_real_hardware else '模拟API'}")
         
         # 窗口和管理器
         self.analysis_windows = []
@@ -70,8 +72,11 @@ class AppWindow(QMainWindow):
         self.current_experiment_id = None
         
         # 初始化数据库和项目
+        print("开始初始化数据库...")
         self._initialize_database()
+        print("开始查找或创建默认项目...")
         self._find_or_create_default_project()
+        print(f"数据库初始化完成，项目ID: {self.current_project_id}")
         
         # 直接在构造函数中尝试连接硬件
         requested_mode = self.use_real_hardware
@@ -106,8 +111,16 @@ class AppWindow(QMainWindow):
     def _initialize_database(self):
         """初始化数据库连接"""
         db_path = self.app_settings.get('database_path')
+        print(f"尝试初始化数据库连接，数据库路径: {db_path}")
         if db_path:
-            self.db_manager = DatabaseManager(db_path)
+            try:
+                self.db_manager = DatabaseManager(db_path)
+                print(f"数据库管理器已创建: {self.db_manager is not None}")
+            except Exception as e:
+                print(f"创建数据库管理器时出错: {e}")
+                import traceback
+                traceback.print_exc()
+                self.db_manager = None
         else:
             warning_msg = self.tr(
                 "No database path was found in the configuration. Database features will be unavailable."
@@ -125,8 +138,10 @@ class AppWindow(QMainWindow):
     # 【新增】查询或创建默认项目
     def _find_or_create_default_project(self):
         """查询或创建默认项目"""
+        print(f"尝试查找或创建默认项目，数据库管理器状态: {self.db_manager is not None}")
         if self.db_manager:
             project_name = "Default Project"
+            print(f"调用数据库管理器查找或创建项目: {project_name}")
             self.current_project_id = self.db_manager.find_or_create_project(
                 name=project_name,
                 description="Default project for general experiments."
@@ -135,6 +150,8 @@ class AppWindow(QMainWindow):
                 print(f"当前项目已设置为 '{project_name}' (ID: {self.current_project_id})")
             else:
                 print(f"无法创建或查找项目: {project_name}")
+        else:
+            print("数据库管理器未初始化，无法查找或创建项目")
     
     # 【新增】获取当前实验ID，如果不存在则创建
     def get_or_create_current_experiment_id(self):
@@ -349,8 +366,15 @@ class AppWindow(QMainWindow):
                 self._request_restart()
             else:
                 self._sync_hardware_mode_action()
+                
     def _request_restart(self):
         """请求重启应用"""
+        # 在断开控制器之前，保存当前的应用设置
+        if hasattr(self, 'app_settings'):
+            from ..utils.config_manager import save_settings
+            self.app_settings['use_real_hardware'] = self.use_real_hardware
+            save_settings(self.app_settings)
+            
         if self.controller:
             self.controller.disconnect()
         self.restart_requested.emit(self.use_real_hardware)
@@ -1384,15 +1408,19 @@ class AppWindow(QMainWindow):
         
         # 验证数据库连接
         if not self.db_manager:
-            QMessageBox.warning(
-                self,
-                self.tr("Database Not Configured"),
-                self.tr("Please configure a database file before running batch acquisition."),
-            )
-            return
+            print("数据库管理器未初始化，尝试重新初始化...")
+            self._initialize_database()
+            if not self.db_manager:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Database Not Configured"),
+                    self.tr("Please configure a database file before running batch acquisition."),
+                )
+                return
         
         # 验证项目ID
         if self.current_project_id is None:
+            print("项目ID为空，尝试查找或创建默认项目...")
             self._find_or_create_default_project()
             if self.current_project_id is None:
                 QMessageBox.critical(

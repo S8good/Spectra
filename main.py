@@ -32,7 +32,7 @@ def show_welcome_screen(use_real_hardware=True):
     else:
         welcome_screen.hardware_mode_combo.setCurrentIndex(1)  # 1 是 "模拟API"
 
-        # 连接信号：当用户在欢迎页选择模式后，启动主程序
+    # 连接信号：当用户在欢迎页选择模式后，启动主程序
     welcome_screen.mode_selected.connect(launch_main_app)
     welcome_screen.show()
 
