@@ -100,6 +100,7 @@ class AppWindow(QMainWindow):
         self.init_ui()
         self.apply_styles()  # 保留原有样式加载
         self._setup_initial_state()
+        self._sync_theme_actions()  # 同步主题动作
         self._setup_initial_language()
     # 【新增】初始化数据库连接
     def _initialize_database(self):
@@ -245,6 +246,10 @@ class AppWindow(QMainWindow):
         menu.language_zh_action.triggered.connect(lambda: self._switch_language('zh'))
         menu.language_en_action.triggered.connect(lambda: self._switch_language('en'))
         
+        # 主题
+        menu.theme_dark_action.triggered.connect(lambda: self._switch_theme('dark'))
+        menu.theme_light_action.triggered.connect(lambda: self._switch_theme('light'))
+        
         # 设置
         if hasattr(menu, 'default_paths_action'):
             menu.default_paths_action.triggered.connect(self._open_settings_dialog)
@@ -382,248 +387,508 @@ class AppWindow(QMainWindow):
         return True
     def apply_styles(self):
         """应用样式表"""
-        self.setStyleSheet("""
-            /* ===== Global Settings ===== */
-            QMainWindow, QDialog, QWidget {
-                background-color: #1A202C; /* 深蓝色背景 */
-                color: #E2E8F0; /* 柔和的白色文字 */
-                font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
-                font-size: 14px;
-            }
-            
-            /* ===== Main Content Panel Style  ===== */
-            #plotsContainer {
-                background-color: #2D3748; /* 使用一个比面板稍亮颜色的容器 */
-                border-radius: 8px;      /* 添加圆角使其看起来更柔和 */
-            }
-            
-            /* ===== Custom CollapsibleBox Style ===== */
-            CollapsibleBox {
-                /* 为整个控件设置外边距，创造呼吸感 */
-                margin-bottom: 4px; 
-            }
-            
-            CollapsibleBox > QToolButton {
-                background-color: #2D3748; /* 标题栏背景色 */
-                border: 1px solid #4A5568;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 15px;
-                padding: 8px; /* 加大内边距 */
-                color: #CBD5E0;
-                text-align: left; /* 文字居左 */
-            }
-            
-            CollapsibleBox > QScrollArea {
-                background-color: #2D3748;
-                border: none;
-                border-top: 1px solid #4A5568; /* 只保留上边框作为分隔线 */
-                margin: 0px 5px 0px 5px; /* 左右两侧留出一些边距 */
-            }
-            
-            /* ===== GroupBox & Custom CollapsibleBox ===== */
-            QGroupBox {
-                background-color: #2D3748; /* 稍亮的面板背景 */
-                border: 1px solid #4A5568;
-                border-radius: 8px;
-                margin-top: 1em;
-                padding: 10px;
-            }
-            
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top center;
-                padding: 0 10px;
-                color: #A0AEC0;
-            }
-            
-            /* Style for your CollapsibleBox's button */
-            CollapsibleBox > QToolButton {
-                background-color: #2D3748;
-                border: 1px solid #4A5568;
-                border-radius: 4px;
-                font-weight: bold;
-                padding: 5px;
-                color: #CBD5E0;
-            }
-            
-            /* ===== Buttons ===== */
-            QPushButton {
-                background-color: #3182CE; /* 蓝色主按钮 */
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 16px;
-            }
-            
-            QPushButton:hover {
-                background-color: #2B6CB0;
-            }
-            
-            QPushButton:pressed {
-                background-color: #2C5282;
-            }
-            
-            QPushButton:disabled {
-                background-color: #4A5568;
-                color: #A0AEC0;
-            }
-            
-            /* ===== Input Widgets ===== */
-            QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-                background-color: #2D3748;
-                color: #E2E8F0;
-                border: 1px solid #4A5568;
-                border-radius: 4px;
-                padding: 5px;
-            }
-            
-            QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
-                border: 1px solid #3182CE; /* 焦点状态时高亮 */
-            }
-            
-            QComboBox::drop-down {
-                border: none;
-            }
-            
-            QComboBox::down-arrow {
-                image: url(nanosense/gui/assets/down_arrow.svg); /* (需要一个白色向下箭头SVG图标) */
-            }
-            
-            QComboBox QAbstractItemView {
-                background-color: #2D3748;
-                color: #E2E8F0;
-                border: 1px solid #4A5568;
-                selection-background-color: #3182CE; /* 选中项的背景色 */
-            }
-            
-            /* ===== Table & List ===== */
-            QTableWidget, QListWidget {
-                background-color: #2D3748;
-                border: 1px solid #4A5568;
-                border-radius: 4px;
-                gridline-color: #4A5568;
-            }
-            
-            QHeaderView::section {
-                background-color: #1A202C;
-                color: #A0AEC0;
-                padding: 4px;
-                border: 1px solid #4A5568;
-            }
-            
-            QTableWidget::item, QListWidget::item {
-                padding: 5px;
-            }
-            
-            QTableWidget::item:selected, QListWidget::item:selected {
-                background-color: #3182CE;
-                color: white;
-            }
-            
-            /* ===== Scroll Bars ===== */
-            QScrollBar:vertical {
-                border: none;
-                background: #2D3748;
-                width: 10px;
-                margin: 0px 0px 0px 0px;
-            }
-            
-            QScrollBar::handle:vertical {
-                background: #4A5568;
-                min-height: 20px;
-                border-radius: 5px;
-            }
-            
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
-            
-            QScrollBar:horizontal {
-                 border: none;
-                 background: #2D3748;
-                 height: 10px;
-                 margin: 0px 0px 0px 0px;
-            }
-            
-            QScrollBar::handle:horizontal {
-                 background: #4A5568;
-                 min-width: 20px;
-                 border-radius: 5px;
-            }
-             
-             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-                width: 0px;
-            }
-            
-            /* ===== Tab Widget Style (标签页组件) ===== */
-            QTabWidget::pane { /* Tab页的边框和背景 */
-                border: 1px solid #4A5568;
-                border-top: none; /* 移除顶部边框，使Tab页与上方内容无缝衔接 */
-                border-radius: 0 0 4px 4px;
-            }
-            
-            QTabBar::tab { /* Tab按钮的样式 */
-                background-color: #2D3748; /* 未选中时的背景色 */
-                color: #A0AEC0; /* 未选中时的文字颜色 */
-                border: 1px solid #4A5568;
-                border-bottom: none; /* 移除底部边框，与pane的边框合并 */
-                padding: 8px 16px;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
-            }
-            
-            QTabBar::tab:selected { /* Tab按钮被选中时的样式 */
-                background-color: #1A202C; /* 选中时使用更深的背景色，与主窗口融合 */
-                color: white; /* 选中时使用更亮的文字颜色 */
-                border-bottom: 1px solid #1A202C; /* 覆盖pane的上边框，实现融合效果 */
-            }
-            
-            QTabBar::tab:hover { /* 鼠标悬停在Tab按钮上时 */
-                background-color: #384253;
-            }
-            
-            /* ===== Menu Bar Style (菜单栏) ===== */
-            QMenuBar {
-                background-color: #1A202C; /* 匹配主窗口背景色 */
-                color: #E2E8F0;
-                border-bottom: 1px solid #4A5568; /* 底部加一条细微分隔线，增加层次感 */
-            }
-            
-            QMenuBar::item {
-                background-color: transparent;
-                padding: 5px 10px;
-                margin: 2px;
-            }
-            
-            QMenuBar::item:selected { /* 当鼠标悬停选中顶级菜单项时 */
-                background-color: #2D3748; /* 使用面板的背景色作为高亮 */
-                color: white;
-                border-radius: 4px;
-            }
-            
-            QMenu { /* 下拉菜单本身的样式 */
-                background-color: #2D3748;
-                color: #E2E8F0;
-                border: 1px solid #4A5568;
-            }
-            
-            QMenu::item {
-                padding: 8px 25px; /* 为下拉菜单项提供更多空间 */
-            }
-            
-            QMenu::item:selected { /* 当鼠标悬停选中下拉菜单里的项目时 */
-                background-color: #3182CE; /* 使用我们的主题蓝色作为高亮 */
-                color: white;
-            }
-            
-            QMenu::separator {
-                height: 1px;
-                background-color: #4A5568;
-                margin: 5px 0px;
-            }
-        """)
+        # 检查当前主题设置
+        theme = self.app_settings.get('theme', 'dark')
+        
+        if theme == 'light':
+            # 改进的浅色主题样式表
+            self.setStyleSheet("""
+                /* ===== Global Settings ===== */
+                QMainWindow, QDialog, QWidget {
+                    background-color: #F8F9FA; /* 现代浅灰背景 */
+                    color: #212529; /* 深灰色文字 */
+                    font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+                    font-size: 14px;
+                }
+                
+                /* ===== Main Content Panel Style  ===== */
+                #plotsContainer {
+                    background-color: #FFFFFF; /* 纯白容器 */
+                    border-radius: 8px;
+                    border: 1px solid #DEE2E6; /* 浅灰边框 */
+                }
+                
+                /* ===== Custom CollapsibleBox Style ===== */
+                CollapsibleBox {
+                    margin-bottom: 4px; 
+                }
+                
+                CollapsibleBox > QToolButton {
+                    background-color: #FFFFFF; /* 纯白标题栏背景色 */
+                    border: 1px solid #DEE2E6;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    font-size: 15px;
+                    padding: 10px;
+                    color: #495057;
+                    text-align: left;
+                }
+                
+                CollapsibleBox > QScrollArea {
+                    background-color: #FFFFFF;
+                    border: none;
+                    border-top: 1px solid #DEE2E6;
+                    margin: 0px 5px 0px 5px;
+                }
+                
+                /* ===== GroupBox & Custom CollapsibleBox ===== */
+                QGroupBox {
+                    background-color: #FFFFFF;
+                    border: 1px solid #DEE2E6;
+                    border-radius: 8px;
+                    margin-top: 1em;
+                    padding: 12px;
+                }
+                
+                QGroupBox::title {
+                    subcontrol-origin: margin;
+                    subcontrol-position: top center;
+                    padding: 0 12px;
+                    color: #495057;
+                    font-weight: bold;
+                }
+                
+                /* Style for your CollapsibleBox's button */
+                CollapsibleBox > QToolButton {
+                    background-color: #FFFFFF;
+                    border: 1px solid #DEE2E6;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    padding: 8px;
+                    color: #495057;
+                }
+                
+                /* ===== Buttons ===== */
+                QPushButton {
+                    background-color: #3B82F6; /* 现代蓝色主按钮 */
+                    color: white;
+                    font-weight: bold;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 8px 16px;
+                }
+                
+                QPushButton:hover {
+                    background-color: #2563EB;
+                }
+                
+                QPushButton:pressed {
+                    background-color: #1D4ED8;
+                }
+                
+                QPushButton:disabled {
+                    background-color: #E9ECEF;
+                    color: #6C757D;
+                }
+                
+                /* ===== Input Widgets ===== */
+                QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+                    background-color: #FFFFFF;
+                    color: #212529;
+                    border: 1px solid #CED4DA;
+                    border-radius: 4px;
+                    padding: 6px;
+                }
+                
+                QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+                    border: 1px solid #3B82F6;
+                    outline: 2px solid rgba(59, 130, 246, 0.25);
+                }
+                
+                QComboBox::drop-down {
+                    border: none;
+                    border-left: 1px solid #CED4DA;
+                }
+                
+                QComboBox::down-arrow {
+                    image: url(nanosense/gui/assets/down_arrow.svg);
+                    width: 12px;
+                    height: 12px;
+                }
+                
+                QComboBox QAbstractItemView {
+                    background-color: #FFFFFF;
+                    color: #212529;
+                    border: 1px solid #CED4DA;
+                    selection-background-color: #3B82F6;
+                    selection-color: white;
+                }
+                
+                /* ===== Table & List ===== */
+                QTableWidget, QListWidget {
+                    background-color: #FFFFFF;
+                    border: 1px solid #CED4DA;
+                    border-radius: 4px;
+                    gridline-color: #E9ECEF;
+                }
+                
+                QHeaderView::section {
+                    background-color: #F1F3F5;
+                    color: #495057;
+                    padding: 6px;
+                    border: 1px solid #CED4DA;
+                    font-weight: bold;
+                }
+                
+                QTableWidget::item, QListWidget::item {
+                    padding: 6px;
+                }
+                
+                QTableWidget::item:selected, QListWidget::item:selected {
+                    background-color: #3B82F6;
+                    color: white;
+                }
+                
+                /* ===== Scroll Bars ===== */
+                QScrollBar:vertical {
+                    border: none;
+                    background: #F1F3F5;
+                    width: 12px;
+                    margin: 0px 0px 0px 0px;
+                }
+                
+                QScrollBar::handle:vertical {
+                    background: #ADB5BD;
+                    min-height: 20px;
+                    border-radius: 6px;
+                }
+                
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                    height: 0px;
+                }
+                
+                QScrollBar:horizontal {
+                     border: none;
+                     background: #F1F3F5;
+                     height: 12px;
+                     margin: 0px 0px 0px 0px;
+                }
+                
+                QScrollBar::handle:horizontal {
+                     background: #ADB5BD;
+                     min-width: 20px;
+                     border-radius: 6px;
+                }
+                 
+                 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                    width: 0px;
+                }
+                
+                /* ===== Tab Widget Style ===== */
+                QTabWidget::pane {
+                    border: 1px solid #DEE2E6;
+                    border-top: none;
+                    border-radius: 0 0 6px 6px;
+                }
+                
+                QTabBar::tab {
+                    background-color: #F1F3F5;
+                    color: #495057;
+                    border: 1px solid #DEE2E6;
+                    border-bottom: none;
+                    padding: 10px 16px;
+                    border-top-left-radius: 6px;
+                    border-top-right-radius: 6px;
+                }
+                
+                QTabBar::tab:selected {
+                    background-color: #FFFFFF;
+                    color: #212529;
+                    border-bottom: 1px solid #FFFFFF;
+                    font-weight: bold;
+                }
+                
+                QTabBar::tab:hover {
+                    background-color: #E9ECEF;
+                }
+                
+                /* ===== Menu Bar Style ===== */
+                QMenuBar {
+                    background-color: #FFFFFF;
+                    color: #212529;
+                    border-bottom: 1px solid #DEE2E6;
+                }
+                
+                QMenuBar::item {
+                    background-color: transparent;
+                    padding: 8px 12px;
+                    margin: 2px;
+                    border-radius: 4px;
+                }
+                
+                QMenuBar::item:selected {
+                    background-color: #E9ECEF;
+                    color: #212529;
+                }
+                
+                QMenu {
+                    background-color: #FFFFFF;
+                    color: #212529;
+                    border: 1px solid #DEE2E6;
+                    border-radius: 6px;
+                }
+                
+                QMenu::item {
+                    padding: 8px 25px;
+                }
+                
+                QMenu::item:selected {
+                    background-color: #3B82F6;
+                    color: white;
+                    border-radius: 4px;
+                }
+                
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #E9ECEF;
+                    margin: 5px 0px;
+                }
+            """)
+        else:
+            # 深色主题样式表（原有代码）
+            self.setStyleSheet("""
+                /* ===== Global Settings ===== */
+                QMainWindow, QDialog, QWidget {
+                    background-color: #1A202C; /* 深蓝色背景 */
+                    color: #E2E8F0; /* 柔和的白色文字 */
+                    font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+                    font-size: 14px;
+                }
+                
+                /* ===== Main Content Panel Style  ===== */
+                #plotsContainer {
+                    background-color: #2D3748; /* 使用一个比面板稍亮颜色的容器 */
+                    border-radius: 8px;      /* 添加圆角使其看起来更柔和 */
+                }
+                
+                /* ===== Custom CollapsibleBox Style ===== */
+                CollapsibleBox {
+                    /* 为整个控件设置外边距，创造呼吸感 */
+                    margin-bottom: 4px; 
+                }
+                
+                CollapsibleBox > QToolButton {
+                    background-color: #2D3748; /* 标题栏背景色 */
+                    border: 1px solid #4A5568;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    font-size: 15px;
+                    padding: 8px; /* 加大内边距 */
+                    color: #CBD5E0;
+                    text-align: left; /* 文字居左 */
+                }
+                
+                CollapsibleBox > QScrollArea {
+                    background-color: #2D3748;
+                    border: none;
+                    border-top: 1px solid #4A5568; /* 只保留上边框作为分隔线 */
+                    margin: 0px 5px 0px 5px; /* 左右两侧留出一些边距 */
+                }
+                
+                /* ===== GroupBox & Custom CollapsibleBox ===== */
+                QGroupBox {
+                    background-color: #2D3748; /* 稍亮的面板背景 */
+                    border: 1px solid #4A5568;
+                    border-radius: 8px;
+                    margin-top: 1em;
+                    padding: 10px;
+                }
+                
+                QGroupBox::title {
+                    subcontrol-origin: margin;
+                    subcontrol-position: top center;
+                    padding: 0 10px;
+                    color: #A0AEC0;
+                }
+                
+                /* Style for your CollapsibleBox's button */
+                CollapsibleBox > QToolButton {
+                    background-color: #2D3748;
+                    border: 1px solid #4A5568;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    padding: 5px;
+                    color: #CBD5E0;
+                }
+                
+                /* ===== Buttons ===== */
+                QPushButton {
+                    background-color: #3182CE; /* 蓝色主按钮 */
+                    color: white;
+                    font-weight: bold;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                }
+                
+                QPushButton:hover {
+                    background-color: #2B6CB0;
+                }
+                
+                QPushButton:pressed {
+                    background-color: #2C5282;
+                }
+                
+                QPushButton:disabled {
+                    background-color: #4A5568;
+                    color: #A0AEC0;
+                }
+                
+                /* ===== Input Widgets ===== */
+                QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+                    background-color: #2D3748;
+                    color: #E2E8F0;
+                    border: 1px solid #4A5568;
+                    border-radius: 4px;
+                    padding: 5px;
+                }
+                
+                QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+                    border: 1px solid #3182CE; /* 焦点状态时高亮 */
+                }
+                
+                QComboBox::drop-down {
+                    border: none;
+                }
+                
+                QComboBox::down-arrow {
+                    image: url(nanosense/gui/assets/down_arrow.svg); /* (需要一个白色向下箭头SVG图标) */
+                }
+                
+                QComboBox QAbstractItemView {
+                    background-color: #2D3748;
+                    color: #E2E8F0;
+                    border: 1px solid #4A5568;
+                    selection-background-color: #3182CE; /* 选中项的背景色 */
+                }
+                
+                /* ===== Table & List ===== */
+                QTableWidget, QListWidget {
+                    background-color: #2D3748;
+                    border: 1px solid #4A5568;
+                    border-radius: 4px;
+                    gridline-color: #4A5568;
+                }
+                
+                QHeaderView::section {
+                    background-color: #1A202C;
+                    color: #A0AEC0;
+                    padding: 4px;
+                    border: 1px solid #4A5568;
+                }
+                
+                QTableWidget::item, QListWidget::item {
+                    padding: 5px;
+                }
+                
+                QTableWidget::item:selected, QListWidget::item:selected {
+                    background-color: #3182CE;
+                    color: white;
+                }
+                
+                /* ===== Scroll Bars ===== */
+                QScrollBar:vertical {
+                    border: none;
+                    background: #2D3748;
+                    width: 10px;
+                    margin: 0px 0px 0px 0px;
+                }
+                
+                QScrollBar::handle:vertical {
+                    background: #4A5568;
+                    min-height: 20px;
+                    border-radius: 5px;
+                }
+                
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                    height: 0px;
+                }
+                
+                QScrollBar:horizontal {
+                     border: none;
+                     background: #2D3748;
+                     height: 10px;
+                     margin: 0px 0px 0px 0px;
+                }
+                
+                QScrollBar::handle:horizontal {
+                     background: #4A5568;
+                     min-width: 20px;
+                     border-radius: 5px;
+                }
+                 
+                 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                    width: 0px;
+                }
+                
+                /* ===== Tab Widget Style (标签页组件) ===== */
+                QTabWidget::pane { /* Tab页的边框和背景 */
+                    border: 1px solid #4A5568;
+                    border-top: none; /* 移除顶部边框，使Tab页与上方内容无缝衔接 */
+                    border-radius: 0 0 4px 4px;
+                }
+                
+                QTabBar::tab { /* Tab按钮的样式 */
+                    background-color: #2D3748; /* 未选中时的背景色 */
+                    color: #A0AEC0; /* 未选中时的文字颜色 */
+                    border: 1px solid #4A5568;
+                    border-bottom: none; /* 移除底部边框，与pane的边框合并 */
+                    padding: 8px 16px;
+                    border-top-left-radius: 4px;
+                    border-top-right-radius: 4px;
+                }
+                
+                QTabBar::tab:selected { /* Tab按钮被选中时的样式 */
+                    background-color: #1A202C; /* 选中时使用更深的背景色，与主窗口融合 */
+                    color: white; /* 选中时使用更亮的文字颜色 */
+                    border-bottom: 1px solid #1A202C; /* 覆盖pane的上边框，实现融合效果 */
+                }
+                
+                QTabBar::tab:hover { /* 鼠标悬停在Tab按钮上时 */
+                    background-color: #384253;
+                }
+                
+                /* ===== Menu Bar Style (菜单栏) ===== */
+                QMenuBar {
+                    background-color: #1A202C; /* 匹配主窗口背景色 */
+                    color: #E2E8F0;
+                    border-bottom: 1px solid #4A5568; /* 底部加一条细微分隔线，增加层次感 */
+                }
+                
+                QMenuBar::item {
+                    background-color: transparent;
+                    padding: 5px 10px;
+                    margin: 2px;
+                }
+                
+                QMenuBar::item:selected { /* 当鼠标悬停选中顶级菜单项时 */
+                    background-color: #2D3748; /* 使用面板的背景色作为高亮 */
+                    color: white;
+                    border-radius: 4px;
+                }
+                
+                QMenu { /* 下拉菜单本身的样式 */
+                    background-color: #2D3748;
+                    color: #E2E8F0;
+                    border: 1px solid #4A5568;
+                }
+                
+                QMenu::item {
+                    padding: 8px 25px; /* 为下拉菜单项提供更多空间 */
+                }
+                
+                QMenu::item:selected { /* 当鼠标悬停选中下拉菜单里的项目时 */
+                    background-color: #3182CE; /* 使用我们的主题蓝色作为高亮 */
+                    color: white;
+                }
+                
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #4A5568;
+                    margin: 5px 0px;
+                }
+            """)
+
     def closeEvent(self, event):
         """关闭事件处理"""
         # 【修改】在关闭前关闭数据库连接
@@ -940,11 +1205,18 @@ class AppWindow(QMainWindow):
         """
         打开设置对话框，允许用户自定义参数。
         """
+        # 保存当前主题设置
+        current_theme = self.app_settings.get('theme', 'dark')
+        
         dialog = SettingsDialog(self.app_settings, self)
         if dialog.exec_() == QDialog.Accepted:
             updated_settings = dialog.get_settings()
             self.app_settings.update(updated_settings)
             save_settings(self.app_settings)
+            
+            # 检查主题是否发生变化
+            new_theme = self.app_settings.get('theme', 'dark')
+            theme_changed = (new_theme != current_theme)
             
             new_db_path = self.app_settings.get('database_path')
             if self.db_manager is None or self.db_manager.db_path != new_db_path:
@@ -961,6 +1233,11 @@ class AppWindow(QMainWindow):
                         "A restart may be required for all features to use the new database."
                     )
                 )
+            
+            # 如果主题发生了变化，应用新主题
+            if theme_changed:
+                self.apply_styles()
+                self._sync_theme_actions()
             
             QMessageBox.information(
                 self,
@@ -1414,6 +1691,51 @@ class AppWindow(QMainWindow):
         
         # 使用语言切换函数，确保重启时加载正确的翻译
         self._switch_language(language)
+    def _switch_theme(self, theme):
+        """切换主题"""
+        # 更新设置
+        self.app_settings['theme'] = theme
+        save_settings(self.app_settings)
+        
+        # 应用样式
+        self.apply_styles()
+        
+        # 同步菜单选中状态
+        menu = getattr(self, '_menu_bar', None)
+        if menu:
+            if hasattr(menu, 'theme_dark_action') and hasattr(menu, 'theme_light_action'):
+                menu.theme_dark_action.blockSignals(True)
+                menu.theme_light_action.blockSignals(True)
+                
+                if theme == 'dark':
+                    menu.theme_dark_action.setChecked(True)
+                    menu.theme_light_action.setChecked(False)
+                else:
+                    menu.theme_dark_action.setChecked(False)
+                    menu.theme_light_action.setChecked(True)
+                    
+                menu.theme_dark_action.blockSignals(False)
+                menu.theme_light_action.blockSignals(False)
+
+    def _sync_theme_actions(self):
+        """同步主题动作"""
+        menu = getattr(self, '_menu_bar', None)
+        if menu and hasattr(menu, 'theme_dark_action') and hasattr(menu, 'theme_light_action'):
+            theme = self.app_settings.get('theme', 'dark')
+            
+            menu.theme_dark_action.blockSignals(True)
+            menu.theme_light_action.blockSignals(True)
+            
+            if theme == 'dark':
+                menu.theme_dark_action.setChecked(True)
+                menu.theme_light_action.setChecked(False)
+            else:
+                menu.theme_dark_action.setChecked(False)
+                menu.theme_light_action.setChecked(True)
+                
+            menu.theme_dark_action.blockSignals(False)
+            menu.theme_light_action.blockSignals(False)
+
     def _open_mock_api_config_dialog(self):
         """
         打开模拟API配置对话框，并在用户确认后保存设置。

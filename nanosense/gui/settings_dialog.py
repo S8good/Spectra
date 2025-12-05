@@ -2,7 +2,7 @@
 import os
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLineEdit,
                              QPushButton, QFileDialog, QDialogButtonBox,
-                             QHBoxLayout, QGroupBox, QLabel, QDoubleSpinBox, QMessageBox)
+                             QHBoxLayout, QGroupBox, QLabel, QDoubleSpinBox, QMessageBox, QComboBox)
 from PyQt5.QtCore import QEvent  # 新增 QEvent
 from nanosense.core.database_manager import DatabaseManager
 
@@ -62,6 +62,18 @@ class SettingsDialog(QDialog):
         main_layout.addWidget(self.paths_group)
         main_layout.addWidget(self.analysis_group)
 
+        # 添加主题设置组
+        self.theme_group = QGroupBox()
+        theme_layout = QFormLayout(self.theme_group)
+        
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItem("Dark (深色)", "dark")
+        self.theme_combo.addItem("Light (亮色)", "light")
+        self.theme_label = QLabel()
+        theme_layout.addRow(self.theme_label, self.theme_combo)
+        
+        main_layout.addWidget(self.theme_group)
+
         self.db_group = QGroupBox()
         db_layout = QFormLayout(self.db_group)
         self.db_path_edit = QLineEdit()
@@ -109,6 +121,10 @@ class SettingsDialog(QDialog):
         self.analysis_group.setTitle(self.tr("Batch Data Analysis Parameters"))
         self.wl_start_label.setText(self.tr("Peak Analysis Start Wavelength:"))
         self.wl_end_label.setText(self.tr("Peak Analysis End Wavelength:"))
+        
+        # 主题设置的标签翻译
+        self.theme_group.setTitle(self.tr("Theme Settings"))
+        self.theme_label.setText(self.tr("Application Theme:"))
 
         self.button_box.button(QDialogButtonBox.Ok).setText(self.tr("OK"))
         self.button_box.button(QDialogButtonBox.Cancel).setText(self.tr("Cancel"))
@@ -148,6 +164,11 @@ class SettingsDialog(QDialog):
         self.load_path_edit.setText(self.settings.get('default_load_path', os.path.expanduser("~")))
         self.wl_start_spinbox.setValue(self.settings.get('analysis_wl_start', 450.0))
         self.wl_end_spinbox.setValue(self.settings.get('analysis_wl_end', 750.0))
+        # 设置主题选择
+        theme = self.settings.get('theme', 'dark')
+        index = self.theme_combo.findData(theme)
+        if index >= 0:
+            self.theme_combo.setCurrentIndex(index)
         default_db_path = os.path.join(os.path.expanduser("~"), ".nanosense", "nanosense_data.db")
         self.db_path_edit.setText(self.settings.get('database_path', default_db_path))
 
@@ -156,6 +177,8 @@ class SettingsDialog(QDialog):
         self.settings['default_load_path'] = self.load_path_edit.text()
         self.settings['analysis_wl_start'] = self.wl_start_spinbox.value()
         self.settings['analysis_wl_end'] = self.wl_end_spinbox.value()
+        # 保存主题设置
+        self.settings['theme'] = self.theme_combo.currentData()
         self.settings['database_path'] = self.db_path_edit.text()
         self.accept()
 

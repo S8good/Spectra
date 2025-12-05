@@ -14,6 +14,7 @@ def get_default_settings():
         'default_load_path': '',
         'analysis_wl_start': 450.0,
         'analysis_wl_end': 750.0,
+        'theme': 'dark',  # 添加主题设置，默认为深色主题
         'mock_api_config': {
             "mode": "dynamic",  # 可选 "static", "dynamic", "noisy_baseline"
             "static_peak_pos": 650.0,

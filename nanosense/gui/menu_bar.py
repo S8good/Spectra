@@ -45,6 +45,8 @@ class MenuBar(QMenuBar):
         self.hardware_mode_action = QAction(self.tr('Use Real Hardware'), self, checkable=True)
         self.language_en_action = QAction(self.tr('English'), self, checkable=True)
         self.language_zh_action = QAction(self.tr('Chinese'), self, checkable=True)
+        self.theme_dark_action = QAction(self.tr('Dark Theme'), self, checkable=True)
+        self.theme_light_action = QAction(self.tr('Light Theme'), self, checkable=True)
         self.default_paths_action = QAction(self.tr('Customize Parameters...'), self)
         self.mock_api_config_action = QAction(self.tr('Mock API Configuration...'), self)
         self.logging_system_action = QAction(self.tr('Logging System...'), self)
@@ -104,6 +106,13 @@ class MenuBar(QMenuBar):
         self.language_menu.addAction(self.language_en_action)
         self.language_menu.addAction(self.language_zh_action)
 
+        self.theme_menu = self.settings_menu.addMenu(self.tr('Theme'))
+        self.theme_action_group = QActionGroup(self.theme_menu)
+        self.theme_action_group.addAction(self.theme_dark_action)
+        self.theme_action_group.addAction(self.theme_light_action)
+        self.theme_menu.addAction(self.theme_dark_action)
+        self.theme_menu.addAction(self.theme_light_action)
+
         self.settings_menu.addAction(self.default_paths_action)
         self.settings_menu.addSeparator()
 
@@ -144,6 +153,8 @@ class MenuBar(QMenuBar):
         self.hardware_mode_action.setText(self.tr('Use Real Hardware'))
         self.language_en_action.setText(self.tr('English'))
         self.language_zh_action.setText(self.tr('Chinese'))
+        self.theme_dark_action.setText(self.tr('Dark Theme'))
+        self.theme_light_action.setText(self.tr('Light Theme'))
         self.default_paths_action.setText(self.tr('Customize Parameters...'))
         self.mock_api_config_action.setText(self.tr('Mock API Configuration...'))
         self.logging_system_action.setText(self.tr('Logging System...'))
@@ -160,5 +171,6 @@ class MenuBar(QMenuBar):
         self.data_menu.setTitle(self.tr('&Data'))
         self.settings_menu.setTitle(self.tr('&Settings'))
         self.language_menu.setTitle(self.tr('Language'))
+        self.theme_menu.setTitle(self.tr('Theme'))
         self.advanced_menu.setTitle(self.tr('Advanced Options'))
         self.help_menu.setTitle(self.tr('&Help'))
