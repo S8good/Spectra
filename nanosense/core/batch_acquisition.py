@@ -101,6 +101,19 @@ class MultiCurvePlotWindow(pg.QtWidgets.QMainWindow):
         self.setWindowTitle(title)
         self.setGeometry(300, 300, 800, 600)
         self.plot_widget = pg.PlotWidget()
+        
+        # 根据主题设置背景色
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            if theme == 'light':
+                self.plot_widget.setBackground('#F0F0F0')
+            else:
+                self.plot_widget.setBackground('#1F2735')
+        except Exception:
+            self.plot_widget.setBackground('#1F2735')
+            
         self.setCentralWidget(self.plot_widget)
         self.plot_widget.addLegend()
 
@@ -303,15 +316,48 @@ class BatchRunDialog(QDialog):
             plot_widget.showGrid(x=True, y=True, alpha=0.3)
             return container
 
+        # 根据主题设置背景色
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            if theme == 'light':
+                background_color = '#F0F0F0'
+            else:
+                background_color = '#1F2735'
+        except Exception:
+            background_color = '#1F2735'
+        
         self.signal_plot = pg.PlotWidget()
-        self.signal_curve = self.signal_plot.plot(pen="c")
+        self.signal_plot.setBackground(background_color)
+        if theme == 'light':
+            self.signal_curve = self.signal_plot.plot(pen=pg.mkPen('k', width=2))
+        else:
+            self.signal_curve = self.signal_plot.plot(pen="c")
+            
         self.background_plot = pg.PlotWidget()
-        self.background_curve = self.background_plot.plot(pen="w")
+        self.background_plot.setBackground(background_color)
+        if theme == 'light':
+            self.background_curve = self.background_plot.plot(pen=pg.mkPen('k', width=2))
+        else:
+            self.background_curve = self.background_plot.plot(pen="w")
+            
         self.reference_plot = pg.PlotWidget()
-        self.reference_curve = self.reference_plot.plot(pen="m")
+        self.reference_plot.setBackground(background_color)
+        if theme == 'light':
+            self.reference_curve = self.reference_plot.plot(pen=pg.mkPen('k', width=2))
+        else:
+            self.reference_curve = self.reference_plot.plot(pen="m")
+            
         self.result_plot = pg.PlotWidget()
-        self.result_curve = self.result_plot.plot(pen="y")
+        self.result_plot.setBackground(background_color)
+        if theme == 'light':
+            self.result_curve = self.result_plot.plot(pen=pg.mkPen('k', width=2))
+        else:
+            self.result_curve = self.result_plot.plot(pen="y")
+            
         self.summary_plot = pg.PlotWidget()
+        self.summary_plot.setBackground(background_color)
 
         self.signal_container = create_plot_container(
             self.signal_plot, "Live Signal", lambda: self._open_popout_window("signal")

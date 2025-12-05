@@ -67,7 +67,7 @@ class ThreeFileImportDialog(QDialog):
         preview_layout = QHBoxLayout(preview_widget)
         preview_layout.setContentsMargins(0, 0, 0, 0)
 
-        pg.setConfigOption('background', '#263238')
+        pg.setConfigOption('background', '#F0F0F0')
         pg.setConfigOption('foreground', 'w')
 
         self.signal_plot = pg.PlotWidget()
@@ -184,6 +184,6 @@ class ThreeFileImportDialog(QDialog):
         }
 
     def closeEvent(self, event):
-        pg.setConfigOption('background', 'w')
+        pg.setConfigOption('background', '#F0F0F0')
         pg.setConfigOption('foreground', 'k')
         super().closeEvent(event)

@@ -346,7 +346,7 @@ class AnalysisWindow(QMainWindow):
         container_layout.setContentsMargins(0, 0, 0, 0)
         container_layout.setSpacing(5)
 
-        pg.setConfigOption('background', '#263238')
+        pg.setConfigOption('background', '#F0F0F0')
         pg.setConfigOption('foreground', 'w')
         plot_widget = pg.PlotWidget()
         plot_widget.showGrid(x=True, y=True)
@@ -757,7 +757,7 @@ class AnalysisWindow(QMainWindow):
                 self.plot_widget.autoRange()
 
     def closeEvent(self, event):
-        pg.setConfigOption('background', 'w');
+        pg.setConfigOption('background', '#F0F0F0');
         pg.setConfigOption('foreground', 'k')
         if self.parent() and hasattr(self.parent(), 'analysis_windows') and self in self.parent().analysis_windows:
             self.parent().analysis_windows.remove(self)

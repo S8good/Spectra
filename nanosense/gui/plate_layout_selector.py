@@ -221,45 +221,137 @@ class PlateLayoutSelectionDialog(QDialog):
         container_shadow.setOffset(0, 3)
         container_shadow.setColor(QColor(0, 0, 0, 38))
         self.setGraphicsEffect(container_shadow)
-        self.setStyleSheet(
-            """
-            QDialog#plateLayoutDialog {
-                background-color: #1E2128;
-            }
-            QLabel#layoutHeader {
-                color: #F0F2F5;
-                font-size: 16px;
-                font-weight: 600;
-                letter-spacing: 0.5px;
-            }
-            QLabel#layoutTip {
-                color: #9CA3AF;
-                font-size: 12px;
-                font-weight: 500;
-            }
-            QWidget#layoutPanel {
-                background-color: #2A2D35;
-                border-radius: 12px;
-            }
-            QPushButton[plateButton="true"] {
-                background-color: #4A90E2;
-                border: 1px solid transparent;
-                border-radius: 8px;
-                color: #FFFFFF;
-                font-size: 14px;
-                font-weight: 500;
-                padding: 0 24px;
-                min-height: 48px;
-            }
-            QPushButton[plateButton="true"]:hover {
-                background-color: #5B9EF3;
-            }
-            QPushButton[plateButton="true"]:pressed {
-                background-color: #3A80D2;
-                border: 1px solid rgba(255, 255, 255, 0.2);
-            }
-            """
-        )
+        
+        # 根据主题设置不同的样式
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            
+            if theme == 'light':
+                # 浅色主题样式
+                self.setStyleSheet(
+                    """
+                    QDialog#plateLayoutDialog {
+                        background-color: #F0F0F0;
+                    }
+                    QLabel#layoutHeader {
+                        color: #000000;
+                        font-size: 16px;
+                        font-weight: 600;
+                        letter-spacing: 0.5px;
+                    }
+                    QLabel#layoutTip {
+                        color: #666666;
+                        font-size: 12px;
+                        font-weight: 500;
+                    }
+                    QWidget#layoutPanel {
+                        background-color: #FFFFFF;
+                        border-radius: 12px;
+                        border: 1px solid #CCCCCC;
+                    }
+                    QPushButton[plateButton="true"] {
+                        background-color: #1E90FF;
+                        border: 1px solid transparent;
+                        border-radius: 8px;
+                        color: #FFFFFF;
+                        font-size: 14px;
+                        font-weight: 500;
+                        padding: 0 24px;
+                        min-height: 48px;
+                    }
+                    QPushButton[plateButton="true"]:hover {
+                        background-color: #187BCD;
+                    }
+                    QPushButton[plateButton="true"]:pressed {
+                        background-color: #1565C0;
+                        border: 1px solid rgba(0, 0, 0, 0.2);
+                    }
+                    """
+                )
+            else:
+                # 深色主题样式
+                self.setStyleSheet(
+                    """
+                    QDialog#plateLayoutDialog {
+                        background-color: #1E2128;
+                    }
+                    QLabel#layoutHeader {
+                        color: #F0F2F5;
+                        font-size: 16px;
+                        font-weight: 600;
+                        letter-spacing: 0.5px;
+                    }
+                    QLabel#layoutTip {
+                        color: #9CA3AF;
+                        font-size: 12px;
+                        font-weight: 500;
+                    }
+                    QWidget#layoutPanel {
+                        background-color: #2A2D35;
+                        border-radius: 12px;
+                    }
+                    QPushButton[plateButton="true"] {
+                        background-color: #4A90E2;
+                        border: 1px solid transparent;
+                        border-radius: 8px;
+                        color: #FFFFFF;
+                        font-size: 14px;
+                        font-weight: 500;
+                        padding: 0 24px;
+                        min-height: 48px;
+                    }
+                    QPushButton[plateButton="true"]:hover {
+                        background-color: #5B9EF3;
+                    }
+                    QPushButton[plateButton="true"]:pressed {
+                        background-color: #3A80D2;
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                    }
+                    """
+                )
+        except Exception:
+            # 如果无法加载设置，使用默认的深色主题样式
+            self.setStyleSheet(
+                """
+                QDialog#plateLayoutDialog {
+                    background-color: #1E2128;
+                }
+                QLabel#layoutHeader {
+                    color: #F0F2F5;
+                    font-size: 16px;
+                    font-weight: 600;
+                    letter-spacing: 0.5px;
+                }
+                QLabel#layoutTip {
+                    color: #9CA3AF;
+                    font-size: 12px;
+                    font-weight: 500;
+                }
+                QWidget#layoutPanel {
+                    background-color: #2A2D35;
+                    border-radius: 12px;
+                }
+                QPushButton[plateButton="true"] {
+                    background-color: #4A90E2;
+                    border: 1px solid transparent;
+                    border-radius: 8px;
+                    color: #FFFFFF;
+                    font-size: 14px;
+                    font-weight: 500;
+                    padding: 0 24px;
+                    min-height: 48px;
+                }
+                QPushButton[plateButton="true"]:hover {
+                    background-color: #5B9EF3;
+                }
+                QPushButton[plateButton="true"]:pressed {
+                    background-color: #3A80D2;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                }
+                """
+            )
 
     def _select_layout(self, layout_def: PlateLayout) -> None:
         self.selected_layout = layout_def

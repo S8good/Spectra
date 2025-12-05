@@ -12,7 +12,7 @@ from nanosense.gui.welcome_widget import WelcomeWidget
 import pyqtgraph as pg
 
 # 设置图表样式
-pg.setConfigOption('background', '#1A202C')
+pg.setConfigOption('background', '#F0F0F0')
 pg.setConfigOption('foreground', '#E2E8F0')
 
 # 全局变量，用于持有对窗口的引用，防止被垃圾回收

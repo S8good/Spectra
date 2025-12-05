@@ -40,8 +40,21 @@ class NoiseAnalysisDialog(QDialog):
 
         # --- 绘图区域 ---
         self.plot_widget = pg.PlotWidget()
-        self.plot_widget.showGrid(x=True, y=True)
-        self.noise_curve = self.plot_widget.plot(pen='c')
+        
+        # 根据主题设置背景色和网格
+        from ..utils.config_manager import load_settings
+        settings = load_settings()
+        theme = settings.get('theme', 'dark')
+        if theme == 'light':
+            self.plot_widget.setBackground('#F0F0F0')
+            self.plot_widget.showGrid(x=True, y=True, alpha=0.1)
+            # 浅色主题下使用深色曲线
+            self.noise_curve = self.plot_widget.plot(pen=pg.mkPen('k', width=2))
+        else:
+            self.plot_widget.setBackground('#1F2735')
+            self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+            # 深色主题下使用青色曲线
+            self.noise_curve = self.plot_widget.plot(pen='c')
         main_layout.addWidget(self.plot_widget)
 
         # --- 结果显示区域 ---

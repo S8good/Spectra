@@ -161,19 +161,151 @@ class KineticsAnalysisDialog(QDialog):
         self.tabs.addTab(tab, "残差图")
 
     def _style_plot(self, plot_widget):
-        plot_widget.setBackground("#1F2735")
-        axis_pen = pg.mkPen("#4D5A6D", width=1)
-        text_pen = pg.mkPen("#E2E8F0")
+        # 根据主题设置不同的背景色和样式
+        from ..utils.config_manager import load_settings
+        settings = load_settings()
+        theme = settings.get('theme', 'dark')
+        
+        if theme == 'light':
+            plot_widget.setBackground("#F0F0F0")  # 偏暗的浅色背景
+            axis_pen = pg.mkPen("#000000", width=1)  # 坐标轴使用黑色
+            text_pen = pg.mkPen("#000000")  # 坐标文本使用黑色
+            grid_alpha = 0.15
+            border_pen = pg.mkPen("#CED4DA", width=1)
+        else:
+            plot_widget.setBackground("#1F2735")
+            axis_pen = pg.mkPen("#4D5A6D", width=1)
+            text_pen = pg.mkPen("#E2E8F0")
+            grid_alpha = 0.15
+            border_pen = pg.mkPen("#39475A", width=1)
+            
         for axis in ("left", "bottom"):
             axis_item = plot_widget.getPlotItem().getAxis(axis)
             axis_item.setPen(axis_pen)
             axis_item.setTextPen(text_pen)
             axis_item.setStyle(tickLength=6)
-        plot_widget.getPlotItem().showGrid(x=True, y=True, alpha=0.15)
-        plot_widget.getViewBox().setBorder(pg.mkPen("#39475A", width=1))
+        plot_widget.getPlotItem().showGrid(x=True, y=True, alpha=grid_alpha)
+        plot_widget.getViewBox().setBorder(border_pen)
 
     def _apply_theme(self):
-        self.setStyleSheet("""
+        # 根据主题设置不同的样式表
+        from ..utils.config_manager import load_settings
+        settings = load_settings()
+        theme = settings.get('theme', 'dark')
+        
+        if theme == 'light':
+            # 浅色主题样式
+            self.setStyleSheet("""
+#KineticsAnalysisDialog {
+    background-color: #F0F0F0;
+    color: #000000;
+    font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    font-size: 13px;
+}
+#kineticsAnalysisSidePanel {
+    background-color: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    border-radius: 12px;
+    padding: 16px;
+}
+#kineticsAnalysisSidePanel QGroupBox {
+    background-color: #FAFAFA;
+    border: 1px solid #DDDDDD;
+    border-radius: 10px;
+    margin-top: 12px;
+    padding: 16px;
+}
+#kineticsAnalysisSidePanel QGroupBox::title {
+    color: #000000;
+    subcontrol-origin: margin;
+    left: 16px;
+    padding: 0 4px;
+    font-weight: 600;
+}
+#kineticsAnalysisSidePanel QLabel {
+    color: #000000;
+}
+QLabel#analysisValueLabel {
+    color: #1E90FF;
+    font-weight: 600;
+}
+QPushButton {
+    background-color: #1E90FF;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #FFFFFF;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background-color: #187BCD;
+}
+QPushButton:pressed {
+    background-color: #1565C0;
+}
+QPushButton:disabled {
+    background-color: #CCCCCC;
+    color: #666666;
+}
+QDialogButtonBox QPushButton {
+    min-width: 90px;
+}
+QDoubleSpinBox {
+    background-color: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    border-radius: 6px;
+    padding: 6px;
+    color: #000000;
+}
+QDoubleSpinBox::up-button,
+QDoubleSpinBox::down-button {
+    background-color: #EEEEEE;
+    border: none;
+    width: 16px;
+}
+QTabWidget#kineticsAnalysisTabs::pane {
+    background-color: #FAFAFA;
+    border: 1px solid #DDDDDD;
+    border-radius: 12px;
+    padding: 12px;
+}
+QTabWidget#kineticsAnalysisTabs QWidget {
+    background-color: transparent;
+}
+QTabBar::tab {
+    background-color: #FFFFFF;
+    color: #000000;
+    padding: 8px 18px;
+    border: 1px solid #CCCCCC;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    margin-right: 6px;
+}
+QTabBar::tab:selected {
+    background-color: #1E90FF;
+    color: #FFFFFF;
+    border-color: #187BCD;
+}
+QTabBar::tab:hover {
+    background-color: #187BCD;
+}
+QMessageBox {
+    background-color: #FFFFFF;
+    color: #000000;
+}
+QMessageBox QLabel {
+    color: #000000;
+}
+QMessageBox QPushButton {
+    background-color: #1E90FF;
+    padding: 6px 18px;
+    border-radius: 6px;
+}
+            """)
+        else:
+            # 深色主题样式
+            self.setStyleSheet("""
 #KineticsAnalysisDialog {
     background-color: #1A202C;
     color: #E2E8F0;
@@ -280,7 +412,7 @@ QMessageBox QPushButton {
     padding: 6px 18px;
     border-radius: 6px;
 }
-        """)
+            """)
 
     def _perform_analysis(self):
         """执行拟合流程：选区 -> 拟合 -> 计算 -> 显示结果"""

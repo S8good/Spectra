@@ -426,7 +426,144 @@ class KineticsWindow(QMainWindow):
             plot_widget.getViewBox().setBorder(pg.mkPen("#39475A", width=1))
 
     def _apply_theme(self):
-        self.setStyleSheet("""
+        # 根据主题设置不同的样式
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            
+            if theme == 'light':
+                # 浅色主题样式
+                self.setStyleSheet("""
+#KineticsWindowRoot {
+    background-color: #F0F0F0;
+    color: #000000;
+    font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    font-size: 13px;
+}
+#kineticsCentralWidget {
+    background-color: #F0F0F0;
+}
+#kineticsControlPanel {
+    background-color: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    border-radius: 12px;
+    color: #000000;
+}
+#kineticsControlPanel QWidget {
+    background-color: transparent;
+    color: #000000;
+}
+#kineticsControlPanel QLabel {
+    color: #000000;
+}
+#kineticsPlotsPanel {
+    background-color: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    border-radius: 12px;
+}
+#plotCard {
+    background-color: #FAFAFA;
+    border: 1px solid #DDDDDD;
+    border-radius: 12px;
+}
+#plotHeader {
+    border-bottom: 1px solid #DDDDDD;
+    background-color: rgba(0, 0, 0, 0.04);
+}
+#plotTitleLabel {
+    color: #000000;
+    font-size: 12pt;
+    font-weight: 600;
+}
+#plotPopoutButton {
+    background-color: transparent;
+    border: 1px solid #CCCCCC;
+    border-radius: 6px;
+    padding: 4px;
+}
+#plotPopoutButton:hover {
+    background-color: #1E90FF;
+    border-color: #1E90FF;
+}
+QLabel#baselineStatusLabel {
+    color: #666666;
+}
+CollapsibleBox {
+    background-color: transparent;
+}
+CollapsibleBox > QScrollArea {
+    background-color: transparent;
+    border: none;
+}
+CollapsibleBox > QScrollArea > QWidget {
+    background-color: transparent;
+}
+QPushButton {
+    background-color: #1E90FF;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #FFFFFF;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background-color: #187BCD;
+}
+QPushButton:pressed {
+    background-color: #1565C0;
+}
+QPushButton:disabled {
+    background-color: #CCCCCC;
+    color: #666666;
+}
+QDoubleSpinBox {
+    background-color: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    border-radius: 6px;
+    padding: 6px;
+    color: #000000;
+}
+QDoubleSpinBox::up-button,
+QDoubleSpinBox::down-button {
+    background-color: #EEEEEE;
+    border: none;
+    width: 16px;
+}
+#kineticsControlPanel QPushButton {
+    background-color: #1E90FF;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #FFFFFF;
+    font-weight: 600;
+}
+#kineticsControlPanel QPushButton:hover {
+    background-color: #187BCD;
+}
+#kineticsControlPanel QPushButton:pressed {
+    background-color: #1565C0;
+}
+#kineticsControlPanel QPushButton:disabled {
+    background-color: #CCCCCC;
+    color: #666666;
+}
+CollapsibleBox > QToolButton {
+    background-color: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #000000;
+    font-weight: 600;
+    text-align: left;
+}
+CollapsibleBox > QToolButton:hover {
+    background-color: #EEEEEE;
+}
+                """)
+            else:
+                # 深色主题样式
+                self.setStyleSheet("""
 #KineticsWindowRoot {
     background-color: #1A202C;
     color: #E2E8F0;
@@ -552,7 +689,136 @@ CollapsibleBox > QToolButton {
 CollapsibleBox > QToolButton:hover {
     background-color: #2B3647;
 }
-        """)
+                """)
+        except Exception:
+            # 如果无法加载设置，使用默认的深色主题样式
+            self.setStyleSheet("""
+#KineticsWindowRoot {
+    background-color: #1A202C;
+    color: #E2E8F0;
+    font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    font-size: 13px;
+}
+#kineticsCentralWidget {
+    background-color: #1A202C;
+}
+#kineticsControlPanel {
+    background-color: #2D3748;
+    border: 1px solid #4A5568;
+    border-radius: 12px;
+    color: #E2E8F0;
+}
+#kineticsControlPanel QWidget {
+    background-color: transparent;
+    color: #E2E8F0;
+}
+#kineticsControlPanel QLabel {
+    color: #E2E8F0;
+}
+#kineticsPlotsPanel {
+    background-color: #2D3748;
+    border: 1px solid #4A5568;
+    border-radius: 12px;
+}
+#plotCard {
+    background-color: #1F2735;
+    border: 1px solid #39475A;
+    border-radius: 12px;
+}
+#plotHeader {
+    border-bottom: 1px solid #39475A;
+    background-color: rgba(255, 255, 255, 0.04);
+}
+#plotTitleLabel {
+    color: #E2E8F0;
+    font-size: 12pt;
+    font-weight: 600;
+}
+#plotPopoutButton {
+    background-color: transparent;
+    border: 1px solid #4A5568;
+    border-radius: 6px;
+    padding: 4px;
+}
+#plotPopoutButton:hover {
+    background-color: #2B6CB0;
+    border-color: #2B6CB0;
+}
+QLabel#baselineStatusLabel {
+    color: #A0AEC0;
+}
+CollapsibleBox {
+    background-color: transparent;
+}
+CollapsibleBox > QScrollArea {
+    background-color: transparent;
+    border: none;
+}
+CollapsibleBox > QScrollArea > QWidget {
+    background-color: transparent;
+}
+QPushButton {
+    background-color: #3182CE;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #FFFFFF;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background-color: #2B6CB0;
+}
+QPushButton:pressed {
+    background-color: #245A86;
+}
+QPushButton:disabled {
+    background-color: #4A5568;
+    color: #A0AEC0;
+}
+QDoubleSpinBox {
+    background-color: #1F2735;
+    border: 1px solid #39475A;
+    border-radius: 6px;
+    padding: 6px;
+    color: #E2E8F0;
+}
+QDoubleSpinBox::up-button,
+QDoubleSpinBox::down-button {
+    background-color: #2D3748;
+    border: none;
+    width: 16px;
+}
+#kineticsControlPanel QPushButton {
+    background-color: #3182CE;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #FFFFFF;
+    font-weight: 600;
+}
+#kineticsControlPanel QPushButton:hover {
+    background-color: #2B6CB0;
+}
+#kineticsControlPanel QPushButton:pressed {
+    background-color: #245A86;
+}
+#kineticsControlPanel QPushButton:disabled {
+    background-color: #4A5568;
+    color: #A0AEC0;
+}
+CollapsibleBox > QToolButton {
+    background-color: #2D3748;
+    border: 1px solid #4A5568;
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #E2E8F0;
+    font-weight: 600;
+    text-align: left;
+}
+CollapsibleBox > QToolButton:hover {
+    background-color: #2B3647;
+}
+            """)
         # 更新所有弹出按钮的图标
         self._update_all_popout_icons()
 

@@ -82,7 +82,18 @@ class SensitivityDialog(QDialog):
 
         # --- Plotting Area ---
         self.plot_widget = pg.PlotWidget()
-        self.plot_widget.showGrid(x=True, y=True)
+        
+        # 根据主题设置背景色和网格
+        from ..utils.config_manager import load_settings
+        settings = load_settings()
+        theme = settings.get('theme', 'dark')
+        if theme == 'light':
+            self.plot_widget.setBackground('#F0F0F0')
+            self.plot_widget.showGrid(x=True, y=True, alpha=0.1)
+        else:
+            self.plot_widget.setBackground('#1F2735')
+            self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+            
         self.data_points = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(0, 100, 255, 200))
         self.fit_line = pg.PlotDataItem(pen=pg.mkPen('r', width=2))
         self.plot_widget.addItem(self.data_points)

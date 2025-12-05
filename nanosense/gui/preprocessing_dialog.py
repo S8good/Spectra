@@ -78,6 +78,15 @@ class PreprocessingDialog(QDialog):
 
         # --- Plotting Area ---
         self.plot_widget = pg.PlotWidget()
+        
+        # 根据主题设置背景色
+        from ..utils.config_manager import load_settings
+        settings = load_settings()
+        theme = settings.get('theme', 'dark')
+        if theme == 'light':
+            self.plot_widget.setBackground('#F0F0F0')
+        else:
+            self.plot_widget.setBackground('#1F2735')
 
         main_layout.addWidget(control_panel)
         main_layout.addWidget(self.plot_widget, stretch=1)

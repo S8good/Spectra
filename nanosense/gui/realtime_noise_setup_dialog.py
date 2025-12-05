@@ -28,7 +28,23 @@ class RealTimeNoiseSetupDialog(QDialog):
 
         # 预览图
         self.preview_plot = pg.PlotWidget()
-        self.preview_curve = self.preview_plot.plot(pen='c')
+        
+        # 根据主题设置背景色
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            if theme == 'light':
+                self.preview_plot.setBackground('#F0F0F0')
+                # 浅色主题下使用深色曲线
+                self.preview_curve = self.preview_plot.plot(pen=pg.mkPen('k', width=2))
+            else:
+                self.preview_plot.setBackground('#1F2735')
+                # 深色主题下使用青色曲线
+                self.preview_curve = self.preview_plot.plot(pen='c')
+        except Exception:
+            self.preview_plot.setBackground('#1F2735')
+            self.preview_curve = self.preview_plot.plot(pen='c')
         main_layout.addWidget(self.preview_plot, 1)
 
         # 设置区域

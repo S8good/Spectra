@@ -28,10 +28,25 @@ class DriftCorrectionDialog(QDialog):
         layout = QVBoxLayout(self)
 
         self.plot = pg.PlotWidget()
+        
+        # 根据主题设置背景色
+        from ..utils.config_manager import load_settings
+        settings = load_settings()
+        theme = settings.get('theme', 'dark')
+        if theme == 'light':
+            self.plot.setBackground('#F0F0F0')
+            # 浅色主题下使用黑色和绿色曲线
+            raw_pen = pg.mkPen('k', width=1)
+            corrected_pen = pg.mkPen('g', width=2)
+        else:
+            self.plot.setBackground('#1F2735')
+            # 深色主题下使用白色和绿色曲线
+            raw_pen = pg.mkPen('w', width=1)
+            corrected_pen = pg.mkPen('g', width=2)
 
         # 绘制原始数据和校正后数据的预览
-        self.plot.plot(self.time_data, self.y_data, pen='w', name="Raw Data")
-        self.corrected_curve = self.plot.plot(pen='g', name="Corrected Data")
+        self.plot.plot(self.time_data, self.y_data, pen=raw_pen, name="Raw Data")
+        self.corrected_curve = self.plot.plot(pen=corrected_pen, name="Corrected Data")
 
         # 创建两条可拖拽的垂直线
         initial_pos1 = self.time_data[int(len(self.time_data) * 0.1)]
