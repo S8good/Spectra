@@ -131,7 +131,10 @@ class AppWindow(QMainWindow):
                 name=project_name,
                 description="Default project for general experiments."
             )
-            print(f"当前项目已设置为 '{project_name}' (ID: {self.current_project_id})")
+            if self.current_project_id is not None:
+                print(f"当前项目已设置为 '{project_name}' (ID: {self.current_project_id})")
+            else:
+                print(f"无法创建或查找项目: {project_name}")
     
     # 【新增】获取当前实验ID，如果不存在则创建
     def get_or_create_current_experiment_id(self):
@@ -1395,7 +1398,9 @@ class AppWindow(QMainWindow):
                 QMessageBox.critical(
                     self,
                     self.tr("Database Error"),
-                    self.tr("Unable to resolve a project for batch acquisition."),
+                    self.tr("Unable to resolve a project for batch acquisition.") + 
+                    "\n\n" + 
+                    self.tr("Please check the database connection and permissions."),
                 )
                 return
         

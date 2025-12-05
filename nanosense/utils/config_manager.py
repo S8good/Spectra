@@ -9,12 +9,17 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 def get_default_settings():
     """返回一个包含所有键的默认设置字典。"""
+    # 定义默认数据库路径
+    import os
+    default_db_path = os.path.join(os.path.expanduser("~"), ".nanosense", "nanosense_data.db")
+    
     return {
         'default_save_path': '',
         'default_load_path': '',
         'analysis_wl_start': 450.0,
         'analysis_wl_end': 750.0,
         'theme': 'dark',  # 添加主题设置，默认为深色主题
+        'database_path': default_db_path,  # 添加数据库路径设置
         'mock_api_config': {
             "mode": "dynamic",  # 可选 "static", "dynamic", "noisy_baseline"
             "static_peak_pos": 650.0,

@@ -1427,46 +1427,33 @@ class DatabaseManager:
             return None
 
 
-
     def find_or_create_project(self, name, description=""):
-
-        if not self.conn: return None
-
-        try:
-
-            cursor = self.conn.cursor()
-
-            cursor.execute("SELECT project_id FROM projects WHERE name = ?", (name,))
-
-            result = cursor.fetchone()
-
-            if result:
-
-                return result[0]
-
-            else:
-
-                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-
-                cursor.execute("""
-
-                    INSERT INTO projects (name, description, creation_date)
-
-                    VALUES (?, ?, ?)
-
-                """, (name, description, timestamp))
-
-                self.conn.commit()
-
-                return cursor.lastrowid
-
-        except Exception as e:
-
-            print(f"查找或创建项目失败: {e}")
-
+        if not self.conn: 
+            print("数据库连接未建立")
             return None
-
-
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT project_id FROM projects WHERE name = ?", (name,))
+            result = cursor.fetchone()
+            if result:
+                project_id = result[0]
+                print(f"找到现有项目: {name} (ID: {project_id})")
+                return project_id
+            else:
+                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute("""
+                    INSERT INTO projects (name, description, creation_date)
+                    VALUES (?, ?, ?)
+                """, (name, description, timestamp))
+                self.conn.commit()
+                project_id = cursor.lastrowid
+                print(f"创建新项目: {name} (ID: {project_id})")
+                return project_id
+        except Exception as e:
+            print(f"查找或创建项目失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
 
     def get_distinct_experiment_statuses(self):
@@ -2131,7 +2118,6 @@ class DatabaseManager:
             self.conn.close()
 
             self.conn = None
-
 
 
 
