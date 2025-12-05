@@ -309,6 +309,7 @@ class KineticsWindow(QMainWindow):
 
     # --- UI helpers -----------------------------------------------------
     def _create_plot_container(self, plot_widget, title_key, popout_handler):
+        """创建带标题和弹出按钮的图表容器"""
         container = QWidget()
         container.setObjectName("plotCard")
         layout = QVBoxLayout(container)
@@ -325,9 +326,8 @@ class KineticsWindow(QMainWindow):
 
         popout_button = QToolButton()
         popout_button.setObjectName("plotPopoutButton")
-        icon_path = os.path.join(os.path.dirname(__file__), "assets", "icons", "zoom.png")
-        if os.path.exists(icon_path):
-            popout_button.setIcon(QIcon(icon_path))
+        # 根据当前主题选择合适的图标
+        self._update_popout_button_icon(popout_button)
         popout_button.setToolTip(self.tr("Open in New Window"))
         popout_button.clicked.connect(popout_handler)
 
@@ -343,17 +343,87 @@ class KineticsWindow(QMainWindow):
 
         return container, title_label, popout_button
 
+    def _update_popout_button_icon(self, button):
+        """根据当前主题更新弹出按钮的图标"""
+        # 获取当前主题设置
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            
+            # 根据主题选择图标
+            if theme == 'light':
+                icon_filename = 'zoom_dark.png'  # 浅色主题使用深色图标
+            else:
+                icon_filename = 'zoom.png'  # 深色主题使用白色图标
+                
+            icon_path = os.path.join(os.path.dirname(__file__), "assets", "icons", icon_filename)
+            if os.path.exists(icon_path):
+                button.setIcon(QIcon(icon_path))
+            else:
+                # 如果深色图标不存在，回退到原始图标
+                original_icon_path = os.path.join(os.path.dirname(__file__), "assets", "icons", "zoom.png")
+                button.setIcon(QIcon(original_icon_path))
+        except Exception:
+            # 如果无法加载设置或图标，使用默认图标
+            icon_path = os.path.join(os.path.dirname(__file__), "assets", "icons", "zoom.png")
+            button.setIcon(QIcon(icon_path))
+
+    def _update_all_popout_icons(self):
+        """更新所有弹出按钮的图标"""
+        # 更新所有图表的弹出按钮图标
+        try:
+            if hasattr(self, 'summary_popout_button'):
+                self._update_popout_button_icon(self.summary_popout_button)
+            if hasattr(self, 'sensor_popout_button'):
+                self._update_popout_button_icon(self.sensor_popout_button)
+            if hasattr(self, 'peak_shift_popout_button'):
+                self._update_popout_button_icon(self.peak_shift_popout_button)
+            if hasattr(self, 'noise_popout_button'):
+                self._update_popout_button_icon(self.noise_popout_button)
+        except Exception:
+            pass  # 忽略错误
+
     def _style_plot(self, plot_widget):
-        plot_widget.setBackground("#1F2735")
-        axis_pen = pg.mkPen("#4D5A6D", width=1)
-        text_pen = pg.mkPen("#E2E8F0")
-        for axis in ("left", "bottom"):
-            ax = plot_widget.getPlotItem().getAxis(axis)
-            ax.setPen(axis_pen)
-            ax.setTextPen(text_pen)
-            ax.setStyle(tickLength=6)
-        plot_widget.getPlotItem().showGrid(x=True, y=True, alpha=0.15)
-        plot_widget.getViewBox().setBorder(pg.mkPen("#39475A", width=1))
+        # 获取当前主题设置
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            
+            # 根据主题设置不同的背景色和样式
+            if theme == 'light':
+                plot_widget.setBackground("#F0F0F0")  # 偏暗的浅色背景
+                axis_pen = pg.mkPen("#000000", width=1)  # 坐标轴使用黑色
+                text_pen = pg.mkPen("#000000")  # 坐标文本使用黑色
+                grid_alpha = 0.15
+                border_pen = pg.mkPen("#CED4DA", width=1)
+            else:
+                plot_widget.setBackground("#1F2735")  # 深色背景
+                axis_pen = pg.mkPen("#4D5A6D", width=1)
+                text_pen = pg.mkPen("#E2E8F0")
+                grid_alpha = 0.15
+                border_pen = pg.mkPen("#39475A", width=1)
+                
+            for axis in ("left", "bottom"):
+                ax = plot_widget.getPlotItem().getAxis(axis)
+                ax.setPen(axis_pen)
+                ax.setTextPen(text_pen)
+                ax.setStyle(tickLength=6)
+            plot_widget.getPlotItem().showGrid(x=True, y=True, alpha=grid_alpha)
+            plot_widget.getViewBox().setBorder(border_pen)
+        except Exception:
+            # 如果无法加载设置，使用默认样式
+            plot_widget.setBackground("#1F2735")
+            axis_pen = pg.mkPen("#4D5A6D", width=1)
+            text_pen = pg.mkPen("#E2E8F0")
+            for axis in ("left", "bottom"):
+                ax = plot_widget.getPlotItem().getAxis(axis)
+                ax.setPen(axis_pen)
+                ax.setTextPen(text_pen)
+                ax.setStyle(tickLength=6)
+            plot_widget.getPlotItem().showGrid(x=True, y=True, alpha=0.15)
+            plot_widget.getViewBox().setBorder(pg.mkPen("#39475A", width=1))
 
     def _apply_theme(self):
         self.setStyleSheet("""
@@ -483,6 +553,8 @@ CollapsibleBox > QToolButton:hover {
     background-color: #2B3647;
 }
         """)
+        # 更新所有弹出按钮的图标
+        self._update_all_popout_icons()
 
     # --- Reset helpers --------------------------------------------------
     def _reset_summary_view(self):

@@ -264,12 +264,15 @@ class MeasurementWidget(QWidget):
         main_plots_layout.setSpacing(10)
 
         def create_plot_container(plot_widget, title_key, popout_handler):
+            """创建带标题和弹出按钮的图表容器"""
             container = QWidget()
+            container.setObjectName("plotCard")
             layout = QVBoxLayout(container)
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setSpacing(0)
 
             header_widget = QWidget()
+            header_widget.setObjectName("plotHeader")
             header_layout = QHBoxLayout(header_widget)
             header_layout.setContentsMargins(5, 2, 5, 2)
 
@@ -277,8 +280,8 @@ class MeasurementWidget(QWidget):
             title_label.setStyleSheet("color: #90A4AE; font-size: 12pt;")
 
             popout_button = QToolButton()
-            icon_path = os.path.join(os.path.dirname(__file__), 'assets', 'icons', 'zoom.png')
-            popout_button.setIcon(pg.QtGui.QIcon(icon_path))
+            # 根据当前主题选择合适的图标
+            self._update_popout_button_icon(popout_button)
             popout_button.setToolTip(self.tr("Open in New Window"))
             popout_button.clicked.connect(popout_handler)
 
@@ -296,13 +299,13 @@ class MeasurementWidget(QWidget):
 
         # --- 创建所有图表和容器 ---
         self.signal_plot = pg.PlotWidget()
-        self.signal_curve = self.signal_plot.plot(pen='b')
+        self.signal_curve = self.signal_plot.plot(pen=pg.mkPen('#1f77b4', width=2))  # 蓝色信号光谱
         self.background_plot = pg.PlotWidget()
-        self.background_curve = self.background_plot.plot(pen='w')
+        self.background_curve = self.background_plot.plot(pen=pg.mkPen('#ff7f0e', width=2))  # 橙色背景光谱
         self.reference_plot = pg.PlotWidget()
-        self.reference_curve = self.reference_plot.plot(pen='g')
+        self.reference_curve = self.reference_plot.plot(pen=pg.mkPen('#2ca02c', width=2))  # 绿色参考光谱
         self.result_plot = pg.PlotWidget()
-        self.result_curve = self.result_plot.plot(pen='r')
+        self.result_curve = self.result_plot.plot(pen=pg.mkPen('#d62728', width=2))  # 红色结果光谱
 
         self.signal_plot_container, self.signal_title_label = create_plot_container(
             self.signal_plot, "Signal Spectrum", lambda: self._open_single_plot_window('signal')
@@ -1132,3 +1135,81 @@ class MeasurementWidget(QWidget):
         self.result_plot.setLabel('left', display_name)
         self.result_plot.setTitle(display_name, color='#90A4AE', size='12pt')
         self.result_title_label.setText(display_name)
+
+    def _update_popout_button_icon(self, button):
+        """根据当前主题更新弹出按钮的图标"""
+        # 获取当前主题设置
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            
+            # 根据主题选择图标
+            if theme == 'light':
+                icon_filename = 'zoom_dark.png'  # 浅色主题使用深色图标
+            else:
+                icon_filename = 'zoom.png'  # 深色主题使用白色图标
+                
+            icon_path = os.path.join(os.path.dirname(__file__), 'assets', 'icons', icon_filename)
+            if os.path.exists(icon_path):
+                button.setIcon(pg.QtGui.QIcon(icon_path))
+            else:
+                # 如果深色图标不存在，回退到原始图标
+                original_icon_path = os.path.join(os.path.dirname(__file__), 'assets', 'icons', 'zoom.png')
+                button.setIcon(pg.QtGui.QIcon(original_icon_path))
+        except Exception:
+            # 如果无法加载设置或图标，使用默认图标
+            icon_path = os.path.join(os.path.dirname(__file__), 'assets', 'icons', 'zoom.png')
+            button.setIcon(pg.QtGui.QIcon(icon_path))
+
+    def _update_all_popout_icons(self):
+        """更新所有弹出按钮的图标"""
+        # 更新所有图表的弹出按钮图标
+        try:
+            plot_containers = [
+                self.signal_plot_container,
+                self.background_plot_container,
+                self.reference_plot_container,
+                self.result_plot_container
+            ]
+            
+            for container in plot_containers:
+                if container:
+                    popout_button = container.findChild(QToolButton)
+                    if popout_button:
+                        self._update_popout_button_icon(popout_button)
+        except Exception:
+            pass  # 忽略错误
+
+    def _update_plot_backgrounds(self):
+        """根据当前主题更新图表背景"""
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            
+            # 定义不同主题的背景色和网格透明度
+            if theme == 'light':
+                background_color = '#F0F0F0'  # 偏暗的浅色背景
+                grid_alpha = 0.1
+                # 浅色主题下坐标轴和坐标使用黑色
+                axis_pen = pg.mkPen("#000000", width=1)
+                text_pen = pg.mkPen("#000000")
+            else:
+                background_color = '#1F2735'  # 深色背景
+                grid_alpha = 0.3
+                # 深色主题下坐标轴和坐标使用浅色
+                axis_pen = pg.mkPen("#4D5A6D", width=1)
+                text_pen = pg.mkPen("#E2E8F0")
+                
+            # 更新所有图表的背景
+            for plot in [self.signal_plot, self.background_plot, self.reference_plot, self.result_plot]:
+                plot.setBackground(background_color)
+                plot.showGrid(x=True, y=True, alpha=grid_alpha)
+                # 设置坐标轴和坐标文本颜色
+                for axis in ("left", "bottom"):
+                    ax = plot.getPlotItem().getAxis(axis)
+                    ax.setPen(axis_pen)
+                    ax.setTextPen(text_pen)
+        except Exception:
+            pass  # 忽略错误
