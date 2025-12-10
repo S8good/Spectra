@@ -2,8 +2,8 @@
 
 import numpy as np
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QWidget,
-                             QLabel, QLineEdit, QPushButton, QDialogButtonBox, QMessageBox)  # 新增 QMessageBox
-from PyQt5.QtCore import QEvent  # 新增 QEvent
+                             QLabel, QLineEdit, QPushButton, QDialogButtonBox, QMessageBox)
+from PyQt5.QtCore import QEvent
 import pyqtgraph as pg
 from nanosense.utils.file_io import load_spectrum
 import os
@@ -27,6 +27,7 @@ class ThreeFileImportDialog(QDialog):
         self._init_ui()
         self._connect_signals()
         self._retranslate_ui()  # 设置初始文本
+        self._update_plot_styles()  # 添加主题适配
 
     def _init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -67,8 +68,9 @@ class ThreeFileImportDialog(QDialog):
         preview_layout = QHBoxLayout(preview_widget)
         preview_layout.setContentsMargins(0, 0, 0, 0)
 
-        pg.setConfigOption('background', '#F0F0F0')
-        pg.setConfigOption('foreground', 'w')
+        # 移除硬编码的背景设置
+        # pg.setConfigOption('background', '#F0F0F0')
+        # pg.setConfigOption('foreground', 'w')
 
         self.signal_plot = pg.PlotWidget()
         self.bg_plot = pg.PlotWidget()
@@ -104,6 +106,8 @@ class ThreeFileImportDialog(QDialog):
         """ 新增：响应语言变化事件 """
         if event.type() == QEvent.LanguageChange:
             self._retranslate_ui()
+        elif event.type() == QEvent.PaletteChange:  # 添加主题变化事件处理
+            self._update_plot_styles()
         super().changeEvent(event)
 
     def _retranslate_ui(self):
@@ -127,6 +131,40 @@ class ThreeFileImportDialog(QDialog):
 
         self.button_box.button(QDialogButtonBox.Ok).setText(self.tr("OK"))
         self.button_box.button(QDialogButtonBox.Cancel).setText(self.tr("Cancel"))
+
+    def _update_plot_styles(self):
+        """根据当前主题更新图表样式"""
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            
+            # 定义不同主题的样式
+            if theme == 'light':
+                background_color = '#F0F0F0'  # 偏暗的浅色背景
+                grid_alpha = 0.1
+                # 浅色主题下坐标轴和坐标使用黑色
+                axis_pen = pg.mkPen("#000000", width=1)
+                text_pen = pg.mkPen("#000000")
+            else:
+                background_color = '#1F2735'  # 深色背景
+                grid_alpha = 0.3
+                # 深色主题下坐标轴和坐标使用浅色
+                axis_pen = pg.mkPen("#4D5A6D", width=1)
+                text_pen = pg.mkPen("#E2E8F0")
+                
+            # 更新所有图表的背景和样式
+            for plot in [self.signal_plot, self.bg_plot, self.ref_plot, self.result_plot]:
+                plot.setBackground(background_color)
+                plot.showGrid(x=True, y=True, alpha=grid_alpha)
+                # 设置坐标轴和坐标文本颜色
+                for axis in ("left", "bottom"):
+                    ax = plot.getPlotItem().getAxis(axis)
+                    ax.setPen(axis_pen)
+                    ax.setTextPen(text_pen)
+        except Exception:
+            # 如果无法加载设置，使用默认样式
+            pass
 
     def load_file(self, file_type):
         default_load_path = self.app_settings.get('default_load_path', '')
@@ -184,6 +222,7 @@ class ThreeFileImportDialog(QDialog):
         }
 
     def closeEvent(self, event):
-        pg.setConfigOption('background', '#F0F0F0')
-        pg.setConfigOption('foreground', 'k')
+        # 移除硬编码的背景设置恢复
+        # pg.setConfigOption('background', '#F0F0F0')
+        # pg.setConfigOption('foreground', 'k')
         super().closeEvent(event)

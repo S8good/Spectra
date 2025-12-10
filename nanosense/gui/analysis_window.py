@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLi
                              QPushButton, QComboBox, QFormLayout, QDoubleSpinBox, QLabel, QGroupBox,
                              QMessageBox, QFileDialog, QInputDialog, QScrollArea)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent
+from PyQt5.QtGui import QPalette
 
 from nanosense.algorithms.peak_analysis import (
     calculate_fwhm,
@@ -19,7 +20,6 @@ from nanosense.algorithms.peak_analysis import (
     estimate_peak_position,
 )
 from .collapsible_box import CollapsibleBox
-
 class SummaryReportWorker(QThread):
     """一个专门在后台批量分析并生成汇总报告的工作线程。"""
     progress = pyqtSignal(int, str)  # 发射进度（百分比，消息）
@@ -346,10 +346,7 @@ class AnalysisWindow(QMainWindow):
         container_layout.setContentsMargins(0, 0, 0, 0)
         container_layout.setSpacing(5)
 
-        pg.setConfigOption('background', '#F0F0F0')
-        pg.setConfigOption('foreground', 'w')
         plot_widget = pg.PlotWidget()
-        plot_widget.showGrid(x=True, y=True)
         plot_widget.addLegend()
         self.main_peak_marker = pg.ScatterPlotItem(size=15, symbol='star', pen=pg.mkPen('y'), brush=pg.mkBrush('y'))
         plot_widget.addItem(self.main_peak_marker)
@@ -358,6 +355,9 @@ class AnalysisWindow(QMainWindow):
         self.region_selector = pg.LinearRegionItem(values=[450, 750], orientation=pg.LinearRegionItem.Vertical,
                                                    brush=pg.mkBrush(200, 200, 220, 40))
         plot_widget.addItem(self.region_selector)
+
+        # 更新图表样式以适配当前主题
+        self._update_plot_styles()
 
         button_layout = QHBoxLayout()
         self.auto_range_button = QPushButton()  # 创建按钮
@@ -368,7 +368,6 @@ class AnalysisWindow(QMainWindow):
         container_layout.addLayout(button_layout)
 
         return container_widget
-
     def connect_signals(self):
         self.avg_button.clicked.connect(self.calculate_average)
         self.clear_avg_button.clicked.connect(self.clear_average_curve)
@@ -404,11 +403,13 @@ class AnalysisWindow(QMainWindow):
     def changeEvent(self, event):
         if event.type() == QEvent.LanguageChange:
             self._retranslate_ui()
+        elif event.type() == QEvent.PaletteChange:
+            # 当主题发生变化时，更新图表样式
+            self._update_plot_styles()
         super().changeEvent(event)
 
     def _retranslate_ui(self):
         self.setWindowTitle(self.tr("Offline Spectrum Analysis"))
-
         # 控制面板
         self.data_source_box.toggle_button.setText(self.tr("Data Source"))
         self.spectra_list_label.setText(self.tr("Check to use for averaging:"))
@@ -787,3 +788,34 @@ class AnalysisWindow(QMainWindow):
         self.range_end_spinbox.setValue(750.0)
         # Spinbox的 valueChanged 信号会自动触发 _on_range_spinbox_changed，从而更新图表
 
+    def _update_plot_styles(self):
+        """根据当前主题更新图表样式"""
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            theme = settings.get('theme', 'dark')
+            
+            # 定义不同主题的样式
+            if theme == 'light':
+                background_color = '#F0F0F0'  # 偏暗的浅色背景
+                grid_alpha = 0.1
+                # 浅色主题下坐标轴和坐标使用黑色
+                axis_pen = pg.mkPen("#000000", width=1)
+                text_pen = pg.mkPen("#000000")
+            else:
+                background_color = '#1F2735'  # 深色背景
+                grid_alpha = 0.3
+                # 深色主题下坐标轴和坐标使用浅色
+                axis_pen = pg.mkPen("#4D5A6D", width=1)
+                text_pen = pg.mkPen("#E2E8F0")
+                
+            # 更新图表的背景和样式
+            self.plot_widget.setBackground(background_color)
+            self.plot_widget.showGrid(x=True, y=True, alpha=grid_alpha)
+            # 设置坐标轴和坐标文本颜色
+            for axis in ("left", "bottom"):
+                ax = self.plot_widget.getPlotItem().getAxis(axis)
+                ax.setPen(axis_pen)
+                ax.setTextPen(text_pen)
+        except Exception:
+            pass  # 忽略错误
