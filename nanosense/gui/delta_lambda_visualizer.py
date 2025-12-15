@@ -16,31 +16,9 @@ except ModuleNotFoundError as exc:  # Missing PyOpenGL backend
     GL_IMPORT_ERROR = exc
 from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QTimer
 from PyQt5.QtGui import QCursor, QImage, QMatrix4x4, QVector3D, QVector4D, QColor
-from PyQt5.QtWidgets import (
-    QApplication,
-    QAbstractItemView,
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QDoubleSpinBox,
-    QFileDialog,
-    QFormLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QListWidget,
-    QMenu,
-    QMessageBox,
-    QPushButton,
-    QSizePolicy,
-    QSpinBox,
-    QSplitter,
-    QTableWidget,
-    QTableWidgetItem,
-    QToolTip,
-    QVBoxLayout,
-    QWidget, QScrollArea,
+from PyQt5.QtWidgets import (QApplication,QAbstractItemView,QCheckBox,QComboBox,QDialog,QDoubleSpinBox,
+    QFileDialog,QFormLayout,QGroupBox,QHBoxLayout,QLabel,QLineEdit,QListWidget,QMenu,QMessageBox,QPushButton,
+    QSizePolicy,QSpinBox,QSplitter,QTableWidget,QTableWidgetItem,QToolTip,QVBoxLayout,QWidget, QScrollArea,
 )
 
 from nanosense.algorithms.peak_analysis import (
