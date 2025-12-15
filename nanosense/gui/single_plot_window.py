@@ -27,14 +27,22 @@ class SinglePlotWindow(QMainWindow):
         # self.plot_widget.setTitle(title, color='#90A4AE', size='12pt') # 标题将在 _retranslate_ui 中设置
         self.plot_widget.showGrid(x=True, y=True)
         
-        # 根据主题设置背景色
+        # 根据主题设置背景色和坐标轴样式
         from ..utils.config_manager import load_settings
         settings = load_settings()
         theme = settings.get('theme', 'dark')
         if theme == 'light':
             self.plot_widget.setBackground('#F0F0F0')
+            self.plot_widget.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
+            self.plot_widget.getAxis('left').setPen(pg.mkPen('#212529', width=1))
+            self.plot_widget.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
+            self.plot_widget.getAxis('left').setTextPen(pg.mkPen('#495057'))
         else:
             self.plot_widget.setBackground('#1F2735')
+            self.plot_widget.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
+            self.plot_widget.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
+            self.plot_widget.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
+            self.plot_widget.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
         self.setCentralWidget(central_widget)
 
         self.curve = self.plot_widget.plot()

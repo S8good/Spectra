@@ -102,17 +102,29 @@ class MultiCurvePlotWindow(pg.QtWidgets.QMainWindow):
         self.setGeometry(300, 300, 800, 600)
         self.plot_widget = pg.PlotWidget()
         
-        # 根据主题设置背景色
+        # 根据主题设置背景色和坐标轴样式
         try:
             from ..utils.config_manager import load_settings
             settings = load_settings()
             theme = settings.get('theme', 'dark')
             if theme == 'light':
                 self.plot_widget.setBackground('#F0F0F0')
+                self.plot_widget.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
+                self.plot_widget.getAxis('left').setPen(pg.mkPen('#212529', width=1))
+                self.plot_widget.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
+                self.plot_widget.getAxis('left').setTextPen(pg.mkPen('#495057'))
             else:
                 self.plot_widget.setBackground('#1F2735')
+                self.plot_widget.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
+                self.plot_widget.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
+                self.plot_widget.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
+                self.plot_widget.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
         except Exception:
             self.plot_widget.setBackground('#1F2735')
+            self.plot_widget.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
+            self.plot_widget.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
+            self.plot_widget.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
+            self.plot_widget.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
             
         self.setCentralWidget(self.plot_widget)
         self.plot_widget.addLegend()
@@ -290,21 +302,35 @@ class BatchRunDialog(QDialog):
             header_layout = QHBoxLayout(header_widget)
             header_layout.setContentsMargins(5, 2, 5, 2)
             title_label = QLabel(self.tr(title_key))
-            title_label.setStyleSheet("color: #90A4AE; font-size: 12pt;")
+            
+            # 根据主题设置标题颜色
+            if theme == 'light':
+                title_label.setStyleSheet("color: #495057; font-size: 12pt; font-weight: bold;")
+                header_widget.setStyleSheet("background-color: #F5F6FA;")
+            else:
+                title_label.setStyleSheet("color: #90A4AE; font-size: 12pt;")
+                header_widget.setStyleSheet("background-color: transparent;")
+            
             popout_button = QToolButton()
+        
+            # 根据主题选择图标
+            if theme == 'light':
+                icon_filename = 'zoom_dark.png'  # 浅色主题使用深色图标
+            else:
+                icon_filename = 'zoom.png'  # 深色主题使用白色图标
             icon_path = os.path.join(
                 os.path.dirname(__file__),
                 "..",
                 "gui",
                 "assets",
                 "icons",
-                "zoom.png",
+                icon_filename,
             )
             popout_button.setIcon(pg.QtGui.QIcon(icon_path))
             popout_button.setIconSize(QSize(18, 18))
             popout_button.setFixedSize(26, 26)
             popout_button.setAutoRaise(True)
-            popout_button.setStyleSheet("border: none; padding: 0;")
+            popout_button.setStyleSheet("border: none; padding: 0; background-color: transparent;")
             popout_button.setToolTip(self.tr("Open in New Window"))
             popout_button.clicked.connect(popout_handler)
             header_layout.addWidget(title_label)
@@ -317,47 +343,92 @@ class BatchRunDialog(QDialog):
             return container
 
         # 根据主题设置背景色
+        theme = 'dark'  # 默认主题
         try:
             from ..utils.config_manager import load_settings
             settings = load_settings()
             theme = settings.get('theme', 'dark')
-            if theme == 'light':
-                background_color = '#F0F0F0'
-            else:
-                background_color = '#1F2735'
         except Exception:
+            pass
+        
+        if theme == 'light':
+            background_color = '#F0F0F0'
+        else:
             background_color = '#1F2735'
         
         self.signal_plot = pg.PlotWidget()
         self.signal_plot.setBackground(background_color)
+        # 配置坐标轴颜色以适应主题
         if theme == 'light':
-            self.signal_curve = self.signal_plot.plot(pen=pg.mkPen('k', width=2))
+            self.signal_plot.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
+            self.signal_plot.getAxis('left').setPen(pg.mkPen('#212529', width=1))
+            self.signal_plot.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
+            self.signal_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
+            self.signal_curve = self.signal_plot.plot(pen=pg.mkPen('#1F77B4', width=2))
         else:
+            self.signal_plot.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
+            self.signal_plot.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
+            self.signal_plot.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
+            self.signal_plot.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
             self.signal_curve = self.signal_plot.plot(pen="c")
             
         self.background_plot = pg.PlotWidget()
         self.background_plot.setBackground(background_color)
         if theme == 'light':
-            self.background_curve = self.background_plot.plot(pen=pg.mkPen('k', width=2))
+            self.background_plot.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
+            self.background_plot.getAxis('left').setPen(pg.mkPen('#212529', width=1))
+            self.background_plot.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
+            self.background_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
+            self.background_curve = self.background_plot.plot(pen=pg.mkPen('#FF7F0E', width=2))
         else:
+            self.background_plot.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
+            self.background_plot.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
+            self.background_plot.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
+            self.background_plot.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
             self.background_curve = self.background_plot.plot(pen="w")
             
         self.reference_plot = pg.PlotWidget()
         self.reference_plot.setBackground(background_color)
         if theme == 'light':
-            self.reference_curve = self.reference_plot.plot(pen=pg.mkPen('k', width=2))
+            self.reference_plot.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
+            self.reference_plot.getAxis('left').setPen(pg.mkPen('#212529', width=1))
+            self.reference_plot.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
+            self.reference_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
+            self.reference_curve = self.reference_plot.plot(pen=pg.mkPen('#2CA02C', width=2))
         else:
+            self.reference_plot.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
+            self.reference_plot.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
+            self.reference_plot.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
+            self.reference_plot.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
             self.reference_curve = self.reference_plot.plot(pen="m")
             
         self.result_plot = pg.PlotWidget()
         self.result_plot.setBackground(background_color)
         if theme == 'light':
-            self.result_curve = self.result_plot.plot(pen=pg.mkPen('k', width=2))
+            self.result_plot.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
+            self.result_plot.getAxis('left').setPen(pg.mkPen('#212529', width=1))
+            self.result_plot.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
+            self.result_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
+            self.result_curve = self.result_plot.plot(pen=pg.mkPen('#D62728', width=2))
         else:
+            self.result_plot.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
+            self.result_plot.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
+            self.result_plot.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
+            self.result_plot.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
             self.result_curve = self.result_plot.plot(pen="y")
             
         self.summary_plot = pg.PlotWidget()
         self.summary_plot.setBackground(background_color)
+        if theme == 'light':
+            self.summary_plot.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
+            self.summary_plot.getAxis('left').setPen(pg.mkPen('#212529', width=1))
+            self.summary_plot.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
+            self.summary_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
+        else:
+            self.summary_plot.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
+            self.summary_plot.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
+            self.summary_plot.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
+            self.summary_plot.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
 
         self.signal_container = create_plot_container(
             self.signal_plot, "Live Signal", lambda: self._open_popout_window("signal")
