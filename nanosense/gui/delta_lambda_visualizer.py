@@ -14,7 +14,7 @@ except ModuleNotFoundError as exc:  # Missing PyOpenGL backend
     gl = None
     GLMeshItem = GLAxisItem = None
     GL_IMPORT_ERROR = exc
-from PyQt5.QtCore import Qt, pyqtSignal, QPoint
+from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QTimer
 from PyQt5.QtGui import QCursor, QImage, QMatrix4x4, QVector3D, QVector4D, QColor
 from PyQt5.QtWidgets import (
     QApplication,
@@ -1255,7 +1255,11 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 continue
             if label in self.auto_exclusions:
                 continue
-            mesh = GLMeshItem(meshdata=cube_mesh, smooth=False, color=color, shader="shaded", glOptions="opaque")
+            try:
+                mesh = GLMeshItem(meshdata=cube_mesh, smooth=False, color=color, shader="balloon", glOptions="translucent")
+            except Exception:
+                # 如果shader="balloon"失败，回退到基础渲染
+                mesh = GLMeshItem(meshdata=cube_mesh, smooth=False, color=color, glOptions="translucent")
             effective_height = max(magnitude, 0.02)
             mesh.scale(0.8, 0.8, effective_height)
             z_offset = effective_height / 2.0 if raw_value >= 0 else -effective_height / 2.0
@@ -1282,7 +1286,11 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 y = float(row_idx + 1)
                 value = self.delta_map.get(label, np.nan)
                 magnitude = max(abs(value) * 0.05 if np.isfinite(value) else 0.05, 0.05)
-                mesh = GLMeshItem(meshdata=cube_mesh, smooth=False, color=manual_color, shader="shaded", glOptions="opaque")
+                try:
+                    mesh = GLMeshItem(meshdata=cube_mesh, smooth=False, color=manual_color, shader="balloon", glOptions="translucent")
+                except Exception:
+                    # 如果shader="balloon"失败，回退到基础渲染
+                    mesh = GLMeshItem(meshdata=cube_mesh, smooth=False, color=manual_color, glOptions="translucent")
                 mesh.scale(0.8, 0.8, magnitude)
                 mesh.translate(x, y, magnitude / 2.0)
                 self.gl_view.addItem(mesh)
@@ -1321,6 +1329,14 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.gl_view.opts["elevation"] = 30
         self.gl_view.opts["azimuth"] = 45
         self._default_camera_opts = self._snapshot_camera_opts()
+        
+        # 强制刷新GL视图以显示渲染结果
+        try:
+            self.gl_view.repaint()
+            # 使用延迟任务帮助确保渲染完成
+            QTimer.singleShot(100, lambda: self.gl_view.update())
+        except Exception as e:
+            print(f"GL view repaint error: {e}")
 
     @staticmethod
     def _build_bar_colors(values):
