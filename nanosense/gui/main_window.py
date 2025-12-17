@@ -29,6 +29,7 @@ from .batch_report_dialog import BatchReportDialog
 from .settings_dialog import SettingsDialog
 from .about_dialog import AboutDialog
 from .mock_api_config_dialog import MockAPIConfigDialog
+from .lspr_simulation_widget import LSPRSimulationWidget
 
 from nanosense.utils.file_io import load_spectra_from_path, load_spectrum
 from nanosense.core.controller import FX2000Controller
@@ -64,6 +65,7 @@ class AppWindow(QMainWindow):
         # 窗口和管理器
         self.analysis_windows = []
         self.db_explorer_window = None
+        self.lspr_simulation_window = None
         self.controller = None
         self._hardware_mode_warning_shown = False
         self._menu_bar = None
@@ -252,6 +254,7 @@ class AppWindow(QMainWindow):
         menu.calibration_action.triggered.connect(self._open_calibration_dialog)
         menu.performance_action.triggered.connect(self._open_performance_dialog)
         menu.find_main_peak_action.triggered.connect(self._trigger_find_main_peak)
+        menu.lspr_simulation_action.triggered.connect(self._open_lspr_simulation)
         menu.batch_acquisition_action.triggered.connect(self._start_batch_acquisition)
         menu.data_analysis_action.triggered.connect(self._open_data_analysis_dialog)
         
@@ -1317,6 +1320,18 @@ class AppWindow(QMainWindow):
         """打开亲和力分析对话框"""
         dialog = AffinityAnalysisDialog(self)
         dialog.exec_()
+    
+    def _open_lspr_simulation(self):
+        """打开 LSPR 传感器仿真（独立窗口）"""
+        if not hasattr(self, 'lspr_simulation_window') or self.lspr_simulation_window is None:
+            # 创建新的 LSPR 仿真窗口（parent=None 使其成为独立窗口）
+            self.lspr_simulation_window = LSPRSimulationWidget(parent=None)
+        
+        # 显示窗口
+        self.lspr_simulation_window.show()
+        self.lspr_simulation_window.raise_()
+        self.lspr_simulation_window.activateWindow()
+    
     def _open_batch_report_dialog(self):
         """打开批量报告对话框，用于查看批量采集结果。"""
         dialog = BatchReportDialog(self)
