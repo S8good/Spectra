@@ -60,11 +60,18 @@ def generate_plots_for_point(point_name, df, output_folder, preprocessing_params
             baseline = baseline_als(spectrum_data, lam=preprocessing_params['als_lambda'],
                                     p=preprocessing_params['als_p'])
             baseline_corrected = spectrum_data - baseline
+            sg_two_stage = preprocessing_params.get('sg_two_stage', True)
             coarse_smoothed = smooth_savitzky_golay(baseline_corrected,
                                                     window_length=preprocessing_params['sg_window_coarse'],
                                                     polyorder=preprocessing_params['sg_polyorder_coarse'])
-            fine_smoothed = smooth_savitzky_golay(coarse_smoothed, window_length=preprocessing_params['sg_window_fine'],
-                                                  polyorder=preprocessing_params['sg_polyorder_fine'])
+            if sg_two_stage:
+                fine_smoothed = smooth_savitzky_golay(
+                    coarse_smoothed,
+                    window_length=preprocessing_params['sg_window_fine'],
+                    polyorder=preprocessing_params['sg_polyorder_fine']
+                )
+            else:
+                fine_smoothed = coarse_smoothed
             if np.max(fine_smoothed) != np.min(fine_smoothed):
                 processed_data[col] = (fine_smoothed - np.min(fine_smoothed)) / (
                             np.max(fine_smoothed) - np.min(fine_smoothed))

@@ -153,11 +153,18 @@ def generate_summary_reports(output_folder, grouped_data, selected_points, prepr
                 continue
 
             # 步骤 3: 在截取后的数据子集上进行两阶段平滑
+            sg_two_stage = preprocessing_params.get('sg_two_stage', True)
             coarse_smoothed = smooth_savitzky_golay(intensity_subset,
                                                     window_length=preprocessing_params['sg_window_coarse'],
                                                     polyorder=preprocessing_params['sg_polyorder_coarse'])
-            fine_smoothed = smooth_savitzky_golay(coarse_smoothed, window_length=preprocessing_params['sg_window_fine'],
-                                                  polyorder=preprocessing_params['sg_polyorder_fine'])
+            if sg_two_stage:
+                fine_smoothed = smooth_savitzky_golay(
+                    coarse_smoothed,
+                    window_length=preprocessing_params['sg_window_fine'],
+                    polyorder=preprocessing_params['sg_polyorder_fine']
+                )
+            else:
+                fine_smoothed = coarse_smoothed
 
             # 步骤 4: 在最终处理后的数据子集上寻找主峰
             peak_idx, _ = find_main_resonance_peak(fine_smoothed, wavelengths_subset, min_height=0)

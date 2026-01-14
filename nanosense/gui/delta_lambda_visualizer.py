@@ -994,6 +994,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
         sg_poly_coarse = self.preprocessing_params.get("sg_polyorder_coarse", 3)
         sg_window_fine = self.preprocessing_params.get("sg_window_fine", 9)
         sg_poly_fine = self.preprocessing_params.get("sg_polyorder_fine", 3)
+        sg_two_stage = self.preprocessing_params.get("sg_two_stage", True)
 
         for col in spectra_df.columns:
             intensities = spectra_df[col].values
@@ -1030,7 +1031,10 @@ class DeltaLambdaVisualizationDialog(QDialog):
 
             if apply_smoothing:
                 coarse = smooth_savitzky_golay(working, sg_window_coarse, sg_poly_coarse)
-                fine = smooth_savitzky_golay(coarse, sg_window_fine, sg_poly_fine)
+                if sg_two_stage:
+                    fine = smooth_savitzky_golay(coarse, sg_window_fine, sg_poly_fine)
+                else:
+                    fine = coarse
             else:
                 fine = working
 

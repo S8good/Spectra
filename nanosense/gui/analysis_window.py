@@ -9,7 +9,7 @@ import pyqtgraph as pg
 import pyqtgraph.exporters
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
                              QPushButton, QComboBox, QFormLayout, QDoubleSpinBox, QLabel, QGroupBox,
-                             QMessageBox, QFileDialog, QInputDialog, QScrollArea)
+                             QMessageBox, QFileDialog, QInputDialog, QScrollArea, QCheckBox, QDialog)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent
 from PyQt5.QtGui import QPalette
 
@@ -19,16 +19,44 @@ from nanosense.algorithms.peak_analysis import (
     PEAK_METHOD_LABELS,
     estimate_peak_position,
 )
+from nanosense.algorithms.preprocessing import baseline_als, smooth_savitzky_golay
 from .collapsible_box import CollapsibleBox
+from .preprocessing_dialog import PreprocessingDialog
+
+
 class SummaryReportWorker(QThread):
     """一个专门在后台批量分析并生成汇总报告的工作线程。"""
     progress = pyqtSignal(int, str)  # 发射进度（百分比，消息）
     finished = pyqtSignal(str, str)  # 发射（成功消息/错误消息，报告文件路径）
 
-    def __init__(self, spectra_to_process, output_folder, parent=None):
+    def __init__(self, spectra_to_process, output_folder, preprocessing_params=None,
+                 apply_baseline=False, apply_smoothing=False, parent=None):
         super().__init__(parent)
         self.spectra = spectra_to_process
         self.output_folder = output_folder
+        self.preprocessing_params = preprocessing_params or {}
+        self.apply_baseline = apply_baseline
+        self.apply_smoothing = apply_smoothing
+
+    def _preprocess_intensity(self, intensity):
+        working = np.asarray(intensity)
+        if self.apply_baseline:
+            als_lambda = self.preprocessing_params.get("als_lambda", 1e9)
+            als_p = self.preprocessing_params.get("als_p", 0.01)
+            baseline = baseline_als(working, lam=als_lambda, p=als_p)
+            working = working - baseline
+        if self.apply_smoothing:
+            sg_window_coarse = self.preprocessing_params.get("sg_window_coarse", 14)
+            sg_poly_coarse = self.preprocessing_params.get("sg_polyorder_coarse", 3)
+            sg_window_fine = self.preprocessing_params.get("sg_window_fine", 8)
+            sg_poly_fine = self.preprocessing_params.get("sg_polyorder_fine", 3)
+            sg_two_stage = self.preprocessing_params.get("sg_two_stage", True)
+            coarse = smooth_savitzky_golay(working, window_length=sg_window_coarse, polyorder=sg_poly_coarse)
+            if sg_two_stage:
+                working = smooth_savitzky_golay(coarse, window_length=sg_window_fine, polyorder=sg_poly_fine)
+            else:
+                working = coarse
+        return working
 
     def run(self):
         try:
@@ -37,10 +65,11 @@ class SummaryReportWorker(QThread):
 
             for i, (name, data) in enumerate(self.spectra.items()):
                 self.progress.emit(int(i / total_spectra * 70), f"Analyzing: {name}")
-                peak_index = np.argmax(data['y'])
+                processed_y = self._preprocess_intensity(data['y'])
+                peak_index = np.argmax(processed_y)
                 peak_wl = data['x'][peak_index]
-                peak_int = data['y'][peak_index]
-                fwhm_results = calculate_fwhm(data['x'], data['y'], [peak_index])
+                peak_int = processed_y[peak_index]
+                fwhm_results = calculate_fwhm(data['x'], processed_y, [peak_index])
                 fwhm = fwhm_results[0] if fwhm_results else np.nan
                 peak_metrics_list.append({
                     'File Name': name, 'Peak Wavelength (nm)': peak_wl,
@@ -51,12 +80,12 @@ class SummaryReportWorker(QThread):
             summary_df = pd.DataFrame(peak_metrics_list)
             stats_df = summary_df[['Peak Wavelength (nm)', 'Peak Intensity', 'FWHM (nm)']].agg(['mean', 'std']).T
             stats_df['CV (%)'] = (stats_df['std'] / stats_df['mean']) * 100
-            avg_y = np.mean([data['y'] for data in self.spectra.values()], axis=0)
+            avg_y = np.mean([self._preprocess_intensity(data['y']) for data in self.spectra.values()], axis=0)
             avg_x = next(iter(self.spectra.values()))['x']
             avg_df = pd.DataFrame({'Wavelength (nm)': avg_x, 'Average Value': avg_y})
             all_spectra_df_dict = {'Wavelength (nm)': avg_x}
             for name, data in self.spectra.items():
-                all_spectra_df_dict[name] = data['y']
+                all_spectra_df_dict[name] = self._preprocess_intensity(data['y'])
             all_spectra_df = pd.DataFrame(all_spectra_df_dict)
 
             timestamp = time.strftime("%Y%m%d-%H%M%S")
@@ -102,6 +131,22 @@ class AnalysisWindow(QMainWindow):
             self.app_settings = self.parent().app_settings
         else:
             self.app_settings = {}
+
+        default_preprocessing_params = {
+            'als_lambda': 1e9,
+            'als_p': 0.01,
+            'sg_window_coarse': 14,
+            'sg_polyorder_coarse': 3,
+            'sg_window_fine': 8,
+            'sg_polyorder_fine': 3,
+            'sg_two_stage': True
+        }
+        stored_params = self.app_settings.get("analysis_preprocessing_params")
+        self.preprocessing_params = default_preprocessing_params.copy()
+        if isinstance(stored_params, dict):
+            self.preprocessing_params.update(stored_params)
+        self.apply_baseline_default = bool(self.app_settings.get("analysis_baseline_enabled", True))
+        self.apply_smoothing_default = bool(self.app_settings.get("analysis_smoothing_enabled", True))
 
         self.spectra = {}
         self.average_curve_data = None
@@ -201,6 +246,9 @@ class AnalysisWindow(QMainWindow):
         else:
             self.main_spectrum_to_analyze = None
 
+        if self.display_processed_checkbox.isChecked():
+            self._refresh_plot_curves()
+
     def _update_display_count_and_title(self):
         """
         【新增】重新计算当前显示的曲线数量，并更新图表标题。
@@ -253,8 +301,24 @@ class AnalysisWindow(QMainWindow):
         processing_layout.addWidget(self.export_summary_button)
         self.processing_box.setContentLayout(processing_layout)
         panel_layout.addWidget(self.processing_box)
+        # 3. Preprocessing
+        self.preprocessing_box = CollapsibleBox(parent=self)
+        preprocess_layout = QVBoxLayout()
+        self.baseline_checkbox = QCheckBox()
+        self.baseline_checkbox.setChecked(self.apply_baseline_default)
+        self.smoothing_checkbox = QCheckBox()
+        self.smoothing_checkbox.setChecked(self.apply_smoothing_default)
+        self.display_processed_checkbox = QCheckBox()
+        self.display_processed_checkbox.setChecked(False)
+        self.preprocessing_settings_button = QPushButton()
+        preprocess_layout.addWidget(self.baseline_checkbox)
+        preprocess_layout.addWidget(self.smoothing_checkbox)
+        preprocess_layout.addWidget(self.display_processed_checkbox)
+        preprocess_layout.addWidget(self.preprocessing_settings_button)
+        self.preprocessing_box.setContentLayout(preprocess_layout)
+        panel_layout.addWidget(self.preprocessing_box)
 
-        # 3. 静态分析下拉框
+        # 4. Static Analysis
         self.analysis_box = CollapsibleBox(parent=self)
         analysis_layout = QVBoxLayout()
         analysis_form_layout = QFormLayout()
@@ -334,6 +398,7 @@ class AnalysisWindow(QMainWindow):
         # 设置初始展开状态
         self.data_source_box.set_expanded(True)
         self.processing_box.set_expanded(True)
+        self.preprocessing_box.set_expanded(True)
         self.analysis_box.set_expanded(True)
         panel_layout.addStretch()
         scroll_area.setWidget(panel_widget)
@@ -383,6 +448,9 @@ class AnalysisWindow(QMainWindow):
         self.select_all_button.clicked.connect(self._select_all_spectra)
         self.deselect_all_button.clicked.connect(self._deselect_all_spectra)
         self.filter_select_button.clicked.connect(self._filter_select_spectra)
+        self.baseline_checkbox.toggled.connect(self._on_preprocessing_toggle_changed)
+        self.smoothing_checkbox.toggled.connect(self._on_preprocessing_toggle_changed)
+        self.preprocessing_settings_button.clicked.connect(self._open_preprocessing_settings)
 
         self.range_start_spinbox.valueChanged.connect(self._on_range_spinbox_changed)
         self.range_end_spinbox.valueChanged.connect(self._on_range_spinbox_changed)
@@ -422,6 +490,12 @@ class AnalysisWindow(QMainWindow):
         self.avg_button.setText(self.tr("Calculate Average Spectrum"))
         self.clear_avg_button.setText(self.tr("Clear Calculated Results"))
         self.export_summary_button.setText(self.tr("Export Summary Report"))
+
+        self.preprocessing_box.toggle_button.setText(self.tr("Preprocessing"))
+        self.baseline_checkbox.setText(self.tr("ALS baseline"))
+        self.smoothing_checkbox.setText(self.tr("Savitzky-Golay"))
+        self.display_processed_checkbox.setText(self.tr("Display processed spectra"))
+        self.preprocessing_settings_button.setText(self.tr("Adjust Preprocessing Parameters..."))
 
         self.analysis_box.toggle_button.setText(self.tr("Static Analysis"))
         self.analysis_target_label.setText(self.tr("Analysis Target:"))
@@ -470,8 +544,10 @@ class AnalysisWindow(QMainWindow):
         if self.calc_thread and self.calc_thread.isRunning():
             QMessageBox.information(self, self.tr("Info"), self.tr("Calculation in progress, please wait..."))
             return
-        checked_spectra_y = [data['y'] for key, data in self.spectra.items() if
-                             data['list_item'].checkState() == Qt.Checked]
+        checked_spectra_y = [
+            self._get_display_intensity(data['y']) for key, data in self.spectra.items()
+            if data['list_item'].checkState() == Qt.Checked
+        ]
         if not checked_spectra_y:
             QMessageBox.warning(self, self.tr("Info"), self.tr("Please check at least one spectrum."))
             return
@@ -524,12 +600,127 @@ class AnalysisWindow(QMainWindow):
         else:
             self.main_spectrum_to_analyze = None
 
+    def _is_preprocessing_enabled(self):
+        return bool(self.baseline_checkbox.isChecked() or self.smoothing_checkbox.isChecked())
+
+    def _get_intensity_for_processing(self, intensity):
+        if not self._is_preprocessing_enabled():
+            return intensity
+        return self._apply_preprocessing(intensity)[0]
+
+    def _get_display_intensity(self, intensity):
+        if not self.display_processed_checkbox.isChecked():
+            return intensity
+        if not self._is_preprocessing_enabled():
+            return intensity
+        return self._apply_preprocessing(intensity)[0]
+
+    def _apply_preprocessing(self, intensity):
+        working = np.asarray(intensity)
+        baseline = None
+        if self.baseline_checkbox.isChecked():
+            als_lambda = self.preprocessing_params.get("als_lambda", 1e9)
+            als_p = self.preprocessing_params.get("als_p", 0.01)
+            baseline = baseline_als(working, lam=als_lambda, p=als_p)
+            working = working - baseline
+        if self.smoothing_checkbox.isChecked():
+            sg_window_coarse = self.preprocessing_params.get("sg_window_coarse", 14)
+            sg_poly_coarse = self.preprocessing_params.get("sg_polyorder_coarse", 3)
+            sg_window_fine = self.preprocessing_params.get("sg_window_fine", 8)
+            sg_poly_fine = self.preprocessing_params.get("sg_polyorder_fine", 3)
+            sg_two_stage = self.preprocessing_params.get("sg_two_stage", True)
+            coarse = smooth_savitzky_golay(working, window_length=sg_window_coarse, polyorder=sg_poly_coarse)
+            if sg_two_stage:
+                working = smooth_savitzky_golay(coarse, window_length=sg_window_fine, polyorder=sg_poly_fine)
+            else:
+                working = coarse
+        return working, baseline
+
+    def _on_preprocessing_toggle_changed(self):
+        if isinstance(self.app_settings, dict):
+            self.app_settings["analysis_baseline_enabled"] = bool(self.baseline_checkbox.isChecked())
+            self.app_settings["analysis_smoothing_enabled"] = bool(self.smoothing_checkbox.isChecked())
+
+        if self.average_curve_item:
+            any_checked = any(
+                data['list_item'].checkState() == Qt.Checked for data in self.spectra.values()
+            )
+            if any_checked:
+                self.calculate_average()
+
+        if self.display_processed_checkbox.isChecked():
+            self._refresh_plot_curves()
+
+        if self.main_spectrum_to_analyze and self.main_peak_wavelength_label.text() != "N/A":
+            self.analyze_main_peak()
+
+    def _open_preprocessing_settings(self):
+        if not self.spectra:
+            QMessageBox.warning(self, self.tr("Info"), self.tr("No spectrum available for preprocessing preview."))
+            return
+        sample_data = self.main_spectrum_to_analyze
+        if not sample_data or 'curve' not in sample_data:
+            sample_data = next(iter(self.spectra.values()))
+
+        spectra_options = []
+        for data in self.spectra.values():
+            spectra_options.append((data['name'], data['x'], data['y']))
+        if self.average_curve_data:
+            spectra_options.append((self.average_curve_data['name'],
+                                    self.average_curve_data['x'],
+                                    self.average_curve_data['y']))
+
+        selected_name = None
+        current_index = self.analysis_target_combo.currentIndex()
+        data_key = self.analysis_target_combo.itemData(current_index)
+        if data_key == AVERAGE_CURVE_KEY and self.average_curve_data:
+            selected_name = self.average_curve_data['name']
+        elif data_key in self.spectra:
+            selected_name = self.spectra[data_key]['name']
+
+        dialog = PreprocessingDialog(
+            sample_data['x'],
+            sample_data['y'],
+            self.preprocessing_params,
+            self,
+            spectra_options=spectra_options,
+            selected_name=selected_name
+        )
+        if dialog.exec_() == QDialog.Accepted:
+            self.preprocessing_params = dialog.get_params()
+            if isinstance(self.app_settings, dict):
+                self.app_settings["analysis_preprocessing_params"] = self.preprocessing_params.copy()
+            if self.average_curve_item:
+                self.calculate_average()
+            if self.display_processed_checkbox.isChecked():
+                self._refresh_plot_curves()
+            if self.main_spectrum_to_analyze and self.main_peak_wavelength_label.text() != "N/A":
+                self.analyze_main_peak()
+
+    def _refresh_plot_curves(self):
+        for data in self.spectra.values():
+            curve = data.get('curve')
+            if curve is None:
+                continue
+            display_y = self._get_display_intensity(data['y'])
+            curve.setData(data['x'], display_y)
+
+    def _on_display_mode_changed(self):
+        self._refresh_plot_curves()
+        if self.average_curve_item:
+            self.calculate_average()
+
     def analyze_main_peak(self):
         if not self.main_spectrum_to_analyze:
             QMessageBox.warning(self, self.tr("Info"), self.tr("No spectrum available for analysis."))
             return
 
-        x_data, y_data = self.main_spectrum_to_analyze['x'], self.main_spectrum_to_analyze['y']
+        if self._is_preprocessing_enabled() and not self.display_processed_checkbox.isChecked():
+            self.display_processed_checkbox.setChecked(True)
+
+        x_data = self.main_spectrum_to_analyze['x']
+        raw_y = self.main_spectrum_to_analyze['y']
+        y_data = self._get_intensity_for_processing(raw_y)
         min_height = self.peak_height_spinbox.value()
 
         # 清空旧结果
@@ -607,7 +798,13 @@ class AnalysisWindow(QMainWindow):
         if not folder_path: return
         self.export_summary_button.setEnabled(False)
         self.export_summary_button.setText(self.tr("Generating..."))
-        self.report_worker = SummaryReportWorker(checked_spectra, folder_path)
+        self.report_worker = SummaryReportWorker(
+            checked_spectra,
+            folder_path,
+            preprocessing_params=self.preprocessing_params,
+            apply_baseline=bool(self.baseline_checkbox.isChecked()),
+            apply_smoothing=bool(self.smoothing_checkbox.isChecked())
+        )
         self.report_worker.finished.connect(self._on_summary_report_finished)
         self.report_worker.start()
 
@@ -639,19 +836,32 @@ class AnalysisWindow(QMainWindow):
             output_folder = os.path.join(folder_path, f"Analysis_{object_name}_{timestamp}")
             os.makedirs(output_folder)
 
+            raw_x = self.main_spectrum_to_analyze['x']
+            raw_y = self.main_spectrum_to_analyze['y']
+            processed_y, baseline = self._apply_preprocessing(raw_y)
+            use_processed = self._is_preprocessing_enabled()
+
             if all([self.source_signal, self.source_background, self.source_reference]):
                 df_data = {
                     'Wavelength (nm)': self.source_signal[0], 'Signal Intensity': self.source_signal[1],
                     'Background Intensity': self.source_background[1], 'Reference Intensity': self.source_reference[1],
-                    'Calculated Absorbance': self.main_spectrum_to_analyze['y']
+                    'Calculated Absorbance': raw_y
                 }
+                if use_processed:
+                    if baseline is not None:
+                        df_data['ALS Baseline'] = baseline
+                    df_data['Processed Absorbance'] = processed_y
                 df = pd.DataFrame(df_data)
                 table_path = os.path.join(output_folder, "full_absorbance_data.xlsx")
             else:
                 df_data = {
-                    'Wavelength (nm)': self.main_spectrum_to_analyze['x'],
-                    'Value': self.main_spectrum_to_analyze['y']
+                    'Wavelength (nm)': raw_x,
+                    'Value': raw_y
                 }
+                if use_processed:
+                    if baseline is not None:
+                        df_data['ALS Baseline'] = baseline
+                    df_data['Processed Value'] = processed_y
                 df = pd.DataFrame(df_data)
                 table_path = os.path.join(output_folder, "spectrum_data.xlsx")
             df.to_excel(table_path, index=False, engine='openpyxl')

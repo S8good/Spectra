@@ -69,7 +69,8 @@ class DataAnalysisDialog(QDialog):
         self.input_folder_path = initial_folder
         self.preprocessing_params = {
             'als_lambda': 1e9, 'als_p': 0.01, 'sg_window_coarse': 14,
-            'sg_polyorder_coarse': 3, 'sg_window_fine': 8, 'sg_polyorder_fine': 3
+            'sg_polyorder_coarse': 3, 'sg_window_fine': 8, 'sg_polyorder_fine': 3,
+            'sg_two_stage': True
         }
 
         self._init_ui()
