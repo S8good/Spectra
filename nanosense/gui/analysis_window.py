@@ -9,7 +9,8 @@ import pyqtgraph as pg
 import pyqtgraph.exporters
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
                              QPushButton, QComboBox, QFormLayout, QDoubleSpinBox, QLabel, QGroupBox,
-                             QMessageBox, QFileDialog, QInputDialog, QScrollArea, QCheckBox, QDialog)
+                             QMessageBox, QFileDialog, QInputDialog, QScrollArea, QCheckBox, QDialog,
+                             QButtonGroup)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent
 from PyQt5.QtGui import QPalette
 
@@ -30,13 +31,14 @@ class SummaryReportWorker(QThread):
     finished = pyqtSignal(str, str)  # 发射（成功消息/错误消息，报告文件路径）
 
     def __init__(self, spectra_to_process, output_folder, preprocessing_params=None,
-                 apply_baseline=False, apply_smoothing=False, parent=None):
+                 apply_baseline=False, apply_smoothing=False, find_range=None, parent=None):
         super().__init__(parent)
         self.spectra = spectra_to_process
         self.output_folder = output_folder
         self.preprocessing_params = preprocessing_params or {}
         self.apply_baseline = apply_baseline
         self.apply_smoothing = apply_smoothing
+        self.find_range = find_range
 
     def _preprocess_intensity(self, intensity):
         working = np.asarray(intensity)
@@ -63,14 +65,37 @@ class SummaryReportWorker(QThread):
             total_spectra = len(self.spectra)
             peak_metrics_list = []
 
+            min_wl = max_wl = None
+            if self.find_range:
+                min_wl, max_wl = self.find_range
+                if min_wl > max_wl:
+                    min_wl, max_wl = max_wl, min_wl
+
             for i, (name, data) in enumerate(self.spectra.items()):
                 self.progress.emit(int(i / total_spectra * 70), f"Analyzing: {name}")
+                x_values = np.asarray(data['x'])
                 processed_y = self._preprocess_intensity(data['y'])
-                peak_index = np.argmax(processed_y)
-                peak_wl = data['x'][peak_index]
-                peak_int = processed_y[peak_index]
-                fwhm_results = calculate_fwhm(data['x'], processed_y, [peak_index])
-                fwhm = fwhm_results[0] if fwhm_results else np.nan
+                peak_wl = np.nan
+                peak_int = np.nan
+                fwhm = np.nan
+
+                if min_wl is not None and max_wl is not None:
+                    range_mask = (x_values >= min_wl) & (x_values <= max_wl)
+                    if np.count_nonzero(range_mask) >= 3:
+                        range_indices = np.where(range_mask)[0]
+                        subset_y = processed_y[range_mask]
+                        subset_peak_index = int(np.argmax(subset_y))
+                        peak_index = range_indices[subset_peak_index]
+                        peak_wl = x_values[peak_index]
+                        peak_int = processed_y[peak_index]
+                        fwhm_results = calculate_fwhm(x_values, processed_y, [peak_index])
+                        fwhm = fwhm_results[0] if fwhm_results else np.nan
+                else:
+                    peak_index = int(np.argmax(processed_y))
+                    peak_wl = x_values[peak_index]
+                    peak_int = processed_y[peak_index]
+                    fwhm_results = calculate_fwhm(x_values, processed_y, [peak_index])
+                    fwhm = fwhm_results[0] if fwhm_results else np.nan
                 peak_metrics_list.append({
                     'File Name': name, 'Peak Wavelength (nm)': peak_wl,
                     'Peak Intensity': peak_int, 'FWHM (nm)': fwhm
@@ -160,6 +185,7 @@ class AnalysisWindow(QMainWindow):
         self.user_has_interacted_with_plot = False # 用户是否手动缩放/平移了图表
         self.total_spectra_count = 0
         self.display_spectra_count = 0
+        self.current_category_filter = "absorbance"
 
         self.init_ui()
         self.connect_signals()
@@ -232,7 +258,15 @@ class AnalysisWindow(QMainWindow):
             curve_item = self.plot_widget.plot(x, y, pen=pen, name=name)
             curve_item.setVisible(should_be_visible)  # 根据标志位设置初始可见性
 
-            self.spectra[key] = {'x': x, 'y': y, 'name': name, 'curve': curve_item, 'list_item': item}
+            category = spec_dict.get('category') or "absorbance"
+            self.spectra[key] = {
+                'x': x,
+                'y': y,
+                'name': name,
+                'curve': curve_item,
+                'list_item': item,
+                'category': category
+            }
             self.spectra_list_widget.addItem(item)
             self.analysis_target_combo.addItem(name)
             self.analysis_target_combo.setItemData(self.analysis_target_combo.count() - 1, key)
@@ -246,6 +280,8 @@ class AnalysisWindow(QMainWindow):
         else:
             self.main_spectrum_to_analyze = None
 
+        self._apply_category_filter(self.current_category_filter)
+
         if self.display_processed_checkbox.isChecked():
             self._refresh_plot_curves()
 
@@ -256,11 +292,40 @@ class AnalysisWindow(QMainWindow):
         # 遍历列表，统计被勾选的项目数量
         checked_count = 0
         for i in range(self.spectra_list_widget.count()):
-            if self.spectra_list_widget.item(i).checkState() == Qt.Checked:
+            item = self.spectra_list_widget.item(i)
+            if item.checkState() == Qt.Checked and not item.isHidden():
                 checked_count += 1
 
         self.display_spectra_count = checked_count
         self._update_plot_title()  # 调用现有的标题更新方法
+
+    def _set_category_filter(self, category):
+        if self.current_category_filter == category:
+            return
+        self.current_category_filter = category
+        self._apply_category_filter(category)
+
+    def _apply_category_filter(self, category):
+        for i in range(self.spectra_list_widget.count()):
+            item = self.spectra_list_widget.item(i)
+            unique_key = item.data(Qt.UserRole)
+            spectrum_data = self.spectra.get(unique_key)
+            spectrum_category = "absorbance"
+            if spectrum_data:
+                spectrum_category = spectrum_data.get("category") or "absorbance"
+            should_show = spectrum_category == category
+            item.setHidden(not should_show)
+
+            if spectrum_data and spectrum_data.get('curve'):
+                curve = spectrum_data['curve']
+                if should_show and item.checkState() == Qt.Checked:
+                    curve.setVisible(True)
+                else:
+                    curve.setVisible(False)
+
+        self._update_display_count_and_title()
+        if not self.user_has_interacted_with_plot:
+            self.plot_widget.autoRange()
 
     def _create_control_panel(self):
         scroll_area = QScrollArea()
@@ -424,11 +489,31 @@ class AnalysisWindow(QMainWindow):
         # 更新图表样式以适配当前主题
         self._update_plot_styles()
 
+        filter_layout = QHBoxLayout()
+        self.show_background_button = QPushButton()
+        self.show_reference_button = QPushButton()
+        self.show_absorbance_button = QPushButton()
+        for button in (self.show_background_button, self.show_reference_button, self.show_absorbance_button):
+            button.setCheckable(True)
+
+        self.category_filter_group = QButtonGroup()
+        self.category_filter_group.setExclusive(True)
+        self.category_filter_group.addButton(self.show_background_button)
+        self.category_filter_group.addButton(self.show_reference_button)
+        self.category_filter_group.addButton(self.show_absorbance_button)
+        self.show_absorbance_button.setChecked(True)
+
+        filter_layout.addWidget(self.show_background_button)
+        filter_layout.addWidget(self.show_reference_button)
+        filter_layout.addWidget(self.show_absorbance_button)
+        filter_layout.addStretch()
+
         button_layout = QHBoxLayout()
         self.auto_range_button = QPushButton()  # 创建按钮
         button_layout.addStretch()
         button_layout.addWidget(self.auto_range_button)
 
+        container_layout.addLayout(filter_layout)
         container_layout.addWidget(self.plot_widget)
         container_layout.addLayout(button_layout)
 
@@ -445,6 +530,9 @@ class AnalysisWindow(QMainWindow):
         self.plot_widget.getViewBox().sigRangeChangedManually.connect(self._on_plot_interacted)
         # 2. 连接新添加的 "自动范围" 按钮
         self.auto_range_button.clicked.connect(self._reset_plot_view)
+        self.show_background_button.clicked.connect(lambda: self._set_category_filter("background"))
+        self.show_reference_button.clicked.connect(lambda: self._set_category_filter("reference"))
+        self.show_absorbance_button.clicked.connect(lambda: self._set_category_filter("absorbance"))
         self.select_all_button.clicked.connect(self._select_all_spectra)
         self.deselect_all_button.clicked.connect(self._deselect_all_spectra)
         self.filter_select_button.clicked.connect(self._filter_select_spectra)
@@ -513,6 +601,10 @@ class AnalysisWindow(QMainWindow):
         self.peak_wl_label.setText(self.tr("Peak Wavelength (nm):"))
         self.peak_int_label.setText(self.tr("Peak Intensity:"))
         self.peak_fwhm_label.setText(self.tr("FWHM (nm):"))
+
+        self.show_background_button.setText(self.tr("Background"))
+        self.show_reference_button.setText(self.tr("Reference"))
+        self.show_absorbance_button.setText(self.tr("Absorbance"))
 
         self.export_button.setText(self.tr("Export Analysis Results"))
         self.auto_range_button.setText(self.tr("Auto Range"))
@@ -803,7 +895,8 @@ class AnalysisWindow(QMainWindow):
             folder_path,
             preprocessing_params=self.preprocessing_params,
             apply_baseline=bool(self.baseline_checkbox.isChecked()),
-            apply_smoothing=bool(self.smoothing_checkbox.isChecked())
+            apply_smoothing=bool(self.smoothing_checkbox.isChecked()),
+            find_range=self.region_selector.getRegion()
         )
         self.report_worker.finished.connect(self._on_summary_report_finished)
         self.report_worker.start()
@@ -900,7 +993,10 @@ class AnalysisWindow(QMainWindow):
             spectrum_data = self.spectra[unique_key]
             if spectrum_data['curve']:
                 is_checked = (item.checkState() == Qt.Checked)
-                spectrum_data['curve'].setVisible(is_checked)
+                if item.isHidden():
+                    spectrum_data['curve'].setVisible(False)
+                else:
+                    spectrum_data['curve'].setVisible(is_checked)
 
                 if not self.user_has_interacted_with_plot:
                     self.plot_widget.autoRange()
@@ -913,12 +1009,15 @@ class AnalysisWindow(QMainWindow):
         self.spectra_list_widget.blockSignals(True)
         for i in range(self.spectra_list_widget.count()):
             item = self.spectra_list_widget.item(i)
+            if item.isHidden():
+                continue
             item.setCheckState(Qt.Checked)
         self.spectra_list_widget.blockSignals(False)
         # 手动触发一次更新
         for item in self.spectra.values():
             if item['curve']:
-                item['curve'].show()
+                if not item['list_item'].isHidden():
+                    item['curve'].show()
         self._update_display_count_and_title()
 
     def _deselect_all_spectra(self):
@@ -926,12 +1025,15 @@ class AnalysisWindow(QMainWindow):
         self.spectra_list_widget.blockSignals(True)
         for i in range(self.spectra_list_widget.count()):
             item = self.spectra_list_widget.item(i)
+            if item.isHidden():
+                continue
             item.setCheckState(Qt.Unchecked)
         self.spectra_list_widget.blockSignals(False)
         # 手动触发一次更新
         for item in self.spectra.values():
             if item['curve']:
-                item['curve'].hide()
+                if not item['list_item'].isHidden():
+                    item['curve'].hide()
         self._update_display_count_and_title()
 
     def _filter_select_spectra(self):
@@ -945,6 +1047,8 @@ class AnalysisWindow(QMainWindow):
             # 现在遍历列表中的每一项，而不是遍历不完整的数据字典
             for i in range(self.spectra_list_widget.count()):
                 item = self.spectra_list_widget.item(i)
+                if item.isHidden():
+                    continue
                 item_text = item.text().lower()
 
                 # 根据关键词设置复选框状态

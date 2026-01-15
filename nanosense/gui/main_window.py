@@ -2,6 +2,7 @@
 import json
 import os
 import time
+import re
 from typing import Any, Dict, List, Optional
 from PyQt5.QtWidgets import (
     QMainWindow, QStackedWidget, QMessageBox, QDialog, 
@@ -30,6 +31,7 @@ from .settings_dialog import SettingsDialog
 from .about_dialog import AboutDialog
 from .mock_api_config_dialog import MockAPIConfigDialog
 from .lspr_simulation_widget import LSPRSimulationWidget
+from .spectrum_classification_dialog import SpectrumClassificationDialog
 
 from nanosense.utils.file_io import load_spectra_from_path, load_spectrum
 from nanosense.core.controller import FX2000Controller
@@ -72,6 +74,7 @@ class AppWindow(QMainWindow):
         self.db_manager = None
         self.current_project_id = None
         self.current_experiment_id = None
+        self._skip_spectrum_classification_prompt = False
         
         # 初始化数据库和项目
         print("开始初始化数据库...")
@@ -1047,6 +1050,66 @@ class AppWindow(QMainWindow):
                 )
         except Exception as exc:
             print(f"Failed to persist imported spectra: {exc}")
+
+    def _token_matches_keyword(self, token: str, keyword: str) -> bool:
+        if keyword == "abs":
+            return token == "abs" or token.startswith("absorb") or re.match(r"^abs\d+$", token)
+        if keyword == "ref":
+            return token == "ref" or token.startswith("refer") or re.match(r"^ref\d+$", token)
+        if keyword == "bg":
+            return token == "bg" or re.match(r"^bg\d+$", token)
+        return token == keyword or token.startswith(keyword)
+
+    def _auto_classify_spectrum_name(self, name: str) -> str:
+        text = (name or "").lower()
+        tokens = [t for t in re.split(r"[^a-z0-9]+", text) if t]
+
+        def matches_any(keywords: List[str]) -> bool:
+            for keyword in keywords:
+                if any(self._token_matches_keyword(token, keyword) for token in tokens):
+                    return True
+                if len(keyword) >= 4 and keyword in text:
+                    return True
+            return False
+
+        background_keywords = ["background", "bg", "dark"]
+        reference_keywords = ["reference", "ref", "white"]
+        absorbance_keywords = ["absorbance", "abs"]
+
+        category = "absorbance"
+        if matches_any(background_keywords):
+            category = "background"
+        if matches_any(reference_keywords):
+            category = "reference"
+        if matches_any(absorbance_keywords):
+            category = "absorbance"
+        return category
+
+    def _apply_spectrum_classification(self, spectra_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not spectra_list:
+            return spectra_list
+
+        default_categories = [
+            self._auto_classify_spectrum_name(item.get("name", ""))
+            for item in spectra_list
+        ]
+
+        categories = default_categories
+        if not self._skip_spectrum_classification_prompt:
+            names = [item.get("name", "") for item in spectra_list]
+            dialog = SpectrumClassificationDialog(
+                names,
+                default_categories,
+                parent=self
+            )
+            if dialog.exec_() == QDialog.Accepted:
+                categories, skip_prompt = dialog.get_results()
+                if skip_prompt:
+                    self._skip_spectrum_classification_prompt = True
+
+        for item, category in zip(spectra_list, categories):
+            item["category"] = category
+        return spectra_list
     def _trigger_import_single_spectrum(self):
         """触发单光谱文件导入"""
         default_load_path = self.app_settings.get('default_load_path', '')
@@ -1054,7 +1117,12 @@ class AppWindow(QMainWindow):
         
         if x_data is not None:
             name = os.path.basename(file_path) if file_path else self.tr("Loaded Spectrum")
-            single_spectrum_data = {'x': x_data, 'y': y_data, 'name': name}
+            spectra_list = self._apply_spectrum_classification([{
+                'x': x_data,
+                'y': y_data,
+                'name': name
+            }])
+            single_spectrum_data = spectra_list[0]
             
             analysis_win = AnalysisWindow(spectra_data=single_spectrum_data, parent=self)
             self.analysis_windows.append(analysis_win)
@@ -1066,7 +1134,10 @@ class AppWindow(QMainWindow):
                     'label': name,
                     'x': x_data,
                     'y': y_data,
-                    'metadata': {'source_file': file_path}
+                    'metadata': {
+                        'source_file': file_path,
+                        'category': single_spectrum_data.get('category')
+                    }
                 }],
                 import_context={
                     'mode': 'single_file_import',
@@ -1141,7 +1212,8 @@ class AppWindow(QMainWindow):
         spectra_list = load_spectra_from_path(dir_path, mode='folder')
         if spectra_list:
             print(self.tr("Successfully loaded {0} spectra from the selected folder.").format(len(spectra_list)))
-            
+
+            spectra_list = self._apply_spectrum_classification(spectra_list)
             win = AnalysisWindow(spectra_data=spectra_list, parent=self)
             self.analysis_windows.append(win)
             win.show()
@@ -1151,7 +1223,10 @@ class AppWindow(QMainWindow):
                     'label': item['name'],
                     'x': item['x'],
                     'y': item['y'],
-                    'metadata': {'source_file': os.path.join(dir_path, item['name'])}
+                    'metadata': {
+                        'source_file': os.path.join(dir_path, item['name']),
+                        'category': item.get('category')
+                    }
                 }
                 for item in spectra_list
             ]
@@ -1187,7 +1262,8 @@ class AppWindow(QMainWindow):
         spectra_list = load_spectra_from_path(file_path, mode='file')
         if spectra_list:
             print(self.tr("Successfully loaded {0} spectra from the selected file.").format(len(spectra_list)))
-            
+
+            spectra_list = self._apply_spectrum_classification(spectra_list)
             win = AnalysisWindow(spectra_data=spectra_list, parent=self)
             self.analysis_windows.append(win)
             win.show()
@@ -1197,7 +1273,10 @@ class AppWindow(QMainWindow):
                     'label': item['name'],
                     'x': item['x'],
                     'y': item['y'],
-                    'metadata': {'source_file': file_path}
+                    'metadata': {
+                        'source_file': file_path,
+                        'category': item.get('category')
+                    }
                 }
                 for item in spectra_list
             ]

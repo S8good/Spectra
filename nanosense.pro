@@ -36,6 +36,7 @@ SOURCES = main.py \
           nanosense/gui/realtime_noise_setup_dialog.py \
           nanosense/gui/sensitivity_dialog.py \
           nanosense/gui/settings_dialog.py \
+          nanosense/gui/spectrum_classification_dialog.py \
           nanosense/gui/single_plot_window.py \
           nanosense/gui/splash_screen.py \
           nanosense/gui/three_file_import_dialog.py \
