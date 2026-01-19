@@ -10,7 +10,8 @@ import pyqtgraph.exporters
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
                              QPushButton, QComboBox, QFormLayout, QDoubleSpinBox, QLabel, QGroupBox,
                              QMessageBox, QFileDialog, QInputDialog, QScrollArea, QCheckBox, QDialog,
-                             QButtonGroup)
+                             QButtonGroup, QTableWidget, QTableWidgetItem, QHeaderView, QToolTip)
+from PyQt5.QtGui import QCursor
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QEvent
 from PyQt5.QtGui import QPalette
 
@@ -31,16 +32,20 @@ class SummaryReportWorker(QThread):
     finished = pyqtSignal(str, str)  # 发射（成功消息/错误消息，报告文件路径）
 
     def __init__(self, spectra_to_process, output_folder, preprocessing_params=None,
-                 apply_baseline=False, apply_smoothing=False, find_range=None, parent=None):
+                 apply_baseline=False, apply_smoothing=False, preprocessing_enabled=True,
+                 find_range=None, parent=None):
         super().__init__(parent)
         self.spectra = spectra_to_process
         self.output_folder = output_folder
         self.preprocessing_params = preprocessing_params or {}
         self.apply_baseline = apply_baseline
         self.apply_smoothing = apply_smoothing
+        self.preprocessing_enabled = preprocessing_enabled
         self.find_range = find_range
 
     def _preprocess_intensity(self, intensity):
+        if not self.preprocessing_enabled:
+            return np.asarray(intensity)
         working = np.asarray(intensity)
         if self.apply_baseline:
             als_lambda = self.preprocessing_params.get("als_lambda", 1e9)
@@ -170,7 +175,8 @@ class AnalysisWindow(QMainWindow):
         self.preprocessing_params = default_preprocessing_params.copy()
         if isinstance(stored_params, dict):
             self.preprocessing_params.update(stored_params)
-        self.apply_baseline_default = bool(self.app_settings.get("analysis_baseline_enabled", True))
+        self.preprocessing_enabled_default = bool(self.app_settings.get("analysis_preprocessing_enabled", True))
+        self.apply_baseline_default = bool(self.app_settings.get("analysis_baseline_enabled", False))
         self.apply_smoothing_default = bool(self.app_settings.get("analysis_smoothing_enabled", True))
 
         self.spectra = {}
@@ -186,6 +192,8 @@ class AnalysisWindow(QMainWindow):
         self.total_spectra_count = 0
         self.display_spectra_count = 0
         self.current_category_filter = "absorbance"
+        self.metrics_table = None
+        self.metrics_headers = []
 
         self.init_ui()
         self.connect_signals()
@@ -202,8 +210,8 @@ class AnalysisWindow(QMainWindow):
         main_layout = QHBoxLayout(main_widget)
         control_panel = self._create_control_panel()
         plot_widget = self._create_plot_widget()
-        main_layout.addWidget(control_panel)
-        main_layout.addWidget(plot_widget, stretch=1)
+        main_layout.addWidget(control_panel, stretch=1)
+        main_layout.addWidget(plot_widget, stretch=2)
 
     def set_initial_data(self, spectra_data):
         spectra_list_of_dicts = []
@@ -281,9 +289,12 @@ class AnalysisWindow(QMainWindow):
             self.main_spectrum_to_analyze = None
 
         self._apply_category_filter(self.current_category_filter)
+        self._maybe_focus_plot_to_peak_range()
+        self._auto_y_range()
+        self._refresh_metrics_table()
+        self._auto_y_range()
 
-        if self.display_processed_checkbox.isChecked():
-            self._refresh_plot_curves()
+        self._refresh_plot_curves()
 
     def _update_display_count_and_title(self):
         """
@@ -298,6 +309,232 @@ class AnalysisWindow(QMainWindow):
 
         self.display_spectra_count = checked_count
         self._update_plot_title()  # 调用现有的标题更新方法
+
+    def _maybe_focus_plot_to_peak_range(self):
+        if self.user_has_interacted_with_plot:
+            return
+        if not self.spectra:
+            return
+        x_min = None
+        x_max = None
+        for data in self.spectra.values():
+            x_vals = np.asarray(data.get('x'))
+            if x_vals.size == 0:
+                continue
+            x_min = np.min(x_vals) if x_min is None else min(x_min, np.min(x_vals))
+            x_max = np.max(x_vals) if x_max is None else max(x_max, np.max(x_vals))
+        if x_min is None or x_max is None:
+            return
+        range_min, range_max = self.region_selector.getRegion()
+        if range_min > range_max:
+            range_min, range_max = range_max, range_min
+        full_span = x_max - x_min
+        peak_span = range_max - range_min
+        if peak_span > 0 and full_span > peak_span * 1.5:
+            self.plot_widget.setXRange(range_min, range_max, padding=0)
+
+    def _auto_y_range(self):
+        if self.user_has_interacted_with_plot:
+            return
+        if not self.spectra:
+            return
+        range_min, range_max = self.region_selector.getRegion()
+        if range_min > range_max:
+            range_min, range_max = range_max, range_min
+        noise_min = self.noise_range_start_spinbox.value()
+        noise_max = self.noise_range_end_spinbox.value()
+        if noise_min > noise_max:
+            noise_min, noise_max = noise_max, noise_min
+
+        y_min = None
+        y_max = None
+        for data in self.spectra.values():
+            if data['list_item'].checkState() != Qt.Checked:
+                continue
+            if data['list_item'].isHidden():
+                continue
+            x_vals = np.asarray(data.get('x'))
+            if x_vals.size == 0:
+                continue
+            y_vals = np.asarray(self._get_display_intensity(data.get('y')))
+            mask = ((x_vals >= range_min) & (x_vals <= range_max)) | (
+                (x_vals >= noise_min) & (x_vals <= noise_max)
+            )
+            if not np.any(mask):
+                continue
+            y_subset = y_vals[mask]
+            y_min = np.min(y_subset) if y_min is None else min(y_min, np.min(y_subset))
+            y_max = np.max(y_subset) if y_max is None else max(y_max, np.max(y_subset))
+        if y_min is None or y_max is None:
+            return
+        y_span = y_max - y_min
+        padding = y_span * 0.1 if y_span > 0 else 1e-6
+        self.plot_widget.setYRange(y_min - padding, y_max + padding, padding=0)
+
+    def _format_value(self, value, precision=4):
+        if value is None or (isinstance(value, float) and np.isnan(value)):
+            return "N/A"
+        if isinstance(value, (int, float)):
+            return f"{value:.{precision}f}"
+        return str(value)
+
+    def _find_half_max_interval(self, x_data, y_data, peak_index):
+        if peak_index is None or peak_index < 0 or peak_index >= len(y_data):
+            return None
+        peak_value = y_data[peak_index]
+        if peak_value == 0 or np.isnan(peak_value):
+            return None
+        half_value = peak_value / 2.0
+
+        left_cross = None
+        for i in range(peak_index, 0, -1):
+            if (y_data[i] - half_value) * (y_data[i - 1] - half_value) <= 0:
+                x0, x1 = x_data[i - 1], x_data[i]
+                y0, y1 = y_data[i - 1], y_data[i]
+                if y1 != y0:
+                    ratio = (half_value - y0) / (y1 - y0)
+                    left_cross = x0 + ratio * (x1 - x0)
+                else:
+                    left_cross = x0
+                break
+
+        right_cross = None
+        for i in range(peak_index, len(y_data) - 1):
+            if (y_data[i] - half_value) * (y_data[i + 1] - half_value) <= 0:
+                x0, x1 = x_data[i], x_data[i + 1]
+                y0, y1 = y_data[i], y_data[i + 1]
+                if y1 != y0:
+                    ratio = (half_value - y0) / (y1 - y0)
+                    right_cross = x0 + ratio * (x1 - x0)
+                else:
+                    right_cross = x1
+                break
+
+        if left_cross is None or right_cross is None:
+            return None
+        return left_cross, right_cross
+
+    def _refresh_metrics_table(self):
+        if not self.metrics_table:
+            return
+
+        filtered_items = [
+            (key, data) for key, data in self.spectra.items()
+            if (data.get("category") or "absorbance") == self.current_category_filter
+        ]
+
+        self.metrics_table.setRowCount(len(filtered_items))
+
+        min_wl, max_wl = self.region_selector.getRegion()
+        if min_wl > max_wl:
+            min_wl, max_wl = max_wl, min_wl
+        noise_start = self.noise_range_start_spinbox.value()
+        noise_end = self.noise_range_end_spinbox.value()
+        if noise_start > noise_end:
+            noise_start, noise_end = noise_end, noise_start
+        method_key = self.peak_method_combo.currentData() or 'highest_point'
+        min_height = self.peak_height_spinbox.value()
+
+        for row, (_, data) in enumerate(filtered_items):
+            x_data = np.asarray(data['x'])
+            raw_y = data['y']
+            y_data = self._get_intensity_for_processing(raw_y)
+
+            peak_wl = np.nan
+            peak_int = np.nan
+            fwhm = np.nan
+            peak_index_global = None
+
+            range_mask = (x_data >= min_wl) & (x_data <= max_wl)
+            noise_mask = (x_data >= noise_start) & (x_data <= noise_end)
+            if np.count_nonzero(range_mask) >= 3:
+                x_subset = x_data[range_mask]
+                y_subset = np.asarray(y_data)[range_mask]
+                subset_index, peak_wavelength = estimate_peak_position(x_subset, y_subset, method_key)
+                if peak_wavelength is not None:
+                    if subset_index is None or subset_index < 0 or subset_index >= len(x_subset):
+                        subset_index = int(np.argmin(np.abs(x_subset - peak_wavelength)))
+                    peak_value = float(y_subset[subset_index])
+                    if peak_value >= min_height:
+                        peak_wl = float(peak_wavelength)
+                        peak_int = peak_value
+                        global_indices = np.where(range_mask)[0]
+                        peak_index_global = int(global_indices[subset_index])
+                        fwhm_results = calculate_fwhm(x_data, y_data, [peak_index_global])
+                        if fwhm_results:
+                            fwhm = fwhm_results[0]
+
+            rms_noise = np.nan
+            c_noise = np.nan
+            if np.count_nonzero(noise_mask) >= 3:
+                x_noise = x_data[noise_mask]
+                y_noise = np.asarray(y_data)[noise_mask]
+                mean_noise = float(np.mean(y_noise))
+                detrended = y_noise - mean_noise
+                if np.ptp(x_noise) > 0:
+                    slope, intercept = np.polyfit(x_noise, y_noise, 1)
+                    if abs(slope) * np.ptp(x_noise) > 0.01 * max(1e-12, np.ptp(y_noise)):
+                        detrended = y_noise - (slope * x_noise + intercept)
+                rms_noise = float(np.sqrt(np.mean(detrended ** 2)))
+                c_noise = float(np.max(detrended) - np.min(detrended))
+
+            snr = np.nan
+            if not np.isnan(peak_int) and rms_noise and rms_noise > 0:
+                snr = float(peak_int / rms_noise)
+
+            peak_area = np.nan
+            if np.count_nonzero(range_mask) >= 2:
+                x_vals = np.asarray(x_data)
+                y_vals = np.asarray(y_data)
+                interval = None
+                if peak_index_global is not None:
+                    half_interval = self._find_half_max_interval(x_vals, y_vals, peak_index_global)
+                    if half_interval is not None and not np.isnan(fwhm):
+                        left_x, right_x = half_interval
+                        span = right_x - left_x
+                        if 0.5 * fwhm < span < 3.0 * fwhm:
+                            interval = (left_x, right_x)
+                    if interval is None and not np.isnan(fwhm) and not np.isnan(peak_wl):
+                        interval = (peak_wl - 1.5 * fwhm, peak_wl + 1.5 * fwhm)
+                if interval is None:
+                    interval = (min_wl, max_wl)
+                left_x, right_x = interval
+                if left_x > right_x:
+                    left_x, right_x = right_x, left_x
+                left_x = max(left_x, np.min(x_vals))
+                right_x = min(right_x, np.max(x_vals))
+                area_mask = (x_vals >= left_x) & (x_vals <= right_x)
+                if np.count_nonzero(area_mask) >= 2:
+                    peak_area = float(np.trapz(y_vals[area_mask], x_vals[area_mask]))
+
+            row_values = [
+                data.get("name", ""),
+                self._format_value(peak_wl),
+                self._format_value(peak_int),
+                self._format_value(fwhm),
+                self._format_value(rms_noise),
+                self._format_value(c_noise),
+                self._format_value(snr),
+                self._format_value(peak_area),
+                "N/A",
+                "N/A",
+                "N/A",
+                "N/A",
+                "N/A",
+                "N/A",
+                "N/A",
+                "N/A",
+                "N/A",
+                "N/A",
+                "N/A",
+                "N/A",
+            ]
+
+            for col, value in enumerate(row_values):
+                item = QTableWidgetItem(value)
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                self.metrics_table.setItem(row, col, item)
+
 
     def _set_category_filter(self, category):
         if self.current_category_filter == category:
@@ -324,8 +561,18 @@ class AnalysisWindow(QMainWindow):
                     curve.setVisible(False)
 
         self._update_display_count_and_title()
+        self._refresh_metrics_table()
         if not self.user_has_interacted_with_plot:
             self.plot_widget.autoRange()
+
+    def _show_full_cell_text(self, row, column):
+        item = self.metrics_table.item(row, column)
+        if not item:
+            return
+        text = item.text()
+        if not text:
+            return
+        QToolTip.showText(QCursor.pos(), text, self.metrics_table)
 
     def _create_control_panel(self):
         scroll_area = QScrollArea()
@@ -369,16 +616,34 @@ class AnalysisWindow(QMainWindow):
         # 3. Preprocessing
         self.preprocessing_box = CollapsibleBox(parent=self)
         preprocess_layout = QVBoxLayout()
+        self.preprocessing_enabled_checkbox = QCheckBox()
+        self.preprocessing_enabled_checkbox.setChecked(self.preprocessing_enabled_default)
         self.baseline_checkbox = QCheckBox()
         self.baseline_checkbox.setChecked(self.apply_baseline_default)
         self.smoothing_checkbox = QCheckBox()
         self.smoothing_checkbox.setChecked(self.apply_smoothing_default)
-        self.display_processed_checkbox = QCheckBox()
-        self.display_processed_checkbox.setChecked(False)
         self.preprocessing_settings_button = QPushButton()
+        self.baseline_checkbox.setEnabled(self.preprocessing_enabled_default)
+        self.smoothing_checkbox.setEnabled(self.preprocessing_enabled_default)
+        preprocess_layout.addWidget(self.preprocessing_enabled_checkbox)
         preprocess_layout.addWidget(self.baseline_checkbox)
         preprocess_layout.addWidget(self.smoothing_checkbox)
-        preprocess_layout.addWidget(self.display_processed_checkbox)
+        self.noise_range_group = QGroupBox()
+        self.noise_range_layout_form = QFormLayout(self.noise_range_group)
+        self.noise_range_start_spinbox = QDoubleSpinBox()
+        self.noise_range_end_spinbox = QDoubleSpinBox()
+        for spinbox in [self.noise_range_start_spinbox, self.noise_range_end_spinbox]:
+            spinbox.setDecimals(2)
+            spinbox.setRange(200.0, 1200.0)
+            spinbox.setSingleStep(10.0)
+            spinbox.setSuffix(" nm")
+        self.noise_range_start_spinbox.setValue(450.0)
+        self.noise_range_end_spinbox.setValue(750.0)
+        self.noise_range_start_label = QLabel()
+        self.noise_range_end_label = QLabel()
+        self.noise_range_layout_form.addRow(self.noise_range_start_label, self.noise_range_start_spinbox)
+        self.noise_range_layout_form.addRow(self.noise_range_end_label, self.noise_range_end_spinbox)
+        preprocess_layout.addWidget(self.noise_range_group)
         preprocess_layout.addWidget(self.preprocessing_settings_button)
         self.preprocessing_box.setContentLayout(preprocess_layout)
         panel_layout.addWidget(self.preprocessing_box)
@@ -515,6 +780,48 @@ class AnalysisWindow(QMainWindow):
 
         container_layout.addLayout(filter_layout)
         container_layout.addWidget(self.plot_widget)
+
+        self.metrics_headers = [
+            "Spectrum",
+            "Peak Wavelength (nm)",
+            "Peak Intensity",
+            "FWHM (nm)",
+            "RMS Noise",
+            "C Noise",
+            "SNR",
+            "Peak Area",
+            "Skewness",
+            "Baseline Slope",
+            "Baseline Ripple",
+            "Repeatability WL Mean",
+            "Repeatability WL Std",
+            "Repeatability WL CV%",
+            "Repeatability Int Mean",
+            "Repeatability Int Std",
+            "Repeatability Int CV%",
+            "LOB",
+            "LOD",
+            "LOQ",
+        ]
+        self.metrics_table = QTableWidget()
+        self.metrics_table.setColumnCount(len(self.metrics_headers))
+        self.metrics_table.setHorizontalHeaderLabels(self.metrics_headers)
+        self.metrics_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.metrics_table.horizontalHeader().setStretchLastSection(False)
+        self.metrics_table.verticalHeader().setVisible(False)
+        self.metrics_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.metrics_table.setSelectionBehavior(QTableWidget.SelectItems)
+        self.metrics_table.setSelectionMode(QTableWidget.SingleSelection)
+        self.metrics_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.metrics_table.setAlternatingRowColors(False)
+        try:
+            from ..utils.config_manager import load_settings
+            theme = load_settings().get('theme', 'dark')
+            self._apply_metrics_table_theme(theme)
+        except Exception:
+            self._apply_metrics_table_theme('dark')
+
+        container_layout.addWidget(self.metrics_table)
         container_layout.addLayout(button_layout)
 
         return container_widget
@@ -536,14 +843,19 @@ class AnalysisWindow(QMainWindow):
         self.select_all_button.clicked.connect(self._select_all_spectra)
         self.deselect_all_button.clicked.connect(self._deselect_all_spectra)
         self.filter_select_button.clicked.connect(self._filter_select_spectra)
+        self.preprocessing_enabled_checkbox.toggled.connect(self._on_preprocessing_toggle_changed)
         self.baseline_checkbox.toggled.connect(self._on_preprocessing_toggle_changed)
         self.smoothing_checkbox.toggled.connect(self._on_preprocessing_toggle_changed)
         self.preprocessing_settings_button.clicked.connect(self._open_preprocessing_settings)
+        self.peak_method_combo.currentIndexChanged.connect(lambda: self._refresh_metrics_table())
+        self.metrics_table.cellClicked.connect(self._show_full_cell_text)
 
         self.range_start_spinbox.valueChanged.connect(self._on_range_spinbox_changed)
         self.range_end_spinbox.valueChanged.connect(self._on_range_spinbox_changed)
         self.region_selector.sigRegionChanged.connect(self._on_region_changed)
         self.reset_range_button.clicked.connect(self._reset_find_range)
+        self.noise_range_start_spinbox.valueChanged.connect(self._on_noise_range_spinbox_changed)
+        self.noise_range_end_spinbox.valueChanged.connect(self._on_noise_range_spinbox_changed)
 
     def _on_plot_interacted(self):
         """当用户手动缩放或平移图表时，此槽函数被调用。"""
@@ -580,9 +892,9 @@ class AnalysisWindow(QMainWindow):
         self.export_summary_button.setText(self.tr("Export Summary Report"))
 
         self.preprocessing_box.toggle_button.setText(self.tr("Preprocessing"))
+        self.preprocessing_enabled_checkbox.setText(self.tr("Enable preprocessing"))
         self.baseline_checkbox.setText(self.tr("ALS baseline"))
         self.smoothing_checkbox.setText(self.tr("Savitzky-Golay"))
-        self.display_processed_checkbox.setText(self.tr("Display processed spectra"))
         self.preprocessing_settings_button.setText(self.tr("Adjust Preprocessing Parameters..."))
 
         self.analysis_box.toggle_button.setText(self.tr("Static Analysis"))
@@ -595,6 +907,10 @@ class AnalysisWindow(QMainWindow):
         self.range_end_label.setText(self.tr("End Position:"))
         self.reset_range_button.setText(self.tr("Reset to (450-750nm)"))
 
+        self.noise_range_group.setTitle(self.tr("Noise Range"))
+        self.noise_range_start_label.setText(self.tr("Noise Start:"))
+        self.noise_range_end_label.setText(self.tr("Noise End:"))
+
         self.find_main_peak_button.setText(self.tr("Find Main Resonance Peak"))
 
         self.result_display_group.setTitle(self.tr("Analysis Results"))
@@ -605,6 +921,9 @@ class AnalysisWindow(QMainWindow):
         self.show_background_button.setText(self.tr("Background"))
         self.show_reference_button.setText(self.tr("Reference"))
         self.show_absorbance_button.setText(self.tr("Absorbance"))
+
+        if self.metrics_table and self.metrics_headers:
+            self.metrics_table.setHorizontalHeaderLabels([self.tr(text) for text in self.metrics_headers])
 
         self.export_button.setText(self.tr("Export Analysis Results"))
         self.auto_range_button.setText(self.tr("Auto Range"))
@@ -693,7 +1012,10 @@ class AnalysisWindow(QMainWindow):
             self.main_spectrum_to_analyze = None
 
     def _is_preprocessing_enabled(self):
-        return bool(self.baseline_checkbox.isChecked() or self.smoothing_checkbox.isChecked())
+        return bool(
+            self.preprocessing_enabled_checkbox.isChecked()
+            and (self.baseline_checkbox.isChecked() or self.smoothing_checkbox.isChecked())
+        )
 
     def _get_intensity_for_processing(self, intensity):
         if not self._is_preprocessing_enabled():
@@ -701,8 +1023,6 @@ class AnalysisWindow(QMainWindow):
         return self._apply_preprocessing(intensity)[0]
 
     def _get_display_intensity(self, intensity):
-        if not self.display_processed_checkbox.isChecked():
-            return intensity
         if not self._is_preprocessing_enabled():
             return intensity
         return self._apply_preprocessing(intensity)[0]
@@ -730,8 +1050,13 @@ class AnalysisWindow(QMainWindow):
 
     def _on_preprocessing_toggle_changed(self):
         if isinstance(self.app_settings, dict):
+            self.app_settings["analysis_preprocessing_enabled"] = bool(self.preprocessing_enabled_checkbox.isChecked())
             self.app_settings["analysis_baseline_enabled"] = bool(self.baseline_checkbox.isChecked())
             self.app_settings["analysis_smoothing_enabled"] = bool(self.smoothing_checkbox.isChecked())
+
+        enabled = self.preprocessing_enabled_checkbox.isChecked()
+        self.baseline_checkbox.setEnabled(enabled)
+        self.smoothing_checkbox.setEnabled(enabled)
 
         if self.average_curve_item:
             any_checked = any(
@@ -740,11 +1065,13 @@ class AnalysisWindow(QMainWindow):
             if any_checked:
                 self.calculate_average()
 
-        if self.display_processed_checkbox.isChecked():
-            self._refresh_plot_curves()
+        self._refresh_plot_curves()
 
         if self.main_spectrum_to_analyze and self.main_peak_wavelength_label.text() != "N/A":
             self.analyze_main_peak()
+
+        self._refresh_metrics_table()
+        self._auto_y_range()
 
     def _open_preprocessing_settings(self):
         if not self.spectra:
@@ -784,10 +1111,10 @@ class AnalysisWindow(QMainWindow):
                 self.app_settings["analysis_preprocessing_params"] = self.preprocessing_params.copy()
             if self.average_curve_item:
                 self.calculate_average()
-            if self.display_processed_checkbox.isChecked():
-                self._refresh_plot_curves()
+            self._refresh_plot_curves()
             if self.main_spectrum_to_analyze and self.main_peak_wavelength_label.text() != "N/A":
                 self.analyze_main_peak()
+            self._refresh_metrics_table()
 
     def _refresh_plot_curves(self):
         for data in self.spectra.values():
@@ -806,9 +1133,6 @@ class AnalysisWindow(QMainWindow):
         if not self.main_spectrum_to_analyze:
             QMessageBox.warning(self, self.tr("Info"), self.tr("No spectrum available for analysis."))
             return
-
-        if self._is_preprocessing_enabled() and not self.display_processed_checkbox.isChecked():
-            self.display_processed_checkbox.setChecked(True)
 
         x_data = self.main_spectrum_to_analyze['x']
         raw_y = self.main_spectrum_to_analyze['y']
@@ -878,11 +1202,15 @@ class AnalysisWindow(QMainWindow):
             QMessageBox.information(self, self.tr("Info"),
                                     self.tr("Report generation is already in progress, please wait..."))
             return
-        checked_spectra = {key: data for key, data in self.spectra.items() if
-                           data['list_item'].checkState() == Qt.Checked}
+        checked_spectra = {
+            key: data
+            for key, data in self.spectra.items()
+            if data['list_item'].checkState() == Qt.Checked
+            and (data.get("category") or "absorbance") == "absorbance"
+        }
         if not checked_spectra:
             QMessageBox.warning(self, self.tr("Info"),
-                                self.tr("Please check at least one spectrum to generate a report."))
+                                self.tr("Please check at least one absorbance spectrum to generate a report."))
             return
         default_save_path = self.app_settings.get('default_save_path', '')
         folder_path = QFileDialog.getExistingDirectory(self, self.tr("Select folder to save summary report"),
@@ -896,6 +1224,7 @@ class AnalysisWindow(QMainWindow):
             preprocessing_params=self.preprocessing_params,
             apply_baseline=bool(self.baseline_checkbox.isChecked()),
             apply_smoothing=bool(self.smoothing_checkbox.isChecked()),
+            preprocessing_enabled=bool(self.preprocessing_enabled_checkbox.isChecked()),
             find_range=self.region_selector.getRegion()
         )
         self.report_worker.finished.connect(self._on_summary_report_finished)
@@ -970,15 +1299,60 @@ class AnalysisWindow(QMainWindow):
             metrics_path = os.path.join(output_folder, "peak_metrics.xlsx")
             df_metrics.to_excel(metrics_path, index=False)
 
-            exporter = pg.exporters.ImageExporter(self.plot_widget.plotItem)
             image_path = os.path.join(output_folder, "spectrum_plot.png")
-            exporter.export(image_path)
+            self._export_publication_plot(image_path)
 
             QMessageBox.information(self, self.tr("Success"),
                                     self.tr("Analysis results have been exported to:\n{0}").format(output_folder))
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"),
                                  self.tr("An error occurred while exporting files: {0}").format(str(e)))
+
+    def _export_publication_plot(self, image_path):
+        try:
+            import matplotlib.pyplot as plt
+        except Exception:
+            exporter = pg.exporters.ImageExporter(self.plot_widget.plotItem)
+            exporter.export(image_path)
+            return
+
+        range_min, range_max = self.region_selector.getRegion()
+        if range_min > range_max:
+            range_min, range_max = range_max, range_min
+
+        plt.rcParams.update({
+            "font.family": "Times New Roman",
+            "axes.linewidth": 1.2,
+        })
+        fig, ax = plt.subplots(figsize=(6, 4), dpi=600)
+        for data in self.spectra.values():
+            if data['list_item'].checkState() != Qt.Checked:
+                continue
+            if data['list_item'].isHidden():
+                continue
+            x_vals = np.asarray(data['x'])
+            y_vals = np.asarray(self._get_display_intensity(data['y']))
+            mask = (x_vals >= range_min) & (x_vals <= range_max)
+            if not np.any(mask):
+                continue
+            curve = data.get('curve')
+            color = None
+            if curve is not None:
+                try:
+                    pen = curve.opts.get('pen', None)
+                    if pen is not None and hasattr(pen, 'color'):
+                        color = pen.color().getRgbF()
+                except Exception:
+                    color = None
+            ax.plot(x_vals[mask], y_vals[mask], linewidth=0.8, color=color)
+
+        ax.set_xlim(range_min, range_max)
+        ax.set_xlabel("Wavelength (nm)")
+        ax.set_ylabel("Intensity")
+        ax.grid(False)
+        fig.tight_layout()
+        fig.savefig(image_path, dpi=600)
+        plt.close(fig)
 
     def _update_curve_visibility(self, item):
         """
@@ -1095,6 +1469,21 @@ class AnalysisWindow(QMainWindow):
         self.range_end_spinbox.setValue(max_val)
         self.range_start_spinbox.blockSignals(False)
         self.range_end_spinbox.blockSignals(False)
+        self._refresh_metrics_table()
+
+    def _on_noise_range_spinbox_changed(self):
+        start_val = self.noise_range_start_spinbox.value()
+        end_val = self.noise_range_end_spinbox.value()
+        min_val, max_val = sorted([start_val, end_val])
+        if min_val != start_val or max_val != end_val:
+            self.noise_range_start_spinbox.blockSignals(True)
+            self.noise_range_end_spinbox.blockSignals(True)
+            self.noise_range_start_spinbox.setValue(min_val)
+            self.noise_range_end_spinbox.setValue(max_val)
+            self.noise_range_start_spinbox.blockSignals(False)
+            self.noise_range_end_spinbox.blockSignals(False)
+        self._refresh_metrics_table()
+        self._auto_y_range()
 
     def _reset_find_range(self):
         """当用户点击“重置范围”按钮时，将范围设为450-750nm。"""
@@ -1131,5 +1520,42 @@ class AnalysisWindow(QMainWindow):
                 ax = self.plot_widget.getPlotItem().getAxis(axis)
                 ax.setPen(axis_pen)
                 ax.setTextPen(text_pen)
+            self._apply_metrics_table_theme(theme)
         except Exception:
             pass  # 忽略错误
+
+    def _apply_metrics_table_theme(self, theme):
+        if not self.metrics_table:
+            return
+        if theme == 'light':
+            self.metrics_table.setStyleSheet(
+                "QTableView {"
+                " background-color: #f5f5f5;"
+                " color: #1f2933;"
+                " gridline-color: #d1d5db;"
+                "}"
+                "QHeaderView::section {"
+                " background-color: #e5e7eb;"
+                " color: #111827;"
+                " padding: 4px;"
+                "}"
+                "QTableView::item:selected {"
+                " background-color: #cbd5e1;"
+                "}"
+            )
+        else:
+            self.metrics_table.setStyleSheet(
+                "QTableView {"
+                " background-color: #1f2735;"
+                " color: #e2e8f0;"
+                " gridline-color: #3a4456;"
+                "}"
+                "QHeaderView::section {"
+                " background-color: #2a3445;"
+                " color: #e2e8f0;"
+                " padding: 4px;"
+                "}"
+                "QTableView::item:selected {"
+                " background-color: #2c3e50;"
+                "}"
+            )

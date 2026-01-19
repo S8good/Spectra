@@ -100,15 +100,7 @@ class PreprocessingDialog(QDialog):
 
         # --- Plotting Area ---
         self.plot_widget = pg.PlotWidget()
-        
-        # 根据主题设置背景色
-        from ..utils.config_manager import load_settings
-        settings = load_settings()
-        theme = settings.get('theme', 'dark')
-        if theme == 'light':
-            self.plot_widget.setBackground('#F0F0F0')
-        else:
-            self.plot_widget.setBackground('#1F2735')
+        self._apply_plot_theme()
 
         main_layout.addWidget(control_panel)
         main_layout.addWidget(self.plot_widget, stretch=1)
@@ -132,6 +124,8 @@ class PreprocessingDialog(QDialog):
         """ 新增：响应语言变化事件 """
         if event.type() == QEvent.LanguageChange:
             self._retranslate_ui()
+        elif event.type() == QEvent.PaletteChange:
+            self._apply_plot_theme()
         super().changeEvent(event)
 
     def _retranslate_ui(self):
@@ -165,10 +159,10 @@ class PreprocessingDialog(QDialog):
 
         # 使用翻译后的名称，重新创建曲线对象
         self.raw_curve = self.plot_widget.plot(self.wavelengths, self.raw_intensity, name=self.tr("Raw Spectrum"),
-                                               pen='w')
+                                               pen=self.raw_pen)
         self.baseline_curve = self.plot_widget.plot(name=self.tr("Fitted Baseline"),
-                                                    pen=pg.mkPen('y', style=Qt.DashLine))
-        self.processed_curve = self.plot_widget.plot(name=self.tr("Processed Spectrum"), pen=pg.mkPen('g', width=2))
+                                                    pen=self.baseline_pen)
+        self.processed_curve = self.plot_widget.plot(name=self.tr("Processed Spectrum"), pen=self.processed_pen)
 
         self._update_plot()  # 调用一次更新，确保所有曲线都有正确的数据
 
@@ -221,7 +215,7 @@ class PreprocessingDialog(QDialog):
         self.params['sg_polyorder_fine'] = self.sg_poly_fine_input.value()
         self.params['sg_two_stage'] = self.sg_two_stage_checkbox.isChecked()
 
-        self.raw_curve.setData(self.wavelengths, self.raw_intensity, pen='w')
+        self.raw_curve.setData(self.wavelengths, self.raw_intensity, pen=self.raw_pen)
         baseline = baseline_als(self.raw_intensity, lam=self.params['als_lambda'], p=self.params['als_p'])
         baseline_corrected = self.raw_intensity - baseline
         coarse_smoothed = smooth_savitzky_golay(baseline_corrected,
@@ -233,8 +227,8 @@ class PreprocessingDialog(QDialog):
                                                   polyorder=self.params['sg_polyorder_fine'])
         else:
             fine_smoothed = coarse_smoothed
-        self.baseline_curve.setData(self.wavelengths, baseline, pen=pg.mkPen('y', style=Qt.DashLine))
-        self.processed_curve.setData(self.wavelengths, fine_smoothed, pen=pg.mkPen('g', width=2))
+        self.baseline_curve.setData(self.wavelengths, baseline, pen=self.baseline_pen)
+        self.processed_curve.setData(self.wavelengths, fine_smoothed, pen=self.processed_pen)
 
     def _set_smoothing_mode(self):
         use_two_stage = bool(self.sg_two_stage_checkbox.isChecked())
@@ -260,3 +254,34 @@ class PreprocessingDialog(QDialog):
 
     def get_params(self):
         return self.params
+
+    def _apply_plot_theme(self):
+        from ..utils.config_manager import load_settings
+        settings = load_settings()
+        theme = settings.get('theme', 'dark')
+        if theme == 'light':
+            self.plot_widget.setBackground('#f5f5f5')
+            axis_pen = pg.mkPen('#111827', width=1)
+            text_pen = pg.mkPen('#111827')
+            self.raw_pen = pg.mkPen('#4b5563')
+            self.baseline_pen = pg.mkPen('#b45309', style=Qt.DashLine)
+            self.processed_pen = pg.mkPen('#15803d', width=2)
+        else:
+            self.plot_widget.setBackground('#1F2735')
+            axis_pen = pg.mkPen('#4D5A6D', width=1)
+            text_pen = pg.mkPen('#E2E8F0')
+            self.raw_pen = pg.mkPen('w')
+            self.baseline_pen = pg.mkPen('y', style=Qt.DashLine)
+            self.processed_pen = pg.mkPen('g', width=2)
+
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.2 if theme == 'light' else 0.3)
+        for axis in ("left", "bottom"):
+            ax = self.plot_widget.getPlotItem().getAxis(axis)
+            ax.setPen(axis_pen)
+            ax.setTextPen(text_pen)
+        if hasattr(self, "raw_curve"):
+            self.raw_curve.setPen(self.raw_pen)
+        if hasattr(self, "baseline_curve"):
+            self.baseline_curve.setPen(self.baseline_pen)
+        if hasattr(self, "processed_curve"):
+            self.processed_curve.setPen(self.processed_pen)

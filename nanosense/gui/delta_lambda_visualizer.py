@@ -316,7 +316,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
         preprocess_row = QHBoxLayout()
         preprocess_row.setContentsMargins(0, 0, 0, 0)
         preprocess_row.setSpacing(8)
-        baseline_default = bool(self.app_settings.get("analysis_baseline_enabled", True))
+        baseline_default = bool(self.app_settings.get("analysis_baseline_enabled", False))
         smoothing_default = bool(self.app_settings.get("analysis_smoothing_enabled", True))
         self.baseline_checkbox = QCheckBox(self.tr("ALS baseline"))
         self.baseline_checkbox.setChecked(baseline_default)
@@ -985,7 +985,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
         wl_start = self.app_settings.get("analysis_wl_start", 450.0)
         wl_end = self.app_settings.get("analysis_wl_end", 750.0)
         wl_margin = max(0.0, float(self.app_settings.get("analysis_wl_margin", 20.0)))
-        apply_baseline = bool(self.app_settings.get("analysis_baseline_enabled", True))
+        apply_baseline = bool(self.app_settings.get("analysis_baseline_enabled", False))
         apply_smoothing = bool(self.app_settings.get("analysis_smoothing_enabled", True))
 
         als_lambda = self.preprocessing_params.get("als_lambda", 1e9)
