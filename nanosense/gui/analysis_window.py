@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.exporters
+from scipy.stats import skew
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
                              QPushButton, QComboBox, QFormLayout, QDoubleSpinBox, QLabel, QGroupBox,
                              QMessageBox, QFileDialog, QInputDialog, QScrollArea, QCheckBox, QDialog,
@@ -415,126 +416,202 @@ class AnalysisWindow(QMainWindow):
         return left_cross, right_cross
 
     def _refresh_metrics_table(self):
+        """
+        刷新表格：计算所有光谱的指标（含 Q Factor、重复性、LOD等）。
+        此方法替代了原始逻辑，支持更丰富的分析参数。
+        """
         if not self.metrics_table:
             return
 
+        # 1. 筛选当前分类下的光谱
         filtered_items = [
             (key, data) for key, data in self.spectra.items()
             if (data.get("category") or "absorbance") == self.current_category_filter
         ]
 
-        self.metrics_table.setRowCount(len(filtered_items))
-
+        # 2. 获取参数设置
         min_wl, max_wl = self.region_selector.getRegion()
         if min_wl > max_wl:
             min_wl, max_wl = max_wl, min_wl
+
         noise_start = self.noise_range_start_spinbox.value()
         noise_end = self.noise_range_end_spinbox.value()
         if noise_start > noise_end:
             noise_start, noise_end = noise_end, noise_start
+
         method_key = self.peak_method_combo.currentData() or 'highest_point'
         min_height = self.peak_height_spinbox.value()
 
-        for row, (_, data) in enumerate(filtered_items):
+        # 用于计算“重复性”的列表 (这是原文件中没有的新变量)
+        all_peak_wls = []
+        all_peak_ints = []
+
+        # 临时存储每行的单体指标
+        row_calculations = []
+
+        # --- 第一步：遍历所有光谱，计算单体指标 ---
+        for key, data in filtered_items:
             x_data = np.asarray(data['x'])
             raw_y = data['y']
             y_data = self._get_intensity_for_processing(raw_y)
 
-            peak_wl = np.nan
-            peak_int = np.nan
-            fwhm = np.nan
-            peak_index_global = None
+            # 初始化指标字典 (原文件使用的是分散变量，这里统一用字典管理)
+            metrics = {
+                "name": data.get("name", ""),
+                "peak_wl": np.nan, "peak_int": np.nan, "fwhm": np.nan,
+                "rms_noise": np.nan, "c_noise": np.nan, "snr": np.nan,
+                "q_factor": np.nan,  # <--- 【新增】初始化 Q Factor
+                "peak_area": np.nan,
+                "skewness": np.nan, "slope": np.nan, "ripple": np.nan
+            }
 
+            # 掩码定义
             range_mask = (x_data >= min_wl) & (x_data <= max_wl)
             noise_mask = (x_data >= noise_start) & (x_data <= noise_end)
+
+            # A. 寻峰与峰形分析
+            peak_index_global = None
             if np.count_nonzero(range_mask) >= 3:
                 x_subset = x_data[range_mask]
                 y_subset = np.asarray(y_data)[range_mask]
+
+                # 计算偏度 (需确保头部导入了 skew: from scipy.stats import skew)
+                try:
+                    from scipy.stats import skew
+                    metrics['skewness'] = float(skew(y_subset)) if len(y_subset) > 0 else np.nan
+                except ImportError:
+                    pass
+
                 subset_index, peak_wavelength = estimate_peak_position(x_subset, y_subset, method_key)
                 if peak_wavelength is not None:
                     if subset_index is None or subset_index < 0 or subset_index >= len(x_subset):
                         subset_index = int(np.argmin(np.abs(x_subset - peak_wavelength)))
+
                     peak_value = float(y_subset[subset_index])
                     if peak_value >= min_height:
-                        peak_wl = float(peak_wavelength)
-                        peak_int = peak_value
+                        metrics['peak_wl'] = float(peak_wavelength)
+                        metrics['peak_int'] = peak_value
+
                         global_indices = np.where(range_mask)[0]
                         peak_index_global = int(global_indices[subset_index])
+
                         fwhm_results = calculate_fwhm(x_data, y_data, [peak_index_global])
                         if fwhm_results:
-                            fwhm = fwhm_results[0]
+                            metrics['fwhm'] = fwhm_results[0]
 
-            rms_noise = np.nan
-            c_noise = np.nan
+                        # ================= [新增代码] 计算 Q Factor =================
+                        # 公式: Q = Peak Wavelength / FWHM
+                        if not np.isnan(metrics['peak_wl']) and metrics.get('fwhm', 0) > 0:
+                            metrics['q_factor'] = metrics['peak_wl'] / metrics['fwhm']
+                        else:
+                            metrics['q_factor'] = np.nan
+                        # ==========================================================
+
+                        # 收集数据用于后续的群体统计
+                        all_peak_wls.append(metrics['peak_wl'])
+                        all_peak_ints.append(metrics['peak_int'])
+
+            # B. 噪声与基线分析
             if np.count_nonzero(noise_mask) >= 3:
                 x_noise = x_data[noise_mask]
                 y_noise = np.asarray(y_data)[noise_mask]
-                mean_noise = float(np.mean(y_noise))
-                detrended = y_noise - mean_noise
+
+                # 线性拟合计算基线斜率
                 if np.ptp(x_noise) > 0:
                     slope, intercept = np.polyfit(x_noise, y_noise, 1)
-                    if abs(slope) * np.ptp(x_noise) > 0.01 * max(1e-12, np.ptp(y_noise)):
-                        detrended = y_noise - (slope * x_noise + intercept)
-                rms_noise = float(np.sqrt(np.mean(detrended ** 2)))
-                c_noise = float(np.max(detrended) - np.min(detrended))
+                    metrics['slope'] = float(slope)
+                    detrended = y_noise - (slope * x_noise + intercept)
+                else:
+                    detrended = y_noise - np.mean(y_noise)
+                    metrics['slope'] = 0.0
 
-            snr = np.nan
-            if not np.isnan(peak_int) and rms_noise and rms_noise > 0:
-                snr = float(peak_int / rms_noise)
+                # 计算噪声指标
+                metrics['rms_noise'] = float(np.sqrt(np.mean(detrended ** 2)))
+                metrics['c_noise'] = float(np.ptp(detrended))
+                metrics['ripple'] = float(np.std(detrended))
 
-            peak_area = np.nan
+            # C. 衍生指标 SNR
+            if not np.isnan(metrics['peak_int']) and metrics['rms_noise'] > 0:
+                metrics['snr'] = float(metrics['peak_int'] / metrics['rms_noise'])
+
+            # D. 峰面积积分
             if np.count_nonzero(range_mask) >= 2:
-                x_vals = np.asarray(x_data)
-                y_vals = np.asarray(y_data)
                 interval = None
-                if peak_index_global is not None:
-                    half_interval = self._find_half_max_interval(x_vals, y_vals, peak_index_global)
-                    if half_interval is not None and not np.isnan(fwhm):
-                        left_x, right_x = half_interval
-                        span = right_x - left_x
-                        if 0.5 * fwhm < span < 3.0 * fwhm:
-                            interval = (left_x, right_x)
-                    if interval is None and not np.isnan(fwhm) and not np.isnan(peak_wl):
-                        interval = (peak_wl - 1.5 * fwhm, peak_wl + 1.5 * fwhm)
+                if peak_index_global is not None and not np.isnan(metrics['fwhm']) and not np.isnan(metrics['peak_wl']):
+                    interval = (metrics['peak_wl'] - 1.5 * metrics['fwhm'], metrics['peak_wl'] + 1.5 * metrics['fwhm'])
+
                 if interval is None:
                     interval = (min_wl, max_wl)
-                left_x, right_x = interval
-                if left_x > right_x:
-                    left_x, right_x = right_x, left_x
-                left_x = max(left_x, np.min(x_vals))
-                right_x = min(right_x, np.max(x_vals))
-                area_mask = (x_vals >= left_x) & (x_vals <= right_x)
-                if np.count_nonzero(area_mask) >= 2:
-                    peak_area = float(np.trapz(y_vals[area_mask], x_vals[area_mask]))
 
+                left_x, right_x = sorted(interval)
+                left_x = max(left_x, np.min(x_data))
+                right_x = min(right_x, np.max(x_data))
+
+                area_mask = (x_data >= left_x) & (x_data <= right_x)
+                if np.count_nonzero(area_mask) >= 2:
+                    metrics['peak_area'] = float(np.trapz(y_data[area_mask], x_data[area_mask]))
+
+            row_calculations.append(metrics)
+
+        # --- 第二步：计算群体统计指标 (重复性) ---
+        stats = {
+            'wl_mean': np.nan, 'wl_std': np.nan, 'wl_cv': np.nan,
+            'int_mean': np.nan, 'int_std': np.nan, 'int_cv': np.nan
+        }
+
+        if len(all_peak_wls) > 1:
+            stats['wl_mean'] = np.mean(all_peak_wls)
+            stats['wl_std'] = np.std(all_peak_wls, ddof=1)
+            stats['wl_cv'] = (stats['wl_std'] / stats['wl_mean'] * 100) if stats['wl_mean'] != 0 else 0
+
+        if len(all_peak_ints) > 1:
+            stats['int_mean'] = np.mean(all_peak_ints)
+            stats['int_std'] = np.std(all_peak_ints, ddof=1)
+            stats['int_cv'] = (stats['int_std'] / stats['int_mean'] * 100) if stats['int_mean'] != 0 else 0
+
+        # --- 第三步：填充表格 ---
+        self.metrics_table.setRowCount(len(row_calculations))
+
+        for row, m in enumerate(row_calculations):
+            # 计算 LOD/LOQ
+            lod = 3 * m['rms_noise'] if not np.isnan(m['rms_noise']) else np.nan
+            loq = 10 * m['rms_noise'] if not np.isnan(m['rms_noise']) else np.nan
+            lob = 1.645 * m['rms_noise'] if not np.isnan(m['rms_noise']) else np.nan
+
+            # 准备显示数据 (注意顺序必须与 metrics_headers 完全一致)
             row_values = [
-                data.get("name", ""),
-                self._format_value(peak_wl),
-                self._format_value(peak_int),
-                self._format_value(fwhm),
-                self._format_value(rms_noise),
-                self._format_value(c_noise),
-                self._format_value(snr),
-                self._format_value(peak_area),
-                "N/A",
-                "N/A",
-                "N/A",
-                "N/A",
-                "N/A",
-                "N/A",
-                "N/A",
-                "N/A",
-                "N/A",
-                "N/A",
-                "N/A",
-                "N/A",
+                m['name'],
+                self._format_value(m['peak_wl']),
+                self._format_value(m['peak_int']),
+                self._format_value(m['fwhm']),
+                self._format_value(m['rms_noise'], precision=6),
+                self._format_value(m['c_noise'], precision=6),
+                self._format_value(m['snr'], precision=2),
+
+                # <--- 【这里显示 Q Factor】
+                self._format_value(m['q_factor'], precision=2),
+
+                self._format_value(m['peak_area']),
+                self._format_value(m['skewness'], precision=3),
+                self._format_value(m['slope'], precision=6),
+                self._format_value(m['ripple'], precision=6),
+                # 重复性
+                self._format_value(stats['wl_mean']),
+                self._format_value(stats['wl_std'], precision=5),
+                self._format_value(stats['wl_cv'], precision=3) + "%" if not np.isnan(stats['wl_cv']) else "N/A",
+                self._format_value(stats['int_mean']),
+                self._format_value(stats['int_std'], precision=5),
+                self._format_value(stats['int_cv'], precision=3) + "%" if not np.isnan(stats['int_cv']) else "N/A",
+                # 极限
+                self._format_value(lob, precision=5),
+                self._format_value(lod, precision=5),
+                self._format_value(loq, precision=5),
             ]
 
             for col, value in enumerate(row_values):
                 item = QTableWidgetItem(value)
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                 self.metrics_table.setItem(row, col, item)
-
 
     def _set_category_filter(self, category):
         if self.current_category_filter == category:
@@ -789,6 +866,7 @@ class AnalysisWindow(QMainWindow):
             "RMS Noise",
             "C Noise",
             "SNR",
+            "Q Factor",
             "Peak Area",
             "Skewness",
             "Baseline Slope",
@@ -825,6 +903,7 @@ class AnalysisWindow(QMainWindow):
         container_layout.addLayout(button_layout)
 
         return container_widget
+
     def connect_signals(self):
         self.avg_button.clicked.connect(self.calculate_average)
         self.clear_avg_button.clicked.connect(self.clear_average_curve)
