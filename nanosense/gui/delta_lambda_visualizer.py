@@ -462,7 +462,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
         self.main_splitter.addWidget(controls_scroll_area)
 
         self.point_table = QTableWidget(0, 4)
-        self.point_table.setHorizontalHeaderLabels([self.tr('Point'), self.tr('���� (nm)'), self.tr('Status'), self.tr('Mask')])
+        self.point_table.setHorizontalHeaderLabels([self.tr('Point'), self.tr('Δλ (nm)'), self.tr('Status'), self.tr('Mask')])
         self.point_table.verticalHeader().setVisible(False)
         self.point_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.point_table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -1343,18 +1343,18 @@ class DeltaLambdaVisualizationDialog(QDialog):
         finite_values = values[np.isfinite(values)]
         total = total_points if total_points is not None else len(delta_map)
         if finite_values.size == 0:
-            stats = self.tr("???? count: 0 / {0} (filtered)").format(total)
+            stats = self.tr("Δλ count: 0 / {0} (filtered)").format(total)
         else:
-            stats = self.tr("???? count: {0} / {1}, min: {2:.2f} nm, max: {3:.2f} nm").format(
+            stats = self.tr("Δλ count: {0} / {1}, min: {2:.2f} nm, max: {3:.2f} nm").format(
                 finite_values.size,
                 total,
                 np.min(finite_values),
                 np.max(finite_values),
             )
         if not self.layout_is_plate:
-            stats += " ?? " + self.tr("Layout auto-arranged (row/column labels inferred).")
+            stats += " · " + self.tr("Layout auto-arranged (row/column labels inferred).")
         if warnings:
-            stats += " ?? " + " | ".join(warnings)
+            stats += " · " + " | ".join(warnings)
         return stats
     def _populate_point_table(self):
         sorted_items = sorted(self.delta_map.items())
@@ -1403,7 +1403,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
     def _export_matplotlib_png(self):
         grid = self._get_grid_for_export(self.include_masked_checkbox.isChecked())
         if grid is None:
-            QMessageBox.information(self, self.tr("Info"), self.tr("Please generate the ???? surface first."))
+            QMessageBox.information(self, self.tr("Info"), self.tr("Please generate the Δλ surface first."))
             return
         try:
             import matplotlib
@@ -1473,7 +1473,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
 
     def _export_delta_table(self):
         if not self.delta_map:
-            QMessageBox.information(self, self.tr("Info"), self.tr("No ???? data to export."))
+            QMessageBox.information(self, self.tr("Info"), self.tr("No Δλ data to export."))
             return
 
         plate_id = self.plate_id_edit.text().strip() or "plate"
@@ -1481,7 +1481,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
         default_name = f"{timestamp}_{plate_id}_delta_lambda_table.csv"
         path, _ = QFileDialog.getSaveFileName(
             self,
-            self.tr("Export ???? Table"),
+            self.tr("Export Δλ Table"),
             os.path.join(self.folder_path or os.path.expanduser("~"), default_name),
             "CSV Files (*.csv)",
         )
@@ -1524,7 +1524,7 @@ class DeltaLambdaVisualizationDialog(QDialog):
                 with open(log_path, "w", encoding="utf-8") as log_ptr:
                     log_ptr.write("\n".join(log_lines))
 
-            QMessageBox.information(self, self.tr("Done"), self.tr("???? table exported:\n{0}").format(path))
+            QMessageBox.information(self, self.tr("Done"), self.tr("Δλ table exported:\n{0}").format(path))
         except Exception as exc:
             QMessageBox.critical(self, self.tr("Export Error"), str(exc))
     def _export_gif(self):

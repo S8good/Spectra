@@ -85,14 +85,28 @@ class AffinityAnalysisDialog(QDialog):
         # --- Plotting Area ---
         self.plot_widget = pg.PlotWidget()
         
-        # 根据主题设置背景色
+        # 根据主题设置背景色和网格
         from ..utils.config_manager import load_settings
         settings = load_settings()
         theme = settings.get('theme', 'dark')
         if theme == 'light':
             self.plot_widget.setBackground('#F0F0F0')
+            self.plot_widget.showGrid(x=True, y=True, alpha=0.1)
+            # 浅色主题下坐标轴和坐标使用黑色
+            axis_pen = pg.mkPen("#000000", width=1)
+            text_pen = pg.mkPen("#000000")
         else:
             self.plot_widget.setBackground('#1F2735')
+            self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+            # 深色主题下坐标轴和坐标使用浅色
+            axis_pen = pg.mkPen("#4D5A6D", width=1)
+            text_pen = pg.mkPen("#E2E8F0")
+            
+        # 设置坐标轴和坐标文本颜色
+        for axis in ("left", "bottom"):
+            ax = self.plot_widget.getPlotItem().getAxis(axis)
+            ax.setPen(axis_pen)
+            ax.setTextPen(text_pen)
             
         self.data_points = pg.ScatterPlotItem(size=10, brush=pg.mkBrush(0, 100, 255, 200))
         self.fit_line = pg.PlotDataItem(pen=pg.mkPen('r', width=2))

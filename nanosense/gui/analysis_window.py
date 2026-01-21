@@ -30,11 +30,12 @@ from .preprocessing_dialog import PreprocessingDialog
 class SummaryReportWorker(QThread):
     """一个专门在后台批量分析并生成汇总报告的工作线程。"""
     progress = pyqtSignal(int, str)  # 发射进度（百分比，消息）
-    finished = pyqtSignal(str, str)  # 发射（成功消息/错误消息，报告文件路径）
+    finished = pyqtSignal(str, str)  # 发射（成功消息/错误消息，报告文件夹路径）
 
     def __init__(self, spectra_to_process, output_folder, preprocessing_params=None,
                  apply_baseline=False, apply_smoothing=False, preprocessing_enabled=True,
-                 find_range=None, parent=None):
+                 find_range=None, noise_range=None, peak_method='highest_point', 
+                 min_height=0.1, parent=None):
         super().__init__(parent)
         self.spectra = spectra_to_process
         self.output_folder = output_folder
@@ -43,8 +44,12 @@ class SummaryReportWorker(QThread):
         self.apply_smoothing = apply_smoothing
         self.preprocessing_enabled = preprocessing_enabled
         self.find_range = find_range
+        self.noise_range = noise_range or (450.0, 750.0)
+        self.peak_method = peak_method
+        self.min_height = min_height
 
     def _preprocess_intensity(self, intensity):
+        """应用预处理（基线校正和平滑）"""
         if not self.preprocessing_enabled:
             return np.asarray(intensity)
         working = np.asarray(intensity)
@@ -66,74 +71,286 @@ class SummaryReportWorker(QThread):
                 working = coarse
         return working
 
+    def _format_value(self, value, precision=4):
+        """格式化数值显示"""
+        if value is None or (isinstance(value, float) and np.isnan(value)):
+            return "N/A"
+        if isinstance(value, (int, float)):
+            return f"{value:.{precision}f}"
+        return str(value)
+
     def run(self):
         try:
-            total_spectra = len(self.spectra)
-            peak_metrics_list = []
+            # 0-5%: 创建带时间戳的输出文件夹
+            self.progress.emit(0, "Creating output folder...")
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            report_folder = os.path.join(self.output_folder, f"Summary_Report_{timestamp}")
+            os.makedirs(report_folder, exist_ok=True)
+            self.progress.emit(5, "Output folder created")
 
-            min_wl = max_wl = None
-            if self.find_range:
-                min_wl, max_wl = self.find_range
-                if min_wl > max_wl:
-                    min_wl, max_wl = max_wl, min_wl
+            total_spectra = len(self.spectra)
+            
+            # 获取寻峰范围和噪声范围
+            min_wl, max_wl = self.find_range if self.find_range else (450.0, 750.0)
+            if min_wl > max_wl:
+                min_wl, max_wl = max_wl, min_wl
+            
+            noise_start, noise_end = self.noise_range
+            if noise_start > noise_end:
+                noise_start, noise_end = noise_end, noise_start
+
+            # 5-65%: 计算所有光谱的完整指标
+            all_peak_wls = []  # 用于计算重复性
+            all_peak_ints = []
+            row_calculations = []
 
             for i, (name, data) in enumerate(self.spectra.items()):
-                self.progress.emit(int(i / total_spectra * 70), f"Analyzing: {name}")
-                x_values = np.asarray(data['x'])
-                processed_y = self._preprocess_intensity(data['y'])
-                peak_wl = np.nan
-                peak_int = np.nan
-                fwhm = np.nan
+                progress_pct = 5 + int((i / total_spectra) * 60)
+                self.progress.emit(progress_pct, f"Analyzing: {name}")
+                
+                x_data = np.asarray(data['x'])
+                y_data = self._preprocess_intensity(data['y'])
 
-                if min_wl is not None and max_wl is not None:
-                    range_mask = (x_values >= min_wl) & (x_values <= max_wl)
-                    if np.count_nonzero(range_mask) >= 3:
-                        range_indices = np.where(range_mask)[0]
-                        subset_y = processed_y[range_mask]
-                        subset_peak_index = int(np.argmax(subset_y))
-                        peak_index = range_indices[subset_peak_index]
-                        peak_wl = x_values[peak_index]
-                        peak_int = processed_y[peak_index]
-                        fwhm_results = calculate_fwhm(x_values, processed_y, [peak_index])
-                        fwhm = fwhm_results[0] if fwhm_results else np.nan
-                else:
-                    peak_index = int(np.argmax(processed_y))
-                    peak_wl = x_values[peak_index]
-                    peak_int = processed_y[peak_index]
-                    fwhm_results = calculate_fwhm(x_values, processed_y, [peak_index])
-                    fwhm = fwhm_results[0] if fwhm_results else np.nan
-                peak_metrics_list.append({
-                    'File Name': name, 'Peak Wavelength (nm)': peak_wl,
-                    'Peak Intensity': peak_int, 'FWHM (nm)': fwhm
-                })
+                # 初始化指标字典
+                metrics = {
+                    "Spectrum": data.get("name", name),
+                    "peak_wl": np.nan, "peak_int": np.nan, "fwhm": np.nan,
+                    "rms_noise": np.nan, "c_noise": np.nan, "snr": np.nan,
+                    "q_factor": np.nan, "peak_area": np.nan,
+                    "skewness": np.nan, "slope": np.nan, "ripple": np.nan,
+                    "noise_mean": np.nan  # 噪声区域均值，用于 LOB/LOD/LOQ
+                }
 
-            self.progress.emit(75, "Generating summary table...")
-            summary_df = pd.DataFrame(peak_metrics_list)
-            stats_df = summary_df[['Peak Wavelength (nm)', 'Peak Intensity', 'FWHM (nm)']].agg(['mean', 'std']).T
-            stats_df['CV (%)'] = (stats_df['std'] / stats_df['mean']) * 100
-            avg_y = np.mean([self._preprocess_intensity(data['y']) for data in self.spectra.values()], axis=0)
+                # 定义掩码
+                range_mask = (x_data >= min_wl) & (x_data <= max_wl)
+                noise_mask = (x_data >= noise_start) & (x_data <= noise_end)
+
+                # A. 寻峰与峰形分析
+                peak_index_global = None
+                if np.count_nonzero(range_mask) >= 3:
+                    x_subset = x_data[range_mask]
+                    y_subset = np.asarray(y_data)[range_mask]
+
+                    # 计算偏度
+                    try:
+                        metrics['skewness'] = float(skew(y_subset)) if len(y_subset) > 0 else np.nan
+                    except Exception:
+                        pass
+
+                    # 寻峰
+                    subset_index, peak_wavelength = estimate_peak_position(x_subset, y_subset, self.peak_method)
+                    if peak_wavelength is not None:
+                        if subset_index is None or subset_index < 0 or subset_index >= len(x_subset):
+                            subset_index = int(np.argmin(np.abs(x_subset - peak_wavelength)))
+
+                        peak_value = float(y_subset[subset_index])
+                        if peak_value >= self.min_height:
+                            metrics['peak_wl'] = float(peak_wavelength)
+                            metrics['peak_int'] = peak_value
+
+                            global_indices = np.where(range_mask)[0]
+                            peak_index_global = int(global_indices[subset_index])
+
+                            # 计算 FWHM
+                            fwhm_results = calculate_fwhm(x_data, y_data, [peak_index_global])
+                            if fwhm_results:
+                                metrics['fwhm'] = fwhm_results[0]
+
+                            # 计算 Q Factor
+                            if not np.isnan(metrics['peak_wl']) and metrics.get('fwhm', 0) > 0:
+                                metrics['q_factor'] = metrics['peak_wl'] / metrics['fwhm']
+
+                            # 收集数据用于重复性统计
+                            all_peak_wls.append(metrics['peak_wl'])
+                            all_peak_ints.append(metrics['peak_int'])
+
+                # B. 噪声与基线分析
+                if np.count_nonzero(noise_mask) >= 3:
+                    x_noise = x_data[noise_mask]
+                    y_noise = np.asarray(y_data)[noise_mask]
+                    
+                    # 记录噪声区域的原始均值（用于 LOB/LOD/LOQ 计算）
+                    metrics['noise_mean'] = float(np.mean(y_noise))
+
+                    # 线性拟合计算基线斜率
+                    if np.ptp(x_noise) > 0:
+                        slope, intercept = np.polyfit(x_noise, y_noise, 1)
+                        metrics['slope'] = float(slope)
+                        detrended = y_noise - (slope * x_noise + intercept)
+                    else:
+                        detrended = y_noise - np.mean(y_noise)
+                        metrics['slope'] = 0.0
+
+                    # 计算噪声指标
+                    metrics['rms_noise'] = float(np.sqrt(np.mean(detrended ** 2)))
+                    metrics['c_noise'] = float(np.ptp(detrended))
+                    metrics['ripple'] = float(np.std(detrended))
+
+                # C. 衍生指标 SNR
+                if not np.isnan(metrics['peak_int']) and metrics['rms_noise'] > 0:
+                    metrics['snr'] = float(metrics['peak_int'] / metrics['rms_noise'])
+
+                # D. 峰面积积分
+                if np.count_nonzero(range_mask) >= 2:
+                    interval = None
+                    if peak_index_global is not None and not np.isnan(metrics['fwhm']) and not np.isnan(metrics['peak_wl']):
+                        interval = (metrics['peak_wl'] - 1.5 * metrics['fwhm'], 
+                                   metrics['peak_wl'] + 1.5 * metrics['fwhm'])
+                    
+                    if interval is None:
+                        interval = (min_wl, max_wl)
+
+                    left_x, right_x = sorted(interval)
+                    left_x = max(left_x, np.min(x_data))
+                    right_x = min(right_x, np.max(x_data))
+
+                    area_mask = (x_data >= left_x) & (x_data <= right_x)
+                    if np.count_nonzero(area_mask) >= 2:
+                        metrics['peak_area'] = float(np.trapz(y_data[area_mask], x_data[area_mask]))
+
+                row_calculations.append(metrics)
+
+            # 65-70%: 计算群体统计指标（重复性）
+            self.progress.emit(65, "Calculating repeatability statistics...")
+            stats = {
+                'wl_mean': np.nan, 'wl_std': np.nan, 'wl_cv': np.nan,
+                'int_mean': np.nan, 'int_std': np.nan, 'int_cv': np.nan
+            }
+
+            if len(all_peak_wls) > 1:
+                stats['wl_mean'] = np.mean(all_peak_wls)
+                stats['wl_std'] = np.std(all_peak_wls, ddof=1)
+                stats['wl_cv'] = (stats['wl_std'] / stats['wl_mean'] * 100) if stats['wl_mean'] != 0 else 0
+
+            if len(all_peak_ints) > 1:
+                stats['int_mean'] = np.mean(all_peak_ints)
+                stats['int_std'] = np.std(all_peak_ints, ddof=1)
+                stats['int_cv'] = (stats['int_std'] / stats['int_mean'] * 100) if stats['int_mean'] != 0 else 0
+
+            # 70-80%: 生成 600dpi 高清叠加光谱图
+            self.progress.emit(70, "Generating 600dpi overlay spectrum plot...")
+            self._generate_overlay_plot(report_folder, min_wl, max_wl)
+            self.progress.emit(80, "Overlay plot generated")
+
+            # 80-95%: 生成多 Sheet Excel 报表
+            self.progress.emit(80, "Generating Excel report...")
+            
+            # Sheet 1: Detailed Metrics - 所有 18 项指标
+            detailed_metrics_data = []
+            for m in row_calculations:
+                row_data = {
+                    'Spectrum': m['Spectrum'],
+                    'Peak Wavelength (nm)': m['peak_wl'],
+                    'Peak Intensity': m['peak_int'],
+                    'FWHM (nm)': m['fwhm'],
+                    'RMS Noise': m['rms_noise'],
+                    'C Noise': m['c_noise'],
+                    'SNR': m['snr'],
+                    'Q Factor': m['q_factor'],
+                    'Peak Area': m['peak_area'],
+                    'Skewness': m['skewness'],
+                    'Baseline Slope': m['slope'],
+                    'Baseline Ripple': m['ripple'],
+                    'Repeatability WL Mean': stats['wl_mean'],
+                    'Repeatability WL Std': stats['wl_std'],
+                    'Repeatability WL CV%': stats['wl_cv'],
+                    'Repeatability Int Mean': stats['int_mean'],
+                    'Repeatability Int Std': stats['int_std'],
+                    'Repeatability Int CV%': stats['int_cv'],
+                }
+                detailed_metrics_data.append(row_data)
+
+            detailed_df = pd.DataFrame(detailed_metrics_data)
+
+            # Sheet 2: Statistics Summary - 统计汇总
+            self.progress.emit(85, "Calculating statistics summary...")
+            stats_columns = ['Peak Wavelength (nm)', 'Peak Intensity', 'FWHM (nm)', 
+                           'RMS Noise', 'SNR', 'Q Factor', 'Peak Area']
+            stats_summary = detailed_df[stats_columns].agg(['mean', 'std', 'min', 'max']).T
+            stats_summary['CV (%)'] = (stats_summary['std'] / stats_summary['mean']) * 100
+
+            # Sheet 3: All Spectra Data - 所有光谱原始数据
+            self.progress.emit(90, "Preparing all spectra data...")
             avg_x = next(iter(self.spectra.values()))['x']
-            avg_df = pd.DataFrame({'Wavelength (nm)': avg_x, 'Average Value': avg_y})
-            all_spectra_df_dict = {'Wavelength (nm)': avg_x}
+            all_spectra_dict = {'Wavelength (nm)': avg_x}
             for name, data in self.spectra.items():
-                all_spectra_df_dict[name] = self._preprocess_intensity(data['y'])
-            all_spectra_df = pd.DataFrame(all_spectra_df_dict)
+                all_spectra_dict[data.get('name', name)] = self._preprocess_intensity(data['y'])
+            all_spectra_df = pd.DataFrame(all_spectra_dict)
 
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-            report_path = os.path.join(self.output_folder, f"Summary_Report_{timestamp}.xlsx")
-            with pd.ExcelWriter(report_path, engine='openpyxl') as writer:
-                summary_df.to_excel(writer, sheet_name='Peak Metrics Summary', index=False)
-                stats_df.to_excel(writer, sheet_name='Statistics')
-                avg_df.to_excel(writer, sheet_name='Average Spectrum Data', index=False)
+            # Sheet 4: Average Spectrum - 平均光谱
+            avg_y = np.mean([self._preprocess_intensity(data['y']) for data in self.spectra.values()], axis=0)
+            avg_spectrum_df = pd.DataFrame({
+                'Wavelength (nm)': avg_x,
+                'Average Intensity': avg_y
+            })
+
+            # 写入 Excel 文件
+            excel_path = os.path.join(report_folder, "summary_metrics.xlsx")
+            with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+                detailed_df.to_excel(writer, sheet_name='Detailed Metrics', index=False)
+                stats_summary.to_excel(writer, sheet_name='Statistics Summary')
                 all_spectra_df.to_excel(writer, sheet_name='All Spectra Data', index=False)
+                avg_spectrum_df.to_excel(writer, sheet_name='Average Spectrum', index=False)
 
+            self.progress.emit(95, "Excel report generated")
+
+            # 100%: 完成
             self.progress.emit(100, "Report generation complete!")
-            self.finished.emit("success", report_path)
+            self.finished.emit("success", report_folder)
 
         except Exception as e:
-            error_message = f"An error occurred while generating the summary report: {e}"
+            import traceback
+            error_message = f"An error occurred while generating the summary report: {e}\n{traceback.format_exc()}"
             print(error_message)
             self.finished.emit(error_message, "")
+
+    def _generate_overlay_plot(self, output_folder, min_wl, max_wl):
+        """生成 600dpi 高清叠加光谱图"""
+        try:
+            import matplotlib
+            matplotlib.use('Agg')  # 使用非交互式后端
+            import matplotlib.pyplot as plt
+            
+            # 设置样式
+            plt.rcParams.update({
+                "font.family": "Times New Roman",
+                "font.size": 10,
+                "axes.linewidth": 1.2,
+            })
+            
+            fig, ax = plt.subplots(figsize=(8, 6), dpi=600)
+            
+            # 绘制所有光谱
+            colors = plt.cm.tab20(np.linspace(0, 1, len(self.spectra)))
+            for idx, (name, data) in enumerate(self.spectra.items()):
+                x_vals = np.asarray(data['x'])
+                y_vals = self._preprocess_intensity(data['y'])
+                
+                # 只绘制在范围内的数据
+                mask = (x_vals >= min_wl) & (x_vals <= max_wl)
+                if np.any(mask):
+                    ax.plot(x_vals[mask], y_vals[mask], 
+                           linewidth=0.8, color=colors[idx], 
+                           label=data.get('name', name), alpha=0.7)
+            
+            ax.set_xlim(min_wl, max_wl)
+            ax.set_xlabel("Wavelength (nm)", fontsize=12, fontweight='bold')
+            ax.set_ylabel("Intensity", fontsize=12, fontweight='bold')
+            ax.set_title("Overlay Spectrum Analysis", fontsize=14, fontweight='bold')
+            ax.grid(True, alpha=0.3, linestyle='--')
+            
+            # 添加图例（如果光谱不太多）
+            if len(self.spectra) <= 20:
+                ax.legend(loc='best', fontsize=8, framealpha=0.9)
+            
+            fig.tight_layout()
+            image_path = os.path.join(output_folder, "overlay_spectrum.png")
+            fig.savefig(image_path, dpi=600, bbox_inches='tight')
+            plt.close(fig)
+            
+        except Exception as e:
+            print(f"Warning: Failed to generate overlay plot with matplotlib: {e}")
+            # 如果 matplotlib 失败，跳过图片生成（或使用 pyqtgraph 作为后备）
 
 class AverageCalculator(QThread):
     finished = pyqtSignal(object)
@@ -462,7 +679,8 @@ class AnalysisWindow(QMainWindow):
                 "rms_noise": np.nan, "c_noise": np.nan, "snr": np.nan,
                 "q_factor": np.nan,  # <--- 【新增】初始化 Q Factor
                 "peak_area": np.nan,
-                "skewness": np.nan, "slope": np.nan, "ripple": np.nan
+                "skewness": np.nan, "slope": np.nan, "ripple": np.nan,
+                "noise_mean": np.nan  # 噪声区域均值，用于 LOB/LOD/LOQ
             }
 
             # 掩码定义
@@ -515,6 +733,9 @@ class AnalysisWindow(QMainWindow):
             if np.count_nonzero(noise_mask) >= 3:
                 x_noise = x_data[noise_mask]
                 y_noise = np.asarray(y_data)[noise_mask]
+                
+                # 记录噪声区域的原始均值（用于 LOB/LOD/LOQ 计算）
+                metrics['noise_mean'] = float(np.mean(y_noise))
 
                 # 线性拟合计算基线斜率
                 if np.ptp(x_noise) > 0:
@@ -573,11 +794,6 @@ class AnalysisWindow(QMainWindow):
         self.metrics_table.setRowCount(len(row_calculations))
 
         for row, m in enumerate(row_calculations):
-            # 计算 LOD/LOQ
-            lod = 3 * m['rms_noise'] if not np.isnan(m['rms_noise']) else np.nan
-            loq = 10 * m['rms_noise'] if not np.isnan(m['rms_noise']) else np.nan
-            lob = 1.645 * m['rms_noise'] if not np.isnan(m['rms_noise']) else np.nan
-
             # 准备显示数据 (注意顺序必须与 metrics_headers 完全一致)
             row_values = [
                 m['name'],
@@ -587,10 +803,7 @@ class AnalysisWindow(QMainWindow):
                 self._format_value(m['rms_noise'], precision=6),
                 self._format_value(m['c_noise'], precision=6),
                 self._format_value(m['snr'], precision=2),
-
-                # <--- 【这里显示 Q Factor】
                 self._format_value(m['q_factor'], precision=2),
-
                 self._format_value(m['peak_area']),
                 self._format_value(m['skewness'], precision=3),
                 self._format_value(m['slope'], precision=6),
@@ -602,10 +815,6 @@ class AnalysisWindow(QMainWindow):
                 self._format_value(stats['int_mean']),
                 self._format_value(stats['int_std'], precision=5),
                 self._format_value(stats['int_cv'], precision=3) + "%" if not np.isnan(stats['int_cv']) else "N/A",
-                # 极限
-                self._format_value(lob, precision=5),
-                self._format_value(lod, precision=5),
-                self._format_value(loq, precision=5),
             ]
 
             for col, value in enumerate(row_values):
@@ -877,9 +1086,6 @@ class AnalysisWindow(QMainWindow):
             "Repeatability Int Mean",
             "Repeatability Int Std",
             "Repeatability Int CV%",
-            "LOB",
-            "LOD",
-            "LOQ",
         ]
         self.metrics_table = QTableWidget()
         self.metrics_table.setColumnCount(len(self.metrics_headers))
@@ -1297,6 +1503,15 @@ class AnalysisWindow(QMainWindow):
         if not folder_path: return
         self.export_summary_button.setEnabled(False)
         self.export_summary_button.setText(self.tr("Generating..."))
+        
+        # 获取噪声范围
+        noise_start = self.noise_range_start_spinbox.value()
+        noise_end = self.noise_range_end_spinbox.value()
+        
+        # 获取寻峰方法和最小高度
+        peak_method = self.peak_method_combo.currentData() or 'highest_point'
+        min_height = self.peak_height_spinbox.value()
+        
         self.report_worker = SummaryReportWorker(
             checked_spectra,
             folder_path,
@@ -1304,17 +1519,20 @@ class AnalysisWindow(QMainWindow):
             apply_baseline=bool(self.baseline_checkbox.isChecked()),
             apply_smoothing=bool(self.smoothing_checkbox.isChecked()),
             preprocessing_enabled=bool(self.preprocessing_enabled_checkbox.isChecked()),
-            find_range=self.region_selector.getRegion()
+            find_range=self.region_selector.getRegion(),
+            noise_range=(noise_start, noise_end),
+            peak_method=peak_method,
+            min_height=min_height
         )
         self.report_worker.finished.connect(self._on_summary_report_finished)
         self.report_worker.start()
 
-    def _on_summary_report_finished(self, status, report_path):
+    def _on_summary_report_finished(self, status, report_folder):
         self.export_summary_button.setEnabled(True)
         self.export_summary_button.setText(self.tr("Export Summary Report"))
         if status == "success":
             QMessageBox.information(self, self.tr("Success"),
-                                    self.tr("Summary report successfully generated:\n{0}").format(report_path))
+                                    self.tr("Summary report successfully generated in folder:\n{0}").format(report_folder))
         else:
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to generate report:\n{0}").format(status))
 
