@@ -144,25 +144,25 @@ class SummaryReportWorker(QThread):
                             subset_index = int(np.argmin(np.abs(x_subset - peak_wavelength)))
 
                         peak_value = float(y_subset[subset_index])
-                        if peak_value >= self.min_height:
-                            metrics['peak_wl'] = float(peak_wavelength)
-                            metrics['peak_int'] = peak_value
+                        # 【已删除阈值检查】不再过滤低强度峰值
+                        metrics['peak_wl'] = float(peak_wavelength)
+                        metrics['peak_int'] = peak_value
 
-                            global_indices = np.where(range_mask)[0]
-                            peak_index_global = int(global_indices[subset_index])
+                        global_indices = np.where(range_mask)[0]
+                        peak_index_global = int(global_indices[subset_index])
 
-                            # 计算 FWHM
-                            fwhm_results = calculate_fwhm(x_data, y_data, [peak_index_global])
-                            if fwhm_results:
-                                metrics['fwhm'] = fwhm_results[0]
+                        # 计算 FWHM
+                        fwhm_results = calculate_fwhm(x_data, y_data, [peak_index_global])
+                        if fwhm_results:
+                            metrics['fwhm'] = fwhm_results[0]
 
-                            # 计算 Q Factor
-                            if not np.isnan(metrics['peak_wl']) and metrics.get('fwhm', 0) > 0:
-                                metrics['q_factor'] = metrics['peak_wl'] / metrics['fwhm']
+                        # 计算 Q Factor
+                        if not np.isnan(metrics['peak_wl']) and metrics.get('fwhm', 0) > 0:
+                            metrics['q_factor'] = metrics['peak_wl'] / metrics['fwhm']
 
-                            # 收集数据用于重复性统计
-                            all_peak_wls.append(metrics['peak_wl'])
-                            all_peak_ints.append(metrics['peak_int'])
+                        # 收集数据用于重复性统计
+                        all_peak_wls.append(metrics['peak_wl'])
+                        all_peak_ints.append(metrics['peak_int'])
 
                 # B. 噪声与基线分析
                 if np.count_nonzero(noise_mask) >= 3:
@@ -706,28 +706,28 @@ class AnalysisWindow(QMainWindow):
                         subset_index = int(np.argmin(np.abs(x_subset - peak_wavelength)))
 
                     peak_value = float(y_subset[subset_index])
-                    if peak_value >= min_height:
-                        metrics['peak_wl'] = float(peak_wavelength)
-                        metrics['peak_int'] = peak_value
+                    # 【已删除阈值检查】不再过滤低强度峰值
+                    metrics['peak_wl'] = float(peak_wavelength)
+                    metrics['peak_int'] = peak_value
 
-                        global_indices = np.where(range_mask)[0]
-                        peak_index_global = int(global_indices[subset_index])
+                    global_indices = np.where(range_mask)[0]
+                    peak_index_global = int(global_indices[subset_index])
 
-                        fwhm_results = calculate_fwhm(x_data, y_data, [peak_index_global])
-                        if fwhm_results:
-                            metrics['fwhm'] = fwhm_results[0]
+                    fwhm_results = calculate_fwhm(x_data, y_data, [peak_index_global])
+                    if fwhm_results:
+                        metrics['fwhm'] = fwhm_results[0]
 
-                        # ================= [新增代码] 计算 Q Factor =================
-                        # 公式: Q = Peak Wavelength / FWHM
-                        if not np.isnan(metrics['peak_wl']) and metrics.get('fwhm', 0) > 0:
-                            metrics['q_factor'] = metrics['peak_wl'] / metrics['fwhm']
-                        else:
-                            metrics['q_factor'] = np.nan
-                        # ==========================================================
+                    # ================= [新增代码] 计算 Q Factor =================
+                    # 公式: Q = Peak Wavelength / FWHM
+                    if not np.isnan(metrics['peak_wl']) and metrics.get('fwhm', 0) > 0:
+                        metrics['q_factor'] = metrics['peak_wl'] / metrics['fwhm']
+                    else:
+                        metrics['q_factor'] = np.nan
+                    # ==========================================================
 
-                        # 收集数据用于后续的群体统计
-                        all_peak_wls.append(metrics['peak_wl'])
-                        all_peak_ints.append(metrics['peak_int'])
+                    # 收集数据用于后续的群体统计
+                    all_peak_wls.append(metrics['peak_wl'])
+                    all_peak_ints.append(metrics['peak_int'])
 
             # B. 噪声与基线分析
             if np.count_nonzero(noise_mask) >= 3:

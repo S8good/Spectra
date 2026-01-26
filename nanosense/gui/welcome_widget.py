@@ -160,13 +160,15 @@ class WelcomeWidget(QWidget):
         # 【核心修改】移除了 self.mode_labels 列表
         self.mode_buttons = []
 
+        # 【修改】使用相对路径加载图标
+        assets_dir = os.path.join(os.path.dirname(__file__), 'assets', 'icons')
         self.buttons_info = [
-            ("Absorbance", "nanosense/gui/assets/icons/absorbance.png"),
-            ("Transmission", "nanosense/gui/assets/icons/transmission.png"),
-            ("Reflectance", "nanosense/gui/assets/icons/reflectance.png"),
-            ("Raman", "nanosense/gui/assets/icons/raman.png"),
-            ("Fluorescence", "nanosense/gui/assets/icons/fluorescence.png"),
-            ("Color", "nanosense/gui/assets/icons/color.png"),
+            ("Absorbance", os.path.join(assets_dir, "absorbance.png")),
+            ("Transmission", os.path.join(assets_dir, "transmission.png")),
+            ("Reflectance", os.path.join(assets_dir, "reflectance.png")),
+            ("Raman", os.path.join(assets_dir, "raman.png")),
+            ("Fluorescence", os.path.join(assets_dir, "fluorescence.png")),
+            ("Color", os.path.join(assets_dir, "color.png")),
         ]
 
         for index, (text_key, icon_path) in enumerate(self.buttons_info):

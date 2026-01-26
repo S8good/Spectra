@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
+  <!-- Light theme arrow (dark color) -->
+  <path class="light-arrow" d="M2 4 L6 8 L10 4" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Dark theme arrow (light color) -->
+  <path class="dark-arrow" d="M2 4 L6 8 L10 4" fill="none" stroke="#E2E8F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0"/>
+</svg>
