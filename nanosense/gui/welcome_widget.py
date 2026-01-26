@@ -192,7 +192,6 @@ class WelcomeWidget(QWidget):
         self._retranslate_ui()
 
     # (此代码块应放在 welcome_widget.py 的 WelcomeWidget 类中)
-
     def _retranslate_ui(self):
         """
         重新翻译此控件内的所有UI文本。
