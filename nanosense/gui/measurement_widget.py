@@ -925,7 +925,7 @@ class MeasurementWidget(QWidget):
         self.result_plot.setTitle(display_name, color='#90A4AE', size='12pt')
         self.result_title_label.setText(display_name)
 
-        if self.mode_name in ["Reflectance", "Absorbance", "Transmission"]:
+        if self.mode_name in ["Reflectance", "Absorbance", "Transmission", "Raman"]:
             self.capture_ref_button.show()
             self.reference_plot.show()
         else:

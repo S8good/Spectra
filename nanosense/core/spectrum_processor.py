@@ -109,6 +109,12 @@ class SpectrumProcessor(QObject):
                 result_spectrum = processed_signal - dark
             else:
                 result_spectrum = processed_signal
+            
+            # For Raman, use reference spectrum for normalization if available
+            if self.mode_name == "Raman" and self.reference_spectrum is not None:
+                safe_denominator = np.copy(smoothed_ref)
+                safe_denominator[safe_denominator == 0] = 1e-9
+                result_spectrum = result_spectrum / safe_denominator
         else:  # 原始信号模式
             result_spectrum = processed_signal
 
