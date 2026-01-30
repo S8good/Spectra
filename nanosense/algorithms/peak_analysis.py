@@ -380,3 +380,74 @@ def estimate_peak_position(wavelengths, intensities, method='highest_point'):
         print(f"estimate_peak_position failed: {exc}")
 
     return None, None
+
+
+def calculate_raman_shift(wavelengths, excitation_wavelength):
+    """
+    【计算拉曼位移】
+    将波长转换为拉曼位移（cm⁻¹）。
+    """
+    lambda_exc = excitation_wavelength * 1e-7  # 转换为cm
+    lambda_em = wavelengths * 1e-7  # 转换为cm
+    raman_shift = 10000 * (1/lambda_exc - 1/lambda_em)
+    return raman_shift
+
+
+def identify_raman_peaks(wavenumbers, intensities, min_height=None, min_distance=None):
+    """
+    【拉曼特征峰识别】
+    识别拉曼光谱中的特征峰。
+    """
+    # 使用通用寻峰函数找到所有可能的峰
+    indices, properties = find_spectral_peaks(intensities, min_height, min_distance)
+    
+    if len(indices) == 0:
+        return np.array([]), {}, []
+    
+    # 计算每个峰的拉曼位移和强度
+    peak_wavenumbers = wavenumbers[indices]
+    peak_intensities = intensities[indices]
+    
+    # 计算每个峰的FWHM
+    fwhms = calculate_fwhm(wavenumbers, intensities, indices)
+    
+    # 构建峰信息列表
+    peak_info = []
+    for i, (wn, inten, fwhm) in enumerate(zip(peak_wavenumbers, peak_intensities, fwhms)):
+        peak_info.append({
+            'wavenumber': float(wn),
+            'intensity': float(inten),
+            'fwhm': float(fwhm),
+            'index': int(indices[i])
+        })
+    
+    return indices, properties, peak_info
+
+
+def match_raman_peaks(peak_wavenumbers, reference_peaks, tolerance=5.0):
+    """
+    【拉曼峰匹配】
+    将识别的拉曼峰与参考峰进行匹配。
+    """
+    matches = []
+    
+    for peak in peak_wavenumbers:
+        # 找到最接近的参考峰
+        closest_ref = None
+        min_distance = float('inf')
+        
+        for ref_peak in reference_peaks:
+            distance = abs(peak - ref_peak)
+            if distance < min_distance:
+                min_distance = distance
+                closest_ref = ref_peak
+        
+        # 如果在容忍范围内，认为是匹配的
+        if min_distance <= tolerance:
+            matches.append({
+                'measured': float(peak),
+                'reference': float(closest_ref),
+                'difference': float(min_distance)
+            })
+    
+    return matches

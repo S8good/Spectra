@@ -13,7 +13,8 @@ from .realtime_noise_setup_dialog import RealTimeNoiseSetupDialog
 from .noise_tools import RealTimeNoiseWorker, NoiseResultDialog
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                              QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, QGridLayout,
-                             QComboBox, QDialog, QMessageBox, QToolButton, QProgressDialog, QFileDialog)
+                             QComboBox, QDialog, QMessageBox, QToolButton, QProgressDialog, QFileDialog,
+                             QCheckBox)
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
 
 import pyqtgraph as pg
@@ -86,7 +87,7 @@ class MeasurementWidget(QWidget):
         """创建经过现代化改造的控制面板"""
         scroll_area = pg.QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setFixedWidth(350)
+        scroll_area.setFixedWidth(420)
         scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
         panel_widget = QWidget()
@@ -105,6 +106,34 @@ class MeasurementWidget(QWidget):
         acq_layout.addWidget(self.toggle_acq_button)
         acq_layout.addWidget(self.capture_dark_button)
         acq_layout.addWidget(self.capture_ref_button)
+        
+        # --- Raman-specific controls ---
+        self.raman_group = QGroupBox(self.tr("Raman Settings"))
+        raman_layout = QFormLayout(self.raman_group)
+        
+        # Excitation wavelength
+        self.excitation_wavelength_spinbox = QDoubleSpinBox()
+        self.excitation_wavelength_spinbox.setRange(300.0, 1000.0)
+        self.excitation_wavelength_spinbox.setDecimals(1)
+        self.excitation_wavelength_spinbox.setValue(785.0)
+        self.excitation_wavelength_spinbox.setSuffix(" nm")
+        raman_layout.addRow(self.tr("Excitation Wavelength:"), self.excitation_wavelength_spinbox)
+        
+        # Laser power control
+        self.laser_power_spinbox = QDoubleSpinBox()
+        self.laser_power_spinbox.setRange(0.0, 100.0)
+        self.laser_power_spinbox.setDecimals(1)
+        self.laser_power_spinbox.setValue(50.0)
+        self.laser_power_spinbox.setSuffix(" %")
+        raman_layout.addRow(self.tr("Laser Power:"), self.laser_power_spinbox)
+        
+        # Scans to average
+        self.scans_to_average_spinbox = QSpinBox()
+        self.scans_to_average_spinbox.setRange(1, 100)
+        self.scans_to_average_spinbox.setValue(1)
+        raman_layout.addRow(self.tr("Scans to Average:"), self.scans_to_average_spinbox)
+        
+        acq_layout.addWidget(self.raman_group)
         self.acq_box.setContentLayout(acq_layout)
         panel_layout.addWidget(self.acq_box)
 
@@ -149,10 +178,44 @@ class MeasurementWidget(QWidget):
              self.tr("Moving Average"), self.tr("Median Filter")]
         )
         self.baseline_correction_button = QPushButton(self.tr("Correct Current Baseline"))
+        
+        # Raman-specific preprocessing controls
+        self.raman_preprocessing_group = QGroupBox(self.tr("Raman Preprocessing"))
+        raman_preprocessing_layout = QFormLayout(self.raman_preprocessing_group)
+        
+        # Fluorescence background subtraction
+        self.fluorescence_subtract_checkbox = QCheckBox(self.tr("Fluorescence Background Subtraction"))
+        self.fluorescence_subtract_checkbox.setChecked(False)
+        raman_preprocessing_layout.addRow(self.fluorescence_subtract_checkbox)
+        
+        # Rayleigh scattering removal
+        self.rayleigh_remove_checkbox = QCheckBox(self.tr("Rayleigh Scattering Removal"))
+        self.rayleigh_remove_checkbox.setChecked(False)
+        raman_preprocessing_layout.addRow(self.rayleigh_remove_checkbox)
+        
+        # Rayleigh cutoff wavenumber
+        self.rayleigh_cutoff_spinbox = QDoubleSpinBox()
+        self.rayleigh_cutoff_spinbox.setRange(0, 1000)
+        self.rayleigh_cutoff_spinbox.setDecimals(0)
+        self.rayleigh_cutoff_spinbox.setValue(200)
+        self.rayleigh_cutoff_spinbox.setSuffix(" cm⁻¹")
+        raman_preprocessing_layout.addRow(self.tr("Rayleigh Cutoff:"), self.rayleigh_cutoff_spinbox)
+        
+        # Normalization
+        self.normalization_combo = QComboBox()
+        self.normalization_combo.addItems([
+            self.tr("No Normalization"),
+            self.tr("Peak Height Normalization"),
+            self.tr("Area Normalization"),
+            self.tr("Standard Normal Variate (SNV)")
+        ])
+        raman_preprocessing_layout.addRow(self.tr("Normalization:"), self.normalization_combo)
+        
         self.params_layout.addRow(self.tr("Integration Time:"), self.integration_time_spinbox)
         self.params_layout.addRow(self.tr("Smoothing Method:"), self.smooth_method_combo)
         self.params_layout.addRow(self.tr("Smoothing Window:"), self.smoothing_window_spinbox)
         self.params_layout.addRow(self.baseline_correction_button)
+        self.params_layout.addRow(self.raman_preprocessing_group)
         self.params_box.setContentLayout(self.params_layout)
         panel_layout.addWidget(self.params_box)
 
@@ -205,6 +268,12 @@ class MeasurementWidget(QWidget):
         self.main_peak_intensity_label = QLabel("N/A")
         self.result_display_layout.addRow(self.tr("Peak Wavelength (nm):"), self.main_peak_wavelength_label)
         self.result_display_layout.addRow(self.tr("Peak Intensity:"), self.main_peak_intensity_label)
+        
+        # Wavelength/Wavenumber toggle for Raman
+        self.wavenumber_toggle = QPushButton(self.tr("Switch to Wavenumber"))
+        self.wavenumber_toggle.setCheckable(True)
+        analysis_outer_layout.addWidget(self.wavenumber_toggle)
+        
         analysis_outer_layout.addWidget(self.result_display_group)
         self.analysis_box.setContentLayout(analysis_outer_layout)
         panel_layout.addWidget(self.analysis_box)
@@ -457,6 +526,8 @@ class MeasurementWidget(QWidget):
         self.load_data_button.clicked.connect(self._load_spectrum_data_for_comparison)
         self.set_baseline_button.clicked.connect(self._set_kinetics_baseline_from_current_peak)
         self.toggle_kinetics_button.clicked.connect(self._toggle_kinetics_window)
+        # Wavelength/Wavenumber toggle
+        self.wavenumber_toggle.clicked.connect(self._toggle_wavelength_wavenumber)
 
         self.save_all_button.clicked.connect(self._save_all_spectra)
 
@@ -683,6 +754,20 @@ class MeasurementWidget(QWidget):
         else:
             self.capture_ref_button.hide()
             self.reference_plot.hide()
+        
+        # Show/hide Raman-specific controls
+        if hasattr(self, 'raman_group'):
+            if self.mode_name == "Raman":
+                self.raman_group.show()
+            else:
+                self.raman_group.hide()
+        
+        # Show/hide Raman preprocessing controls
+        if hasattr(self, 'raman_preprocessing_group'):
+            if self.mode_name == "Raman":
+                self.raman_preprocessing_group.show()
+            else:
+                self.raman_preprocessing_group.hide()
 
         self.processor.set_mode(mode_name)
         self.processor.clear_background()
@@ -770,7 +855,9 @@ class MeasurementWidget(QWidget):
         self._update_result_plot_with_crop()
 
     def _update_result_plot_with_crop(self):
-        """根据显示范围裁剪完整结果光谱并更新绘图。"""
+        """
+        根据显示范围裁剪完整结果光谱并更新绘图。
+        """
         if self.full_result_y is None:
             self.result_curve.clear()
             return
@@ -781,6 +868,40 @@ class MeasurementWidget(QWidget):
         mask = (self.full_result_x >= start_wl) & (self.full_result_x <= end_wl)
         x_cropped = self.full_result_x[mask]
         y_cropped = self.full_result_y[mask]
+
+        # Apply Raman preprocessing if in Raman mode
+        if self.mode_name == "Raman":
+            from nanosense.algorithms.preprocessing import (
+                remove_rayleigh_scattering,
+                fluorescence_background_subtraction,
+                normalize_spectrum
+            )
+            
+            # Apply Rayleigh scattering removal
+            if self.rayleigh_remove_checkbox.isChecked():
+                excitation_wavelength = self.excitation_wavelength_spinbox.value()
+                cutoff_wavenumber = self.rayleigh_cutoff_spinbox.value()
+                y_cropped = remove_rayleigh_scattering(
+                    x_cropped, 
+                    y_cropped, 
+                    excitation_wavelength, 
+                    cutoff_wavenumber
+                )
+            
+            # Apply fluorescence background subtraction
+            if self.fluorescence_subtract_checkbox.isChecked():
+                y_cropped = fluorescence_background_subtraction(y_cropped)
+            
+            # Apply normalization
+            normalization_method = self.normalization_combo.currentText()
+            norm_method_map = {
+                "No Normalization": "none",
+                "Peak Height Normalization": "peak_height",
+                "Area Normalization": "area",
+                "Standard Normal Variate (SNV)": "snv"
+            }
+            norm_method = norm_method_map.get(normalization_method, "none")
+            y_cropped = normalize_spectrum(y_cropped, norm_method)
 
         self.result_curve.setData(x_cropped, y_cropped)
 
@@ -1213,3 +1334,103 @@ class MeasurementWidget(QWidget):
                     ax.setTextPen(text_pen)
         except Exception:
             pass  # 忽略错误
+    
+    def wavelength_to_raman_shift(self, wavelengths, excitation_wavelength):
+        """
+        将波长转换为拉曼位移
+        :param wavelengths: 波长数组（nm）
+        :param excitation_wavelength: 激发波长（nm）
+        :return: 拉曼位移数组（cm⁻¹）
+        """
+        lambda_exc = excitation_wavelength * 1e-7  # 转换为cm
+        lambda_em = wavelengths * 1e-7  # 转换为cm
+        raman_shift = 10000 * (1/lambda_exc - 1/lambda_em)
+        return raman_shift
+    
+    def raman_shift_to_wavelength(self, raman_shifts, excitation_wavelength):
+        """
+        将拉曼位移转换为波长
+        :param raman_shifts: 拉曼位移数组（cm⁻¹）
+        :param excitation_wavelength: 激发波长（nm）
+        :return: 波长数组（nm）
+        """
+        lambda_exc = excitation_wavelength * 1e-7  # 转换为cm
+        raman_shift_cm = raman_shifts / 10000  # 转换为cm⁻¹
+        lambda_em = 1 / (1/lambda_exc - raman_shift_cm)
+        return lambda_em * 1e7  # 转换回nm
+    
+    def _toggle_wavelength_wavenumber(self):
+        """
+        切换波长和波数显示
+        """
+        if self.mode_name != "Raman":
+            QMessageBox.warning(self, self.tr("Warning"), self.tr("Wavenumber display is only available in Raman mode"))
+            self.wavenumber_toggle.setChecked(False)
+            return
+        
+        if self.full_result_x is None or self.full_result_y is None:
+            QMessageBox.warning(self, self.tr("Warning"), self.tr("No spectrum data available"))
+            self.wavenumber_toggle.setChecked(False)
+            return
+        
+        excitation_wavelength = self.excitation_wavelength_spinbox.value()
+        
+        if self.wavenumber_toggle.isChecked():
+            # Switch to wavenumber
+            self.wavenumber_toggle.setText(self.tr("Switch to Wavelength"))
+            
+            # Convert wavelength to wavenumber
+            wavenumbers = self.wavelength_to_raman_shift(self.full_result_x, excitation_wavelength)
+            
+            # Update result plot
+            self.result_curve.setData(wavenumbers, self.full_result_y)
+            self.result_plot.setLabel('bottom', self.tr('Raman Shift (cm⁻¹)'))
+            
+            # Update peak labels
+            self.result_display_layout.labelForField(self.main_peak_wavelength_label).setText(self.tr("Peak Wavenumber (cm⁻¹):"))
+            
+            # Update peak markers if any
+            if hasattr(self, 'peak_markers'):
+                peaks = self.peak_markers.getData()
+                if peaks:
+                    peak_wavelengths = peaks[0]
+                    peak_intensities = peaks[1]
+                    peak_wavenumbers = self.wavelength_to_raman_shift(peak_wavelengths, excitation_wavelength)
+                    self.peak_markers.setData(peak_wavenumbers, peak_intensities)
+            
+            if hasattr(self, 'main_peak_marker'):
+                main_peak = self.main_peak_marker.getData()
+                if main_peak:
+                    main_peak_wavelength = main_peak[0][0]
+                    main_peak_intensity = main_peak[1][0]
+                    main_peak_wavenumber = self.wavelength_to_raman_shift(np.array([main_peak_wavelength]), excitation_wavelength)[0]
+                    self.main_peak_marker.setData([main_peak_wavenumber], [main_peak_intensity])
+                    self.main_peak_wavelength_label.setText(f"{main_peak_wavenumber:.2f}")
+        else:
+            # Switch back to wavelength
+            self.wavenumber_toggle.setText(self.tr("Switch to Wavenumber"))
+            
+            # Update result plot
+            self.result_curve.setData(self.full_result_x, self.full_result_y)
+            self.result_plot.setLabel('bottom', self.tr('Wavelength (nm)'))
+            
+            # Update peak labels
+            self.result_display_layout.labelForField(self.main_peak_wavelength_label).setText(self.tr("Peak Wavelength (nm):"))
+            
+            # Update peak markers if any
+            if hasattr(self, 'peak_markers'):
+                peaks = self.peak_markers.getData()
+                if peaks:
+                    peak_wavenumbers = peaks[0]
+                    peak_intensities = peaks[1]
+                    peak_wavelengths = self.raman_shift_to_wavelength(peak_wavenumbers, excitation_wavelength)
+                    self.peak_markers.setData(peak_wavelengths, peak_intensities)
+            
+            if hasattr(self, 'main_peak_marker'):
+                main_peak = self.main_peak_marker.getData()
+                if main_peak:
+                    main_peak_wavenumber = main_peak[0][0]
+                    main_peak_intensity = main_peak[1][0]
+                    main_peak_wavelength = self.raman_shift_to_wavelength(np.array([main_peak_wavenumber]), excitation_wavelength)[0]
+                    self.main_peak_marker.setData([main_peak_wavelength], [main_peak_intensity])
+                    self.main_peak_wavelength_label.setText(f"{main_peak_wavelength:.2f}")

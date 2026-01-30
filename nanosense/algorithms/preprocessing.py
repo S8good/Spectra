@@ -56,3 +56,78 @@ def baseline_als(y, lam=1e6, p=0.01, niter=10):
         z = spsolve(Z, w * y)
         w = p * (y > z) + (1 - p) * (y < z)
     return z
+
+
+def remove_rayleigh_scattering(wavelengths, spectrum, excitation_wavelength, cutoff_wavenumber=200):
+    """
+    【瑞利散射去除】
+    去除瑞利散射峰附近的信号，避免其干扰拉曼信号分析。
+    """
+    # 计算瑞利散射的波长范围
+    lambda_exc = excitation_wavelength
+    # 转换截止波数为波长
+    lambda_cutoff = 1 / (1/(lambda_exc * 1e-7) - cutoff_wavenumber / 10000) * 1e7
+    
+    # 创建掩码，保留截止波长以外的信号
+    mask = np.abs(wavelengths - lambda_exc) > np.abs(lambda_cutoff - lambda_exc)
+    
+    # 应用掩码
+    filtered_spectrum = spectrum.copy()
+    filtered_spectrum[~mask] = 0
+    
+    return filtered_spectrum
+
+
+def fluorescence_background_subtraction(spectrum, window_size=51, poly_order=3):
+    """
+    【荧光背景扣除】
+    使用多项式拟合去除荧光背景。
+    """
+    # 生成波长索引
+    x = np.arange(len(spectrum))
+    
+    # 使用Savitzky-Golay滤波估计背景
+    background = savgol_filter(spectrum, window_size, poly_order)
+    
+    # 扣除背景
+    corrected_spectrum = spectrum - background
+    
+    # 确保结果非负
+    corrected_spectrum = np.maximum(corrected_spectrum, 0)
+    
+    return corrected_spectrum
+
+
+def standard_normal_variate(spectrum):
+    """
+    【标准正态变量变换 (Standard Normal Variate, SNV)】
+    对光谱进行标准化处理，提高不同光谱之间的可比性。
+    """
+    mean = np.mean(spectrum)
+    std = np.std(spectrum)
+    if std == 0:
+        return spectrum
+    return (spectrum - mean) / std
+
+
+def normalize_spectrum(spectrum, method='none'):
+    """
+    【光谱归一化】
+    支持多种归一化方法。
+    """
+    if method == 'none':
+        return spectrum
+    elif method == 'peak_height':
+        max_val = np.max(spectrum)
+        if max_val == 0:
+            return spectrum
+        return spectrum / max_val
+    elif method == 'area':
+        area = np.sum(spectrum)
+        if area == 0:
+            return spectrum
+        return spectrum / area
+    elif method == 'snv':
+        return standard_normal_variate(spectrum)
+    else:
+        return spectrum
