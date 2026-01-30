@@ -1771,13 +1771,16 @@ class AppWindow(QMainWindow):
         self.translator = None
         
         if language == 'zh':
-            translation_path = os.path.join('nanosense', 'translations', 'chinese.qm')
+            # 使用绝对路径加载翻译文件
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            translation_path = os.path.join(current_dir, '..', 'translations', 'chinese.qm')
+            translation_path = os.path.normpath(translation_path)
             translator = QTranslator()
             
             if os.path.exists(translation_path) and translator.load(translation_path):
                 app.installTranslator(translator)
                 self.translator = translator
-                print("Chinese translation loaded.")
+                print(f"Chinese translation loaded from {translation_path}.")
                 return 'zh'
             
             print(f"Warning: Chinese translation file not found or failed to load from {translation_path}.")

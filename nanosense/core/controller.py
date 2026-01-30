@@ -148,6 +148,30 @@ class FX2000Controller:
         else:
             print("警告：当前API不支持设置平均扫描次数。")
 
+    def set_excitation_wavelength(self, wavelength: float):
+        """【预留】设置激发波长。"""
+        if hasattr(self.api_wrapper, 'setExcitationWavelength'):
+            self.api_wrapper.setExcitationWavelength(self.device_index, wavelength)
+            print(f"已设置激发波长: {wavelength} nm")
+        else:
+            print(f"警告：当前API不支持设置激发波长。已记录波长值: {wavelength} nm")
+
+    def set_laser_power(self, power_percent: float):
+        """【预留】设置激光功率。"""
+        if hasattr(self.api_wrapper, 'setLaserPower'):
+            self.api_wrapper.setLaserPower(self.device_index, power_percent)
+            print(f"已设置激光功率: {power_percent}%")
+        else:
+            print(f"警告：当前API不支持设置激光功率。已记录功率值: {power_percent}%")
+
+    def set_laser_state(self, enabled: bool):
+        """【预留】设置激光开关状态。"""
+        if hasattr(self.api_wrapper, 'setLaserState'):
+            self.api_wrapper.setLaserState(self.device_index, enabled)
+            print(f"已{'开启' if enabled else '关闭'}激光")
+        else:
+            print(f"警告：当前API不支持控制激光状态。已记录状态: {'开启' if enabled else '关闭'}")
+
     def get_spectrum(self):
         """【已修正】获取一条光谱数据，确保返回值为Numpy数组。"""
         import numpy as np  # Ensure numpy is imported

@@ -26,6 +26,13 @@ from nanosense.algorithms.peak_analysis import (
     PEAK_METHOD_KEYS,
     PEAK_METHOD_LABELS,
     estimate_peak_position,
+    calculate_sers_enhancement_factor,
+)
+from nanosense.algorithms.raman_database import (
+    create_raman_database,
+    search_raman_substances_by_peaks,
+    get_raman_substance_info,
+    get_all_raman_substances,
 )
 from nanosense.core.controller import FX2000Controller
 from nanosense.utils.file_io import save_spectrum, load_spectrum, save_all_spectra_to_file
@@ -111,13 +118,31 @@ class MeasurementWidget(QWidget):
         self.raman_group = QGroupBox(self.tr("Raman Settings"))
         raman_layout = QFormLayout(self.raman_group)
         
-        # Excitation wavelength
+        # Excitation wavelength with quick select buttons
+        wavelength_layout = QVBoxLayout()
+        wavelength_input_layout = QHBoxLayout()
         self.excitation_wavelength_spinbox = QDoubleSpinBox()
         self.excitation_wavelength_spinbox.setRange(300.0, 1000.0)
         self.excitation_wavelength_spinbox.setDecimals(1)
         self.excitation_wavelength_spinbox.setValue(785.0)
         self.excitation_wavelength_spinbox.setSuffix(" nm")
-        raman_layout.addRow(self.tr("Excitation Wavelength:"), self.excitation_wavelength_spinbox)
+        wavelength_input_layout.addWidget(self.excitation_wavelength_spinbox)
+        
+        # Quick select buttons for common wavelengths
+        wavelength_buttons_layout = QHBoxLayout()
+        common_wavelengths = [532.0, 633.0, 785.0]
+        self.wavelength_buttons = []
+        for wl in common_wavelengths:
+            button = QPushButton(f"{wl} nm")
+            button.setFixedWidth(80)
+            button.clicked.connect(lambda checked, w=wl: self.excitation_wavelength_spinbox.setValue(w))
+            self.wavelength_buttons.append(button)
+            wavelength_buttons_layout.addWidget(button)
+        wavelength_buttons_layout.addStretch()
+        
+        wavelength_layout.addLayout(wavelength_input_layout)
+        wavelength_layout.addLayout(wavelength_buttons_layout)
+        raman_layout.addRow(self.tr("Excitation Wavelength:"), wavelength_layout)
         
         # Laser power control
         self.laser_power_spinbox = QDoubleSpinBox()
@@ -126,6 +151,12 @@ class MeasurementWidget(QWidget):
         self.laser_power_spinbox.setValue(50.0)
         self.laser_power_spinbox.setSuffix(" %")
         raman_layout.addRow(self.tr("Laser Power:"), self.laser_power_spinbox)
+        
+        # Laser on/off button with safety warning
+        self.laser_button = QPushButton(self.tr("Turn Laser ON"))
+        self.laser_button.setCheckable(True)
+        self.laser_button.setStyleSheet("QPushButton:checked { background-color: #ef4444; color: white; }")
+        raman_layout.addRow(self.tr("Laser Control:"), self.laser_button)
         
         # Scans to average
         self.scans_to_average_spinbox = QSpinBox()
@@ -277,6 +308,139 @@ class MeasurementWidget(QWidget):
         analysis_outer_layout.addWidget(self.result_display_group)
         self.analysis_box.setContentLayout(analysis_outer_layout)
         panel_layout.addWidget(self.analysis_box)
+
+        # --- SERS Analysis ---        
+        self.sers_box = CollapsibleBox(self.tr("SERS Analysis"))
+        sers_layout = QVBoxLayout()
+        sers_layout.setSpacing(10)
+        
+        # SERS analysis form
+        sers_form_layout = QFormLayout()
+        
+        # Reference material selection
+        self.reference_material_combo = QComboBox()
+        self.reference_material_combo.addItems([
+            self.tr("Rhodamine 6G"),
+            self.tr("Crystal Violet"),
+            self.tr("Phenylalanine"),
+            self.tr("Custom")
+        ])
+        sers_form_layout.addRow(self.tr("Reference Material:"), self.reference_material_combo)
+        
+        # SERS substrate selection
+        self.substrate_combo = QComboBox()
+        self.substrate_combo.addItems([
+            self.tr("Gold Nanoparticles"),
+            self.tr("Silver Nanoparticles"),
+            self.tr("Gold Nanostars"),
+            self.tr("Custom")
+        ])
+        sers_form_layout.addRow(self.tr("SERS Substrate:"), self.substrate_combo)
+        
+        # Concentration inputs
+        self.sers_concentration_spinbox = QDoubleSpinBox()
+        self.sers_concentration_spinbox.setRange(1e-12, 1.0)
+        self.sers_concentration_spinbox.setDecimals(12)
+        self.sers_concentration_spinbox.setValue(1e-6)
+        self.sers_concentration_spinbox.setSuffix(" M")
+        sers_form_layout.addRow(self.tr("SERS Concentration:"), self.sers_concentration_spinbox)
+        
+        self.reference_concentration_spinbox = QDoubleSpinBox()
+        self.reference_concentration_spinbox.setRange(1e-12, 1.0)
+        self.reference_concentration_spinbox.setDecimals(12)
+        self.reference_concentration_spinbox.setValue(1e-4)
+        self.reference_concentration_spinbox.setSuffix(" M")
+        sers_form_layout.addRow(self.tr("Reference Concentration:"), self.reference_concentration_spinbox)
+        
+        # Calculation method
+        self.sers_method_combo = QComboBox()
+        self.sers_method_combo.addItems([
+            self.tr("Peak Height"),
+            self.tr("Area")
+        ])
+        sers_form_layout.addRow(self.tr("Calculation Method:"), self.sers_method_combo)
+        
+        sers_layout.addLayout(sers_form_layout)
+        
+        # Analysis button
+        self.calculate_sers_button = QPushButton(self.tr("Calculate SERS Enhancement Factor"))
+        sers_layout.addWidget(self.calculate_sers_button)
+        
+        # SERS result display
+        self.sers_result_group = QGroupBox(self.tr("SERS Analysis Results"))
+        self.sers_result_layout = QFormLayout(self.sers_result_group)
+        self.sers_enhancement_label = QLabel("N/A")
+        self.sers_enhancement_label.setStyleSheet("font-weight: bold;")
+        self.sers_result_layout.addRow(self.tr("Enhancement Factor:"), self.sers_enhancement_label)
+        sers_layout.addWidget(self.sers_result_group)
+        
+        self.sers_box.setContentLayout(sers_layout)
+        panel_layout.addWidget(self.sers_box)
+
+        # --- Raman Database ---        
+        self.database_box = CollapsibleBox(self.tr("Raman Database"))
+        database_layout = QVBoxLayout()
+        database_layout.setSpacing(10)
+        
+        # Database search form
+        database_form_layout = QFormLayout()
+        
+        # Substance search
+        self.substance_search_combo = QComboBox()
+        # 初始化时将在set_mode中填充
+        database_form_layout.addRow(self.tr("Search Substance:"), self.substance_search_combo)
+        
+        # Peak range search
+        self.peak_range_start_spinbox = QDoubleSpinBox()
+        self.peak_range_start_spinbox.setRange(0, 4000)
+        self.peak_range_start_spinbox.setDecimals(0)
+        self.peak_range_start_spinbox.setValue(400)
+        self.peak_range_start_spinbox.setSuffix(" cm⁻¹")
+        database_form_layout.addRow(self.tr("Peak Range Start:"), self.peak_range_start_spinbox)
+        
+        self.peak_range_end_spinbox = QDoubleSpinBox()
+        self.peak_range_end_spinbox.setRange(0, 4000)
+        self.peak_range_end_spinbox.setDecimals(0)
+        self.peak_range_end_spinbox.setValue(1800)
+        self.peak_range_end_spinbox.setSuffix(" cm⁻¹")
+        database_form_layout.addRow(self.tr("Peak Range End:"), self.peak_range_end_spinbox)
+        
+        # Match tolerance
+        self.database_tolerance_spinbox = QDoubleSpinBox()
+        self.database_tolerance_spinbox.setRange(0.1, 20.0)
+        self.database_tolerance_spinbox.setDecimals(1)
+        self.database_tolerance_spinbox.setValue(5.0)
+        self.database_tolerance_spinbox.setSuffix(" cm⁻¹")
+        database_form_layout.addRow(self.tr("Match Tolerance:"), self.database_tolerance_spinbox)
+        
+        database_layout.addLayout(database_form_layout)
+        
+        # Database buttons
+        database_buttons_layout = QHBoxLayout()
+        self.search_substance_button = QPushButton(self.tr("Search Substance"))
+        self.match_peaks_button = QPushButton(self.tr("Match Peaks"))
+        self.view_database_button = QPushButton(self.tr("View Database"))
+        database_buttons_layout.addWidget(self.search_substance_button)
+        database_buttons_layout.addWidget(self.match_peaks_button)
+        database_buttons_layout.addWidget(self.view_database_button)
+        database_layout.addLayout(database_buttons_layout)
+        
+        # Database result display
+        self.database_result_group = QGroupBox(self.tr("Database Results"))
+        self.database_result_layout = QFormLayout(self.database_result_group)
+        self.database_substance_label = QLabel("N/A")
+        self.database_peaks_label = QLabel("N/A")
+        self.database_description_label = QLabel("N/A")
+        self.database_match_label = QLabel("N/A")
+        
+        self.database_result_layout.addRow(self.tr("Substance:"), self.database_substance_label)
+        self.database_result_layout.addRow(self.tr("Characteristic Peaks:"), self.database_peaks_label)
+        self.database_result_layout.addRow(self.tr("Description:"), self.database_description_label)
+        self.database_result_layout.addRow(self.tr("Match Score:"), self.database_match_label)
+        database_layout.addWidget(self.database_result_group)
+        
+        self.database_box.setContentLayout(database_layout)
+        panel_layout.addWidget(self.database_box)
 
         # --- Kinetics Monitoring & Data Operations ---
         self.kinetics_box = CollapsibleBox(self.tr("Kinetics Monitoring"))
@@ -534,6 +698,19 @@ class MeasurementWidget(QWidget):
         self.range_start_spinbox.valueChanged.connect(self._on_range_spinbox_changed)
         self.range_end_spinbox.valueChanged.connect(self._on_range_spinbox_changed)
         self.region_selector.sigRegionChanged.connect(self._on_region_changed)
+        
+        # SERS analysis
+        self.calculate_sers_button.clicked.connect(self._calculate_sers_enhancement)
+        
+        # Raman database
+        self.search_substance_button.clicked.connect(self._search_substance)
+        self.match_peaks_button.clicked.connect(self._match_peaks_with_database)
+        self.view_database_button.clicked.connect(self._view_database)
+        
+        # Laser control
+        self.laser_button.clicked.connect(self._on_laser_button_clicked)
+        self.excitation_wavelength_spinbox.valueChanged.connect(self._on_excitation_wavelength_changed)
+        self.laser_power_spinbox.valueChanged.connect(self._on_laser_power_changed)
 
     def _open_single_plot_window(self, plot_type):
         """创建并显示一个独立的图表窗口。"""
@@ -768,6 +945,25 @@ class MeasurementWidget(QWidget):
                 self.raman_preprocessing_group.show()
             else:
                 self.raman_preprocessing_group.hide()
+        
+        # Show/hide SERS analysis controls
+        if hasattr(self, 'sers_box'):
+            if self.mode_name == "Raman":
+                self.sers_box.show()
+            else:
+                self.sers_box.hide()
+        
+        # Show/hide Raman database controls
+        if hasattr(self, 'database_box'):
+            if self.mode_name == "Raman":
+                self.database_box.show()
+                # 填充物质搜索下拉菜单
+                if hasattr(self, 'substance_search_combo'):
+                    substances = get_all_raman_substances()
+                    self.substance_search_combo.clear()
+                    self.substance_search_combo.addItems(substances)
+            else:
+                self.database_box.hide()
 
         self.processor.set_mode(mode_name)
         self.processor.clear_background()
@@ -1147,6 +1343,195 @@ class MeasurementWidget(QWidget):
             plot_type = item['type']
             if plot_type in ['signal', 'background', 'reference', 'result']:
                 win.update_view_and_limits(x_range=None, y_range=None)
+
+    def _calculate_sers_enhancement(self):
+        """
+        计算SERS增强因子
+        """
+        if self.mode_name != "Raman":
+            QMessageBox.warning(self, self.tr("Warning"), self.tr("SERS analysis is only available in Raman mode"))
+            return
+        
+        if self.full_result_y is None:
+            QMessageBox.warning(self, self.tr("Warning"), self.tr("No spectrum data available"))
+            return
+        
+        # 获取SERS和参考光谱数据
+        sers_intensities = self.full_result_y
+        
+        # 检查参考光谱是否可用
+        if self.processor.reference_spectrum is None:
+            QMessageBox.warning(self, self.tr("Warning"), self.tr("No reference spectrum available. Please capture a reference spectrum first."))
+            return
+        
+        reference_intensities = self.processor.reference_spectrum
+        
+        # 获取浓度值
+        sers_concentration = self.sers_concentration_spinbox.value()
+        reference_concentration = self.reference_concentration_spinbox.value()
+        
+        # 获取计算方法
+        method = self.sers_method_combo.currentText()
+        method_key = 'peak_height' if method == self.tr("Peak Height") else 'area'
+        
+        # 计算增强因子
+        enhancement_factor = calculate_sers_enhancement_factor(
+            sers_intensities,
+            reference_intensities,
+            sers_concentration,
+            reference_concentration,
+            method=method_key
+        )
+        
+        if enhancement_factor is not None:
+            # 显示结果
+            self.sers_enhancement_label.setText(f"{enhancement_factor:.2e}")
+            print(self.tr("Calculated SERS enhancement factor: {0:.2e}").format(enhancement_factor))
+        else:
+            QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to calculate SERS enhancement factor"))
+
+    def _search_substance(self):
+        """
+        搜索指定物质的拉曼特征峰
+        """
+        substance_name = self.substance_search_combo.currentText()
+        if not substance_name:
+            QMessageBox.warning(self, self.tr("Warning"), self.tr("Please select a substance"))
+            return
+        
+        # 获取物质信息
+        substance_info = get_raman_substance_info(substance_name)
+        if substance_info:
+            # 显示物质信息
+            self.database_substance_label.setText(substance_name)
+            peaks_str = ', '.join([f"{peak}" for peak in substance_info["peaks"]])
+            self.database_peaks_label.setText(peaks_str)
+            self.database_description_label.setText(substance_info["description"])
+            self.database_match_label.setText("N/A")
+            print(self.tr("Found substance: {0}").format(substance_name))
+        else:
+            QMessageBox.warning(self, self.tr("Error"), self.tr("Substance not found in database"))
+
+    def _match_peaks_with_database(self):
+        """
+        将测量的峰与数据库中的物质匹配
+        """
+        if self.mode_name != "Raman":
+            QMessageBox.warning(self, self.tr("Warning"), self.tr("Peak matching is only available in Raman mode"))
+            return
+        
+        if self.full_result_y is None:
+            QMessageBox.warning(self, self.tr("Warning"), self.tr("No spectrum data available"))
+            return
+        
+        # 检查是否在波数模式
+        if not self.wavenumber_toggle.isChecked():
+            QMessageBox.warning(self, self.tr("Warning"), self.tr("Please switch to wavenumber mode first"))
+            return
+        
+        # 获取峰位数据
+        if hasattr(self, 'peak_markers'):
+            peaks = self.peak_markers.getData()
+            if peaks:
+                peak_wavenumbers = peaks[0]
+                if len(peak_wavenumbers) == 0:
+                    QMessageBox.warning(self, self.tr("Warning"), self.tr("No peaks detected. Please find peaks first"))
+                    return
+                
+                # 获取匹配容差
+                tolerance = self.database_tolerance_spinbox.value()
+                
+                # 匹配峰位
+                matches = search_raman_substances_by_peaks(peak_wavenumbers, tolerance)
+                
+                if matches:
+                    # 显示最佳匹配
+                    best_match = matches[0]
+                    self.database_substance_label.setText(best_match["substance"])
+                    peaks_str = ', '.join([f"{peak}" for peak in best_match["reference_peaks"]])
+                    self.database_peaks_label.setText(peaks_str)
+                    self.database_description_label.setText(best_match["description"])
+                    self.database_match_label.setText(f"{best_match['match_score']:.2f}")
+                    
+                    print(self.tr("Best match: {0} (Score: {1:.2f})").format(best_match["substance"], best_match["match_score"]))
+                else:
+                    QMessageBox.information(self, self.tr("Information"), self.tr("No matches found in database"))
+            else:
+                QMessageBox.warning(self, self.tr("Warning"), self.tr("No peaks detected. Please find peaks first"))
+        else:
+            QMessageBox.warning(self, self.tr("Error"), self.tr("Peak markers not available"))
+
+    def _view_database(self):
+        """
+        查看数据库中的所有物质
+        """
+        substances = get_all_raman_substances()
+        if substances:
+            # 创建简单的数据库查看对话框
+            from PyQt5.QtWidgets import QDialog, QVBoxLayout, QListWidget, QLabel, QPushButton
+            
+            dialog = QDialog(self)
+            dialog.setWindowTitle(self.tr("Raman Database"))
+            dialog.resize(400, 300)
+            
+            layout = QVBoxLayout(dialog)
+            
+            label = QLabel(self.tr("Available Substances:"))
+            layout.addWidget(label)
+            
+            list_widget = QListWidget()
+            list_widget.addItems(substances)
+            layout.addWidget(list_widget)
+            
+            button = QPushButton(self.tr("Close"))
+            button.clicked.connect(dialog.accept)
+            layout.addWidget(button)
+            
+            dialog.exec_()
+        else:
+            QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to load database"))
+
+    def _on_laser_button_clicked(self, checked):
+        """
+        处理激光按钮点击事件
+        """
+        if checked:
+            # 激光开启确认
+            reply = QMessageBox.question(self, self.tr("Laser Safety Warning"),
+                                       self.tr('''Are you sure you want to turn on the laser?
+
+Laser radiation can be harmful to eyes and skin.
+Please ensure proper safety precautions are in place.
+
+Do you wish to continue?'''),
+                                       QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            
+            if reply == QMessageBox.Yes:
+                self.laser_button.setText(self.tr("Turn Laser OFF"))
+                # 调用控制器设置激光状态
+                if self.controller:
+                    self.controller.set_laser_state(True)
+            else:
+                self.laser_button.setChecked(False)
+        else:
+            self.laser_button.setText(self.tr("Turn Laser ON"))
+            # 调用控制器设置激光状态
+            if self.controller:
+                self.controller.set_laser_state(False)
+
+    def _on_excitation_wavelength_changed(self, value):
+        """
+        处理激发波长变化
+        """
+        if self.controller:
+            self.controller.set_excitation_wavelength(value)
+
+    def _on_laser_power_changed(self, value):
+        """
+        处理激光功率变化
+        """
+        if self.controller:
+            self.controller.set_laser_power(value)
 
     def start_realtime_noise_analysis(self):
         if not self.is_acquiring:

@@ -451,3 +451,68 @@ def match_raman_peaks(peak_wavenumbers, reference_peaks, tolerance=5.0):
             })
     
     return matches
+
+
+def calculate_sers_enhancement_factor(sers_intensities, reference_intensities, 
+                                     sers_concentration, reference_concentration, 
+                                     method='peak_height'):
+    """
+    【SERS增强因子计算】
+    计算SERS增强因子(EF)，基于参考物质和SERS基底的信号强度比。
+    
+    参数:
+    sers_intensities: numpy数组，SERS光谱强度数据
+    reference_intensities: numpy数组，参考光谱强度数据
+    sers_concentration: float，SERS样品浓度
+    reference_concentration: float，参考样品浓度
+    method: str，增强因子计算方法 ('peak_height' 或 'area')
+    
+    返回:
+    float: 计算得到的SERS增强因子
+    """
+    try:
+        if sers_intensities is None or reference_intensities is None:
+            print("错误: 缺少光谱数据")
+            return None
+        
+        if len(sers_intensities) == 0 or len(reference_intensities) == 0:
+            print("错误: 光谱数据为空")
+            return None
+        
+        if sers_concentration <= 0 or reference_concentration <= 0:
+            print("错误: 浓度必须大于0")
+            return None
+        
+        if method == 'peak_height':
+            # 使用峰高计算增强因子
+            sers_peak = np.max(sers_intensities)
+            reference_peak = np.max(reference_intensities)
+            
+            if reference_peak == 0:
+                print("错误: 参考光谱峰高为0")
+                return None
+            
+            # 增强因子计算公式: EF = (I_sers / C_sers) / (I_ref / C_ref)
+            enhancement_factor = (sers_peak / sers_concentration) / (reference_peak / reference_concentration)
+            
+        elif method == 'area':
+            # 使用峰面积计算增强因子
+            sers_area = np.sum(sers_intensities)
+            reference_area = np.sum(reference_intensities)
+            
+            if reference_area == 0:
+                print("错误: 参考光谱面积为0")
+                return None
+            
+            # 增强因子计算公式: EF = (A_sers / C_sers) / (A_ref / C_ref)
+            enhancement_factor = (sers_area / sers_concentration) / (reference_area / reference_concentration)
+            
+        else:
+            print(f"错误: 不支持的计算方法: {method}")
+            return None
+        
+        return float(enhancement_factor)
+        
+    except Exception as e:
+        print(f"计算SERS增强因子时发生错误: {e}")
+        return None
