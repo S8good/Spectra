@@ -161,7 +161,7 @@ def generate_pdf_report(report_subfolder, input_filename, analysis_results):
         ax.set_facecolor('#f8f9fa')
         
         img_buffer = BytesIO()
-        fig.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+        fig.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
         img_buffer.seek(0)
         plt.close(fig)
         
@@ -275,7 +275,7 @@ def generate_word_report(report_subfolder, input_filename, analysis_results):
         
         # 保存图表到临时文件
         spectrum_plot_path = os.path.join(report_subfolder, 'spectrum_plot.png')
-        fig.savefig(spectrum_plot_path, format='png', dpi=150, bbox_inches='tight')
+        fig.savefig(spectrum_plot_path, format='png', dpi=300, bbox_inches='tight')
         plt.close(fig)
         
         # 添加图片到Word文档

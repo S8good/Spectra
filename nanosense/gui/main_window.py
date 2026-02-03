@@ -420,13 +420,18 @@ class AppWindow(QMainWindow):
         return True
     def apply_styles(self):
         """应用样式表"""
+        # 获取 down_arrow.svg 图标的绝对路径
+        import os
+        assets_dir = os.path.join(os.path.dirname(__file__), 'assets')
+        down_arrow_path = os.path.join(assets_dir, 'down_arrow.svg').replace('\\', '/')
+        
         # 检查当前主题设置
         theme = self.app_settings.get('theme', 'dark')
         
         if theme == 'light':
             # 改进的浅色主题样式表
             self.setStyleSheet("""
-                /* ===== Global Settings ===== */
+                /* ===== 全局设置 ===== */
                 QMainWindow, QDialog, QWidget {
                     background-color: #F8F9FA; /* 现代浅灰背景 */
                     color: #212529; /* 深灰色文字 */
@@ -434,14 +439,14 @@ class AppWindow(QMainWindow):
                     font-size: 14px;
                 }
                 
-                /* ===== Main Content Panel Style  ===== */
+                /* ===== 主内容面板样式 ===== */
                 #plotsContainer {
                     background-color: #FFFFFF; /* 纯白容器 */
                     border-radius: 8px;
                     border: 1px solid #DEE2E6; /* 浅灰边框 */
                 }
                 
-                /* ===== Custom CollapsibleBox Style ===== */
+                /* ===== 自定义折叠框样式 ===== */
                 CollapsibleBox {
                     margin-bottom: 4px; 
                 }
@@ -464,7 +469,7 @@ class AppWindow(QMainWindow):
                     margin: 0px 5px 0px 5px;
                 }
                 
-                /* ===== GroupBox & Custom CollapsibleBox ===== */
+                /* ===== GroupBox & 自定义折叠框 ===== */
                 QGroupBox {
                     background-color: #FFFFFF;
                     border: 1px solid #DEE2E6;
@@ -481,7 +486,7 @@ class AppWindow(QMainWindow):
                     font-weight: bold;
                 }
                 
-                /* Style for your CollapsibleBox's button */
+                /* 折叠框按钮的样式 */
                 CollapsibleBox > QToolButton {
                     background-color: #FFFFFF;
                     border: 1px solid #DEE2E6;
@@ -491,7 +496,7 @@ class AppWindow(QMainWindow):
                     color: #495057;
                 }
                 
-                /* ===== Buttons ===== */
+                /* ===== 按钮 ===== */
                 QPushButton {
                     background-color: #3B82F6; /* 现代蓝色主按钮 */
                     color: white;
@@ -514,7 +519,7 @@ class AppWindow(QMainWindow):
                     color: #6C757D;
                 }
                 
-                /* ===== Input Widgets ===== */
+                /* ===== 输入控件 ===== */
                 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
                     background-color: #FFFFFF;
                     color: #212529;
@@ -534,7 +539,7 @@ class AppWindow(QMainWindow):
                 }
                 
                 QComboBox::down-arrow {
-                    image: url(nanosense/gui/assets/down_arrow.svg);
+                    image: url({down_arrow_path});
                     width: 12px;
                     height: 12px;
                 }
@@ -547,7 +552,7 @@ class AppWindow(QMainWindow):
                     selection-color: white;
                 }
                 
-                /* ===== Table & List ===== */
+                /* ===== 表格与列表 ===== */
                 QTableWidget, QListWidget {
                     background-color: #FFFFFF;
                     border: 1px solid #CED4DA;
@@ -572,7 +577,7 @@ class AppWindow(QMainWindow):
                     color: white;
                 }
                 
-                /* ===== Scroll Bars ===== */
+                /* ===== 滚动条 ===== */
                 QScrollBar:vertical {
                     border: none;
                     background: #F1F3F5;
@@ -607,7 +612,7 @@ class AppWindow(QMainWindow):
                     width: 0px;
                 }
                 
-                /* ===== Tab Widget Style ===== */
+                /* ===== 标签页样式 ===== */
                 QTabWidget::pane {
                     border: 1px solid #DEE2E6;
                     border-top: none;
@@ -635,7 +640,7 @@ class AppWindow(QMainWindow):
                     background-color: #E9ECEF;
                 }
                 
-                /* ===== Menu Bar Style ===== */
+                /* ===== 菜单栏样式 ===== */
                 QMenuBar {
                     background-color: #FFFFFF;
                     color: #212529;
@@ -680,7 +685,7 @@ class AppWindow(QMainWindow):
         else:
             # 深色主题样式表（原有代码）
             self.setStyleSheet("""
-                /* ===== Global Settings ===== */
+                /* ===== 全局设置 ===== */
                 QMainWindow, QDialog, QWidget {
                     background-color: #1A202C; /* 深蓝色背景 */
                     color: #E2E8F0; /* 柔和的白色文字 */
@@ -688,13 +693,13 @@ class AppWindow(QMainWindow):
                     font-size: 14px;
                 }
                 
-                /* ===== Main Content Panel Style  ===== */
+                /* ===== 主内容面板样式 ===== */
                 #plotsContainer {
                     background-color: #2D3748; /* 使用一个比面板稍亮颜色的容器 */
                     border-radius: 8px;      /* 添加圆角使其看起来更柔和 */
                 }
                 
-                /* ===== Custom CollapsibleBox Style ===== */
+                /* ===== 自定义折叠框样式 ===== */
                 CollapsibleBox {
                     /* 为整个控件设置外边距，创造呼吸感 */
                     margin-bottom: 4px; 
@@ -718,7 +723,7 @@ class AppWindow(QMainWindow):
                     margin: 0px 5px 0px 5px; /* 左右两侧留出一些边距 */
                 }
                 
-                /* ===== GroupBox & Custom CollapsibleBox ===== */
+                /* ===== GroupBox & 自定义折叠框 ===== */
                 QGroupBox {
                     background-color: #2D3748; /* 稍亮的面板背景 */
                     border: 1px solid #4A5568;
@@ -734,7 +739,7 @@ class AppWindow(QMainWindow):
                     color: #A0AEC0;
                 }
                 
-                /* Style for your CollapsibleBox's button */
+                /* 折叠框按钮的样式 */
                 CollapsibleBox > QToolButton {
                     background-color: #2D3748;
                     border: 1px solid #4A5568;
@@ -744,7 +749,7 @@ class AppWindow(QMainWindow):
                     color: #CBD5E0;
                 }
                 
-                /* ===== Buttons ===== */
+                /* ===== 按钮 ===== */
                 QPushButton {
                     background-color: #3182CE; /* 蓝色主按钮 */
                     color: white;
@@ -767,7 +772,7 @@ class AppWindow(QMainWindow):
                     color: #A0AEC0;
                 }
                 
-                /* ===== Input Widgets ===== */
+                /* ===== 输入控件 ===== */
                 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
                     background-color: #2D3748;
                     color: #E2E8F0;
@@ -785,7 +790,7 @@ class AppWindow(QMainWindow):
                 }
                 
                 QComboBox::down-arrow {
-                    image: url(nanosense/gui/assets/down_arrow.svg); /* (需要一个白色向下箭头SVG图标) */
+                    image: url({down_arrow_path}); /* 使用动态绝对路径 */
                 }
                 
                 QComboBox QAbstractItemView {
@@ -795,7 +800,7 @@ class AppWindow(QMainWindow):
                     selection-background-color: #3182CE; /* 选中项的背景色 */
                 }
                 
-                /* ===== Table & List ===== */
+                /* ===== 表格与列表 ===== */
                 QTableWidget, QListWidget {
                     background-color: #2D3748;
                     border: 1px solid #4A5568;
@@ -819,7 +824,7 @@ class AppWindow(QMainWindow):
                     color: white;
                 }
                 
-                /* ===== Scroll Bars ===== */
+                /* ===== 滚动条 ===== */
                 QScrollBar:vertical {
                     border: none;
                     background: #2D3748;
@@ -854,7 +859,7 @@ class AppWindow(QMainWindow):
                     width: 0px;
                 }
                 
-                /* ===== Tab Widget Style (标签页组件) ===== */
+                /* ===== 标签页样式 ===== */
                 QTabWidget::pane { /* Tab页的边框和背景 */
                     border: 1px solid #4A5568;
                     border-top: none; /* 移除顶部边框，使Tab页与上方内容无缝衔接 */
@@ -881,7 +886,7 @@ class AppWindow(QMainWindow):
                     background-color: #384253;
                 }
                 
-                /* ===== Menu Bar Style (菜单栏) ===== */
+                /* ===== 菜单栏样式 ===== */
                 QMenuBar {
                     background-color: #1A202C; /* 匹配主窗口背景色 */
                     color: #E2E8F0;
@@ -1759,7 +1764,7 @@ class AppWindow(QMainWindow):
             self.run_dialog.remaining_time_label.setText(status["remaining_time"])
     def _load_translator(self, language: str) -> str:
         """
-        Install translator for the requested language and return the language that was actually applied.
+        为请求的语言安装翻译器，并返回实际应用的语言。
         """
         app = QApplication.instance()
         if app is None:
@@ -1792,17 +1797,17 @@ class AppWindow(QMainWindow):
         """
         applied_language = self._load_translator(language)
         
-        # Step 4: update language toggle state
+        # 第4步：更新语言切换状态
         is_chinese = (applied_language == "zh")
         self.menuBar().language_zh_action.setChecked(is_chinese)
         self.menuBar().language_en_action.setChecked(not is_chinese)
         
-        # Step 5: persist selection
+        # 第5步：持久化选择
         self.app_settings["language"] = applied_language
         self.current_language = applied_language
         save_settings(self.app_settings)
         
-        # Step 6: refresh all visible UI
+        # 第6步：刷新所有可见的UI
         self._retranslate_ui()
     def _retranslate_ui(self):
         """

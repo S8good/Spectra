@@ -78,8 +78,14 @@ class MeasurementWidget(QWidget):
         self.processor.result_updated.connect(self._on_result_updated)
         self.processor.background_updated.connect(self._on_background_updated)
         self.processor.reference_updated.connect(self._on_reference_updated)
-
-        self._update_plot_x_range()
+        
+        # 连接平滑参数控件信号
+        self.smooth_method_combo.currentTextChanged.connect(self._update_smoothing_params)
+        self.smoothing_window_spinbox.valueChanged.connect(self._update_smoothing_params)
+        
+        # 初始化处理器的平滑参数
+        self._update_smoothing_params()
+        # 旧的 _update_plot_x_range() 已移除，现在由 analysis_range 统一管理
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
@@ -103,7 +109,7 @@ class MeasurementWidget(QWidget):
         panel_layout.setSpacing(8)
         panel_layout.setContentsMargins(10, 10, 10, 10)
 
-        # --- Acquisition Control ---
+        # --- 采集控制 ---
         self.acq_box = CollapsibleBox(self.tr("Acquisition Control"))
         acq_layout = QVBoxLayout()
         acq_layout.setSpacing(10)
@@ -114,11 +120,11 @@ class MeasurementWidget(QWidget):
         acq_layout.addWidget(self.capture_dark_button)
         acq_layout.addWidget(self.capture_ref_button)
         
-        # --- Raman-specific controls ---
+        # --- 拉曼专用控件 ---
         self.raman_group = QGroupBox(self.tr("Raman Settings"))
         raman_layout = QFormLayout(self.raman_group)
         
-        # Excitation wavelength with quick select buttons
+        # 带有快速选择按钮的激发波长
         wavelength_layout = QVBoxLayout()
         wavelength_input_layout = QHBoxLayout()
         self.excitation_wavelength_spinbox = QDoubleSpinBox()
@@ -128,7 +134,7 @@ class MeasurementWidget(QWidget):
         self.excitation_wavelength_spinbox.setSuffix(" nm")
         wavelength_input_layout.addWidget(self.excitation_wavelength_spinbox)
         
-        # Quick select buttons for common wavelengths
+        # 常用波长的快速选择按钮
         wavelength_buttons_layout = QHBoxLayout()
         common_wavelengths = [532.0, 633.0, 785.0]
         self.wavelength_buttons = []
@@ -144,7 +150,7 @@ class MeasurementWidget(QWidget):
         wavelength_layout.addLayout(wavelength_buttons_layout)
         raman_layout.addRow(self.tr("Excitation Wavelength:"), wavelength_layout)
         
-        # Laser power control
+        # 激光功率控制
         self.laser_power_spinbox = QDoubleSpinBox()
         self.laser_power_spinbox.setRange(0.0, 100.0)
         self.laser_power_spinbox.setDecimals(1)
@@ -152,13 +158,13 @@ class MeasurementWidget(QWidget):
         self.laser_power_spinbox.setSuffix(" %")
         raman_layout.addRow(self.tr("Laser Power:"), self.laser_power_spinbox)
         
-        # Laser on/off button with safety warning
+        # 带有安全警告的激光开关按钮
         self.laser_button = QPushButton(self.tr("Turn Laser ON"))
         self.laser_button.setCheckable(True)
         self.laser_button.setStyleSheet("QPushButton:checked { background-color: #ef4444; color: white; }")
         raman_layout.addRow(self.tr("Laser Control:"), self.laser_button)
         
-        # Scans to average
+        # 平均扫描次数
         self.scans_to_average_spinbox = QSpinBox()
         self.scans_to_average_spinbox.setRange(1, 100)
         self.scans_to_average_spinbox.setValue(1)
@@ -168,30 +174,9 @@ class MeasurementWidget(QWidget):
         self.acq_box.setContentLayout(acq_layout)
         panel_layout.addWidget(self.acq_box)
 
-        # --- Display Range Control ---
-        self.range_box = CollapsibleBox(self.tr("Display Range Control"))
-        self.range_layout = QFormLayout()
-        self.range_layout.setSpacing(10)
-        self.display_range_start_spinbox = QDoubleSpinBox()
-        self.display_range_end_spinbox = QDoubleSpinBox()
+        # --- 显示范围控制已移除，统一到参数与预处理中的分析范围 ---
 
-        for spinbox in [self.display_range_start_spinbox, self.display_range_end_spinbox]:
-            spinbox.setDecimals(2)
-            spinbox.setRange(0, 1300)
-            spinbox.setSingleStep(10.0)
-            spinbox.setSuffix(self.tr(" nm"))
-
-        self.display_range_start_spinbox.setValue(400.0)
-        self.display_range_end_spinbox.setValue(850.0)
-
-        self.reset_range_button = QPushButton(self.tr("Reset Display Range"))
-        self.range_layout.addRow(self.tr("Start Wavelength:"), self.display_range_start_spinbox)
-        self.range_layout.addRow(self.tr("End Wavelength:"), self.display_range_end_spinbox)
-        self.range_layout.addRow(self.reset_range_button)
-        self.range_box.setContentLayout(self.range_layout)
-        panel_layout.addWidget(self.range_box)
-
-        # --- Parameters & Preprocessing ---
+        # --- 参数与预处理 ---
         self.params_box = CollapsibleBox(self.tr("Parameters & Preprocessing"))
         self.params_layout = QFormLayout()
         self.params_layout.setSpacing(10)
@@ -210,21 +195,21 @@ class MeasurementWidget(QWidget):
         )
         self.baseline_correction_button = QPushButton(self.tr("Correct Current Baseline"))
         
-        # Raman-specific preprocessing controls
+        # 拉曼专用预处理控件
         self.raman_preprocessing_group = QGroupBox(self.tr("Raman Preprocessing"))
         raman_preprocessing_layout = QFormLayout(self.raman_preprocessing_group)
         
-        # Fluorescence background subtraction
+        # 荧光背景扣除
         self.fluorescence_subtract_checkbox = QCheckBox(self.tr("Fluorescence Background Subtraction"))
         self.fluorescence_subtract_checkbox.setChecked(False)
         raman_preprocessing_layout.addRow(self.fluorescence_subtract_checkbox)
         
-        # Rayleigh scattering removal
+        # 瑞利散射去除
         self.rayleigh_remove_checkbox = QCheckBox(self.tr("Rayleigh Scattering Removal"))
         self.rayleigh_remove_checkbox.setChecked(False)
         raman_preprocessing_layout.addRow(self.rayleigh_remove_checkbox)
         
-        # Rayleigh cutoff wavenumber
+        # 瑞利截止波数
         self.rayleigh_cutoff_spinbox = QDoubleSpinBox()
         self.rayleigh_cutoff_spinbox.setRange(0, 1000)
         self.rayleigh_cutoff_spinbox.setDecimals(0)
@@ -232,7 +217,7 @@ class MeasurementWidget(QWidget):
         self.rayleigh_cutoff_spinbox.setSuffix(" cm⁻¹")
         raman_preprocessing_layout.addRow(self.tr("Rayleigh Cutoff:"), self.rayleigh_cutoff_spinbox)
         
-        # Normalization
+        # 归一化
         self.normalization_combo = QComboBox()
         self.normalization_combo.addItems([
             self.tr("No Normalization"),
@@ -247,10 +232,36 @@ class MeasurementWidget(QWidget):
         self.params_layout.addRow(self.tr("Smoothing Window:"), self.smoothing_window_spinbox)
         self.params_layout.addRow(self.baseline_correction_button)
         self.params_layout.addRow(self.raman_preprocessing_group)
+        
+        # 统一的分析范围设置
+        self.analysis_range_group = QGroupBox(self.tr("Analysis Range"))
+        analysis_range_layout = QFormLayout(self.analysis_range_group)
+        
+        self.analysis_start_spinbox = QDoubleSpinBox()
+        self.analysis_start_spinbox.setRange(200.0, 1200.0)
+        self.analysis_start_spinbox.setValue(500.0)
+        self.analysis_start_spinbox.setSuffix(" nm")
+        self.analysis_start_spinbox.setDecimals(1)
+        self.analysis_start_spinbox.setToolTip(
+            self.tr("Start wavelength for display, peak finding, and preprocessing")
+        )
+        
+        self.analysis_end_spinbox = QDoubleSpinBox()
+        self.analysis_end_spinbox.setRange(200.0, 1200.0)
+        self.analysis_end_spinbox.setValue(800.0)
+        self.analysis_end_spinbox.setSuffix(" nm")
+        self.analysis_end_spinbox.setDecimals(1)
+        self.analysis_end_spinbox.setToolTip(
+            self.tr("End wavelength for display, peak finding, and preprocessing")
+        )
+        
+        analysis_range_layout.addRow(self.tr("Start:"), self.analysis_start_spinbox)
+        analysis_range_layout.addRow(self.tr("End:"), self.analysis_end_spinbox)
+        self.params_layout.addRow(self.analysis_range_group)
         self.params_box.setContentLayout(self.params_layout)
         panel_layout.addWidget(self.params_box)
 
-        # --- Spectral Analysis ---
+        # --- 光谱分析 ---
         self.analysis_box = CollapsibleBox(self.tr("Spectral Analysis"))
         analysis_outer_layout = QVBoxLayout()
         analysis_outer_layout.setSpacing(10)
@@ -277,18 +288,7 @@ class MeasurementWidget(QWidget):
         self.analysis_form_layout.addRow(self.tr("Main Peak Algorithm:"), self.peak_method_combo)
         self.analysis_form_layout.addRow(self.tr("Minimum Peak Height:"), self.peak_height_spinbox)
         analysis_outer_layout.addLayout(self.analysis_form_layout)
-        self.range_group = QGroupBox(self.tr("Spectral Peak Find Range"))
-        self.range_layout_form = QFormLayout(self.range_group)
-        self.range_start_spinbox = QDoubleSpinBox()
-        self.range_end_spinbox = QDoubleSpinBox()
-        for spinbox in [self.range_start_spinbox, self.range_end_spinbox]:
-            spinbox.setDecimals(2)
-            spinbox.setRange(200.0, 1200.0)
-            spinbox.setSingleStep(10.0)
-            spinbox.setSuffix(self.tr(" nm"))
-        self.range_layout_form.addRow(self.tr("Start Position:"), self.range_start_spinbox)
-        self.range_layout_form.addRow(self.tr("End Position:"), self.range_end_spinbox)
-        analysis_outer_layout.addWidget(self.range_group)
+        # --- 寻峰范围已移除，统一到参数与预处理中的分析范围 ---
         analysis_outer_layout.addWidget(self.find_peaks_button)
         analysis_outer_layout.addWidget(self.find_main_peak_button)
         self.result_display_group = QGroupBox(self.tr("Analysis Results"))
@@ -300,7 +300,7 @@ class MeasurementWidget(QWidget):
         self.result_display_layout.addRow(self.tr("Peak Wavelength (nm):"), self.main_peak_wavelength_label)
         self.result_display_layout.addRow(self.tr("Peak Intensity:"), self.main_peak_intensity_label)
         
-        # Wavelength/Wavenumber toggle for Raman
+        # 拉曼光谱的波长/波数切换
         self.wavenumber_toggle = QPushButton(self.tr("Switch to Wavenumber"))
         self.wavenumber_toggle.setCheckable(True)
         analysis_outer_layout.addWidget(self.wavenumber_toggle)
@@ -309,15 +309,15 @@ class MeasurementWidget(QWidget):
         self.analysis_box.setContentLayout(analysis_outer_layout)
         panel_layout.addWidget(self.analysis_box)
 
-        # --- SERS Analysis ---        
+        # --- SERS分析 ---        
         self.sers_box = CollapsibleBox(self.tr("SERS Analysis"))
         sers_layout = QVBoxLayout()
         sers_layout.setSpacing(10)
         
-        # SERS analysis form
+        # SERS分析表单
         sers_form_layout = QFormLayout()
         
-        # Reference material selection
+        # 参考物质选择
         self.reference_material_combo = QComboBox()
         self.reference_material_combo.addItems([
             self.tr("Rhodamine 6G"),
@@ -327,7 +327,7 @@ class MeasurementWidget(QWidget):
         ])
         sers_form_layout.addRow(self.tr("Reference Material:"), self.reference_material_combo)
         
-        # SERS substrate selection
+        # SERS基底选择
         self.substrate_combo = QComboBox()
         self.substrate_combo.addItems([
             self.tr("Gold Nanoparticles"),
@@ -337,7 +337,7 @@ class MeasurementWidget(QWidget):
         ])
         sers_form_layout.addRow(self.tr("SERS Substrate:"), self.substrate_combo)
         
-        # Concentration inputs
+        # 浓度输入
         self.sers_concentration_spinbox = QDoubleSpinBox()
         self.sers_concentration_spinbox.setRange(1e-12, 1.0)
         self.sers_concentration_spinbox.setDecimals(12)
@@ -352,7 +352,7 @@ class MeasurementWidget(QWidget):
         self.reference_concentration_spinbox.setSuffix(" M")
         sers_form_layout.addRow(self.tr("Reference Concentration:"), self.reference_concentration_spinbox)
         
-        # Calculation method
+        # 计算方法
         self.sers_method_combo = QComboBox()
         self.sers_method_combo.addItems([
             self.tr("Peak Height"),
@@ -362,11 +362,11 @@ class MeasurementWidget(QWidget):
         
         sers_layout.addLayout(sers_form_layout)
         
-        # Analysis button
+        # 分析按钮
         self.calculate_sers_button = QPushButton(self.tr("Calculate SERS Enhancement Factor"))
         sers_layout.addWidget(self.calculate_sers_button)
         
-        # SERS result display
+        # SERS结果显示
         self.sers_result_group = QGroupBox(self.tr("SERS Analysis Results"))
         self.sers_result_layout = QFormLayout(self.sers_result_group)
         self.sers_enhancement_label = QLabel("N/A")
@@ -377,20 +377,20 @@ class MeasurementWidget(QWidget):
         self.sers_box.setContentLayout(sers_layout)
         panel_layout.addWidget(self.sers_box)
 
-        # --- Raman Database ---        
+        # --- 拉曼数据库 ---        
         self.database_box = CollapsibleBox(self.tr("Raman Database"))
         database_layout = QVBoxLayout()
         database_layout.setSpacing(10)
         
-        # Database search form
+        # 数据库搜索表单
         database_form_layout = QFormLayout()
         
-        # Substance search
+        # 物质搜索
         self.substance_search_combo = QComboBox()
         # 初始化时将在set_mode中填充
         database_form_layout.addRow(self.tr("Search Substance:"), self.substance_search_combo)
         
-        # Peak range search
+        # 峰值范围搜索
         self.peak_range_start_spinbox = QDoubleSpinBox()
         self.peak_range_start_spinbox.setRange(0, 4000)
         self.peak_range_start_spinbox.setDecimals(0)
@@ -405,7 +405,7 @@ class MeasurementWidget(QWidget):
         self.peak_range_end_spinbox.setSuffix(" cm⁻¹")
         database_form_layout.addRow(self.tr("Peak Range End:"), self.peak_range_end_spinbox)
         
-        # Match tolerance
+        # 匹配容差
         self.database_tolerance_spinbox = QDoubleSpinBox()
         self.database_tolerance_spinbox.setRange(0.1, 20.0)
         self.database_tolerance_spinbox.setDecimals(1)
@@ -415,7 +415,7 @@ class MeasurementWidget(QWidget):
         
         database_layout.addLayout(database_form_layout)
         
-        # Database buttons
+        # 数据库按钮
         database_buttons_layout = QHBoxLayout()
         self.search_substance_button = QPushButton(self.tr("Search Substance"))
         self.match_peaks_button = QPushButton(self.tr("Match Peaks"))
@@ -425,7 +425,7 @@ class MeasurementWidget(QWidget):
         database_buttons_layout.addWidget(self.view_database_button)
         database_layout.addLayout(database_buttons_layout)
         
-        # Database result display
+        # 数据库结果显示
         self.database_result_group = QGroupBox(self.tr("Database Results"))
         self.database_result_layout = QFormLayout(self.database_result_group)
         self.database_substance_label = QLabel("N/A")
@@ -442,7 +442,7 @@ class MeasurementWidget(QWidget):
         self.database_box.setContentLayout(database_layout)
         panel_layout.addWidget(self.database_box)
 
-        # --- Kinetics Monitoring & Data Operations ---
+        # --- 动力学监测与数据操作 ---
         self.kinetics_box = CollapsibleBox(self.tr("Kinetics Monitoring"))
         kinetics_layout = QVBoxLayout()
         kinetics_layout.setSpacing(10)
@@ -476,9 +476,8 @@ class MeasurementWidget(QWidget):
         self.data_op_box.setContentLayout(data_op_layout)
         panel_layout.addWidget(self.data_op_box)
 
-        # --- Final Setup ---
+        # --- 最终设置 ---
         self.acq_box.set_expanded(True)
-        self.range_box.set_expanded(False)
         self.params_box.set_expanded(False)
         self.analysis_box.set_expanded(False)
         self.kinetics_box.set_expanded(False)
@@ -531,14 +530,36 @@ class MeasurementWidget(QWidget):
             return container, title_label
 
         # --- 创建所有图表和容器 ---
+        # 性能优化：导入优化工具
+        from ..utils.plot_utils import optimize_plot_performance, InteractivePlotEnhancer
+        
         self.signal_plot = pg.PlotWidget()
-        self.signal_curve = self.signal_plot.plot(pen=pg.mkPen('#1f77b4', width=2))  # 蓝色信号光谱
+        optimize_plot_performance(self.signal_plot)  # 启用降采样以获得更好的性能
+        self.signal_enhancer = InteractivePlotEnhancer(self.signal_plot)
+        self.signal_plot.addLegend()
+        self.signal_enhancer.setup_legend_toggle()  # 添加图例后调用，确保图例位于右上角
+        self.signal_curve = self.signal_plot.plot(pen=pg.mkPen('#1f77b4', width=2), name='Signal')  # 蓝色信号光谱
+        
         self.background_plot = pg.PlotWidget()
-        self.background_curve = self.background_plot.plot(pen=pg.mkPen('#ff7f0e', width=2))  # 橙色背景光谱
+        optimize_plot_performance(self.background_plot)  # 启用降采样以获得更好的性能
+        self.background_enhancer = InteractivePlotEnhancer(self.background_plot)
+        self.background_plot.addLegend()
+        self.background_enhancer.setup_legend_toggle()  # 添加图例后调用，确保图例位于右上角
+        self.background_curve = self.background_plot.plot(pen=pg.mkPen('#ff7f0e', width=2), name='Background')  # 橙色背景光谱
+        
         self.reference_plot = pg.PlotWidget()
-        self.reference_curve = self.reference_plot.plot(pen=pg.mkPen('#2ca02c', width=2))  # 绿色参考光谱
+        optimize_plot_performance(self.reference_plot)  # 启用降采样以获得更好的性能
+        self.reference_enhancer = InteractivePlotEnhancer(self.reference_plot)
+        self.reference_plot.addLegend()
+        self.reference_enhancer.setup_legend_toggle()  # 添加图例后调用，确保图例位于右上角
+        self.reference_curve = self.reference_plot.plot(pen=pg.mkPen('#2ca02c', width=2), name='Reference')  # 绿色参考光谱
+        
         self.result_plot = pg.PlotWidget()
-        self.result_curve = self.result_plot.plot(pen=pg.mkPen('#d62728', width=2))  # 红色结果光谱
+        optimize_plot_performance(self.result_plot)  # 启用降采样以获得更好的性能
+        self.result_enhancer = InteractivePlotEnhancer(self.result_plot) # Keep ref to add legend later? or add now
+        self.result_plot.addLegend()
+        self.result_enhancer.setup_legend_toggle() # Refresh toggle after adding legend
+        self.result_curve = self.result_plot.plot(pen=pg.mkPen('#d62728', width=2), name='Result')  # 红色结果光谱
 
         self.signal_plot_container, self.signal_title_label = create_plot_container(
             self.signal_plot, "Signal Spectrum", lambda: self._open_single_plot_window('signal')
@@ -572,13 +593,7 @@ class MeasurementWidget(QWidget):
         self.loaded_curve = self.result_plot.plot(pen=pg.mkPen('y', style=Qt.DashLine, width=2))
         self.fit_curve = self.result_plot.plot(pen=pg.mkPen('c', style=Qt.DotLine, width=2))
 
-        initial_start = 450
-        initial_end = 750
-        self.region_selector = pg.LinearRegionItem(values=[initial_start, initial_end],
-                                                   orientation=pg.LinearRegionItem.Vertical)
-        self.result_plot.addItem(self.region_selector)
-        self.range_start_spinbox.setValue(initial_start)
-        self.range_end_spinbox.setValue(initial_end)
+        # 蛍色寻峰范围选择框已移除，使用统一的分析范围控件
 
         for plot in [self.signal_plot, self.background_plot, self.reference_plot]:
             plot.setLabel('left', self.tr('Intensity'))
@@ -602,7 +617,8 @@ class MeasurementWidget(QWidget):
         x_data, y_data = self.full_result_x, self.full_result_y
         min_height = self.peak_height_spinbox.value()
 
-        min_wl, max_wl = self.region_selector.getRegion()
+        min_wl = self.analysis_start_spinbox.value()
+        max_wl = self.analysis_end_spinbox.value()
         region_indices = np.where((x_data >= min_wl) & (x_data <= max_wl))[0]
         if len(region_indices) < 3:
             print(self.tr("Too few data points in the selected region to find peaks."))
@@ -637,7 +653,8 @@ class MeasurementWidget(QWidget):
         x_data, y_data = self.full_result_x, self.full_result_y
         min_height = self.peak_height_spinbox.value()
 
-        min_wl, max_wl = self.region_selector.getRegion()
+        min_wl = self.analysis_start_spinbox.value()
+        max_wl = self.analysis_end_spinbox.value()
         region_indices = np.where((x_data >= min_wl) & (x_data <= max_wl))[0]
         if len(region_indices) < 3:
             print(self.tr("Too few data points in the selected region."))
@@ -679,35 +696,30 @@ class MeasurementWidget(QWidget):
         self.capture_ref_button.clicked.connect(self.processor.set_reference)
         self.integration_time_spinbox.valueChanged.connect(self._on_integration_time_changed)
 
-        self.display_range_start_spinbox.valueChanged.connect(self._update_plot_x_range)
-        self.display_range_end_spinbox.valueChanged.connect(self._update_plot_x_range)
-
-        self.reset_range_button.clicked.connect(self._reset_display_range)
-
+        # 连接统一的分析范围信号
+        self.analysis_start_spinbox.valueChanged.connect(self._on_analysis_range_changed)
+        self.analysis_end_spinbox.valueChanged.connect(self._on_analysis_range_changed)
+        
+        # 峰分析和数据保存
         self.find_peaks_button.clicked.connect(self._find_all_peaks)
         self.find_main_peak_button.clicked.connect(self._find_main_resonance_peak)
         self.save_data_button.clicked.connect(self._save_result_spectrum)
         self.load_data_button.clicked.connect(self._load_spectrum_data_for_comparison)
         self.set_baseline_button.clicked.connect(self._set_kinetics_baseline_from_current_peak)
         self.toggle_kinetics_button.clicked.connect(self._toggle_kinetics_window)
-        # Wavelength/Wavenumber toggle
+        # 波长/波数切换
         self.wavenumber_toggle.clicked.connect(self._toggle_wavelength_wavenumber)
-
         self.save_all_button.clicked.connect(self._save_all_spectra)
-
-        self.range_start_spinbox.valueChanged.connect(self._on_range_spinbox_changed)
-        self.range_end_spinbox.valueChanged.connect(self._on_range_spinbox_changed)
-        self.region_selector.sigRegionChanged.connect(self._on_region_changed)
         
-        # SERS analysis
+        # SERS分析
         self.calculate_sers_button.clicked.connect(self._calculate_sers_enhancement)
         
-        # Raman database
+        # 拉曼数据库
         self.search_substance_button.clicked.connect(self._search_substance)
         self.match_peaks_button.clicked.connect(self._match_peaks_with_database)
         self.view_database_button.clicked.connect(self._view_database)
         
-        # Laser control
+        # 激光控制
         self.laser_button.clicked.connect(self._on_laser_button_clicked)
         self.excitation_wavelength_spinbox.valueChanged.connect(self._on_excitation_wavelength_changed)
         self.laser_power_spinbox.valueChanged.connect(self._on_laser_power_changed)
@@ -768,8 +780,8 @@ class MeasurementWidget(QWidget):
             'smoothing_window': int(self.smoothing_window_spinbox.value()) if hasattr(self, 'smoothing_window_spinbox') else None,
             'peak_method': self.peak_method_combo.currentData() if hasattr(self, 'peak_method_combo') and self.peak_method_combo.currentData() else (self.peak_method_combo.currentText() if hasattr(self, 'peak_method_combo') else None),
             'peak_height_threshold': float(self.peak_height_spinbox.value()) if hasattr(self, 'peak_height_spinbox') else None,
-            'region_start_nm': float(self.range_start_spinbox.value()) if hasattr(self, 'range_start_spinbox') else None,
-            'region_end_nm': float(self.range_end_spinbox.value()) if hasattr(self, 'range_end_spinbox') else None,
+            'analysis_start_nm': float(self.analysis_start_spinbox.value()) if hasattr(self, 'analysis_start_spinbox') else None,
+            'analysis_end_nm': float(self.analysis_end_spinbox.value()) if hasattr(self, 'analysis_end_spinbox') else None,
             'baseline_defined': self.kinetics_baseline_value is not None
         }
         if spectrum_role:
@@ -792,7 +804,8 @@ class MeasurementWidget(QWidget):
             return
 
         full_x_data, full_y_data = self.full_result_x, self.full_result_y
-        min_wl, max_wl = self.region_selector.getRegion()
+        min_wl = self.analysis_start_spinbox.value()
+        max_wl = self.analysis_end_spinbox.value()
         mask = (full_x_data >= min_wl) & (full_x_data <= max_wl)
         x_data_sliced = full_x_data[mask]
         y_data_sliced = full_y_data[mask]
@@ -868,7 +881,8 @@ class MeasurementWidget(QWidget):
                                 self.tr("Cannot save because there is no live signal spectrum."))
             return
 
-        min_wl, max_wl = self.region_selector.getRegion()
+        min_wl = self.analysis_start_spinbox.value()
+        max_wl = self.analysis_end_spinbox.value()
         mask = (self.wavelengths >= min_wl) & (self.wavelengths <= max_wl)
 
         spectra_to_save = {
@@ -888,23 +902,14 @@ class MeasurementWidget(QWidget):
             default_path=default_save_path
         )
 
-    def _on_range_spinbox_changed(self):
-        """当输入框数值改变时，更新图表上的区域。"""
-        start_val = self.range_start_spinbox.value()
-        end_val = self.range_end_spinbox.value()
-        self.region_selector.blockSignals(True)
-        self.region_selector.setRegion((start_val, end_val))
-        self.region_selector.blockSignals(False)
-
-    def _on_region_changed(self):
-        """当图表上的区域被拖拽时，更新输入框的数值。"""
-        min_val, max_val = self.region_selector.getRegion()
-        self.range_start_spinbox.blockSignals(True)
-        self.range_end_spinbox.blockSignals(True)
-        self.range_start_spinbox.setValue(min_val)
-        self.range_end_spinbox.setValue(max_val)
-        self.range_start_spinbox.blockSignals(False)
-        self.range_end_spinbox.blockSignals(False)
+    def _on_analysis_range_changed(self):
+        """当分析范围改变时更新显示和处理。"""
+        # 更新result_plot显示
+        self._update_result_plot_with_crop()
+        
+        # 如果启用了基线校正，重新处理
+        if hasattr(self, 'baseline_correction_enabled') and self.baseline_correction_enabled:
+            self.processor.process_and_emit()
 
     def set_mode(self, mode_name):
         # 若正在动力学监测，先关闭
@@ -932,28 +937,28 @@ class MeasurementWidget(QWidget):
             self.capture_ref_button.hide()
             self.reference_plot.hide()
         
-        # Show/hide Raman-specific controls
+        # 显示/隐藏拉曼专用控件
         if hasattr(self, 'raman_group'):
             if self.mode_name == "Raman":
                 self.raman_group.show()
             else:
                 self.raman_group.hide()
         
-        # Show/hide Raman preprocessing controls
+        # 显示/隐藏拉曼预处理控件
         if hasattr(self, 'raman_preprocessing_group'):
             if self.mode_name == "Raman":
                 self.raman_preprocessing_group.show()
             else:
                 self.raman_preprocessing_group.hide()
         
-        # Show/hide SERS analysis controls
+        # 显示/隐藏SERS分析控件
         if hasattr(self, 'sers_box'):
             if self.mode_name == "Raman":
                 self.sers_box.show()
             else:
                 self.sers_box.hide()
         
-        # Show/hide Raman database controls
+        # 显示/隐藏拉曼数据库控件
         if hasattr(self, 'database_box'):
             if self.mode_name == "Raman":
                 self.database_box.show()
@@ -1049,6 +1054,16 @@ class MeasurementWidget(QWidget):
             self.set_baseline_button.setEnabled(self.full_result_y is not None)
 
         self._update_result_plot_with_crop()
+    
+    def _update_smoothing_params(self):
+        """当平滑参数改变时更新处理器。"""
+        method = self.smooth_method_combo.currentText()
+        window = self.smoothing_window_spinbox.value()
+        # 确保窗口大小是奇数
+        if window % 2 == 0:
+            window += 1
+            self.smoothing_window_spinbox.setValue(window)
+        self.processor.set_smoothing_params(method, window)
 
     def _update_result_plot_with_crop(self):
         """
@@ -1058,14 +1073,14 @@ class MeasurementWidget(QWidget):
             self.result_curve.clear()
             return
 
-        start_wl = self.display_range_start_spinbox.value()
-        end_wl = self.display_range_end_spinbox.value()
+        start_wl = self.analysis_start_spinbox.value()
+        end_wl = self.analysis_end_spinbox.value()
 
         mask = (self.full_result_x >= start_wl) & (self.full_result_x <= end_wl)
         x_cropped = self.full_result_x[mask]
         y_cropped = self.full_result_y[mask]
 
-        # Apply Raman preprocessing if in Raman mode
+        # 如果在拉曼模式下，应用拉曼预处理
         if self.mode_name == "Raman":
             from nanosense.algorithms.preprocessing import (
                 remove_rayleigh_scattering,
@@ -1073,7 +1088,7 @@ class MeasurementWidget(QWidget):
                 normalize_spectrum
             )
             
-            # Apply Rayleigh scattering removal
+            # 应用瑞利散射去除
             if self.rayleigh_remove_checkbox.isChecked():
                 excitation_wavelength = self.excitation_wavelength_spinbox.value()
                 cutoff_wavenumber = self.rayleigh_cutoff_spinbox.value()
@@ -1084,11 +1099,11 @@ class MeasurementWidget(QWidget):
                     cutoff_wavenumber
                 )
             
-            # Apply fluorescence background subtraction
+            # 应用荧光背景扣除
             if self.fluorescence_subtract_checkbox.isChecked():
                 y_cropped = fluorescence_background_subtraction(y_cropped)
             
-            # Apply normalization
+            # 应用归一化
             normalization_method = self.normalization_combo.currentText()
             norm_method_map = {
                 "No Normalization": "none",
@@ -1277,7 +1292,8 @@ class MeasurementWidget(QWidget):
         if y_data is None:
             return None
 
-        min_wl, max_wl = self.region_selector.getRegion()
+        min_wl = self.analysis_start_spinbox.value()
+        max_wl = self.analysis_end_spinbox.value()
         region_indices = np.where((self.wavelengths >= min_wl) & (self.wavelengths <= max_wl))[0]
         if len(region_indices) < 3:
             return None
@@ -1290,53 +1306,19 @@ class MeasurementWidget(QWidget):
         return peak_wavelength
 
     def update_background_plot(self, wavelengths, spectrum):
-        """Updates the display of the background spectrum chart."""
+        """更新背景光谱图表的显示。"""
         if spectrum is not None:
             self.background_curve.setData(wavelengths, spectrum)
         else:
             self.background_curve.clear()
 
     def update_reference_plot(self, wavelengths, spectrum):
-        """Updates the display of the reference spectrum chart."""
+        """更新参考光谱图表的显示。"""
         if spectrum is not None:
             self.reference_curve.setData(wavelengths, spectrum)
         else:
             self.reference_curve.clear()
 
-    def _update_plot_x_range(self):
-        """
-        此方法现在只控制结果谱图的X轴范围，并触发数据裁剪。
-        """
-        start_wl = self.display_range_start_spinbox.value()
-        end_wl = self.display_range_end_spinbox.value()
-
-        if start_wl >= end_wl:
-            return
-
-        self.result_plot.getViewBox().setLimits(xMin=start_wl, xMax=end_wl)
-        self.result_plot.setXRange(start_wl, end_wl, padding=0)
-
-        self._update_result_plot_with_crop()
-
-    def _reset_display_range(self):
-        """
-        Resets the display range and view limits to the full range of the spectrometer.
-        """
-        min_wl, max_wl = self.controller.wavelengths[0], self.controller.wavelengths[-1]
-
-        self.display_range_start_spinbox.blockSignals(True)
-        self.display_range_end_spinbox.blockSignals(True)
-        self.display_range_start_spinbox.setValue(min_wl)
-        self.display_range_end_spinbox.setValue(max_wl)
-        self.display_range_start_spinbox.blockSignals(False)
-        self.display_range_end_spinbox.blockSignals(False)
-
-        plots = [self.signal_plot, self.background_plot, self.reference_plot, self.result_plot]
-        for plot in plots:
-            plot.getViewBox().setLimits(xMin=None, xMax=None)
-            plot.autoRange()
-
-        self._update_plot_x_range()
 
         for item in self.popout_windows:
             win = item['window']
@@ -1585,7 +1567,6 @@ Do you wish to continue?'''),
     def _retranslate_ui(self):
         """重新翻译此控件内的所有UI文本。"""
         self.acq_box.toggle_button.setText(self.tr("Acquisition Control"))
-        self.range_box.toggle_button.setText(self.tr("Display Range Control"))
         self.params_box.toggle_button.setText(self.tr("Parameters & Preprocessing"))
         self.analysis_box.toggle_button.setText(self.tr("Spectral Analysis"))
         self.kinetics_box.toggle_button.setText(self.tr("Kinetics Monitoring"))
@@ -1598,20 +1579,7 @@ Do you wish to continue?'''),
             self.tr("Start Acquisition") if not self.is_acquiring else self.tr("Stop Acquisition"))
         self.capture_dark_button.setText(self.tr("Capture Background (Dark)"))
         self.capture_ref_button.setText(self.tr("Capture Reference (Ref)"))
-        self.reset_range_button.setText(self.tr("Reset Display Range"))
-        self.baseline_correction_button.setText(self.tr("Correct Current Baseline"))
-        self.find_peaks_button.setText(self.tr("Find All Peaks"))
-        self.find_main_peak_button.setText(self.tr("Find Main Resonance Peak"))
-        self.set_baseline_button.setText(self.tr("Set Baseline from Current Peak"))
-        self.toggle_kinetics_button.setText(
-            self.tr("Start Monitoring") if not self.is_kinetics_monitoring else self.tr("Stop Monitoring"))
-        self.save_all_button.setText(self.tr("Save All Spectra"))
-        self.save_data_button.setText(self.tr("Save Result Spectrum"))
-        self.load_data_button.setText(self.tr("Load Spectrum for Comparison"))
-        self.back_button.setText(self.tr("← Back to Welcome Screen"))
 
-        self.range_layout.labelForField(self.display_range_start_spinbox).setText(self.tr("Start Wavelength:"))
-        self.range_layout.labelForField(self.display_range_end_spinbox).setText(self.tr("End Wavelength:"))
 
         self.params_layout.labelForField(self.integration_time_spinbox).setText(self.tr("Integration Time:"))
         self.params_layout.labelForField(self.smooth_method_combo).setText(self.tr("Smoothing Method:"))
@@ -1627,14 +1595,13 @@ Do you wish to continue?'''),
             if restored_index != -1:
                 self.peak_method_combo.setCurrentIndex(restored_index)
 
-        self.range_layout_form.labelForField(self.range_start_spinbox).setText(self.tr("Start Position:"))
-        self.range_layout_form.labelForField(self.range_end_spinbox).setText(self.tr("End Position:"))
+
 
         self.result_display_layout.labelForField(self.main_peak_wavelength_label).setText(
             self.tr("Peak Wavelength (nm):"))
         self.result_display_layout.labelForField(self.main_peak_intensity_label).setText(self.tr("Peak Intensity:"))
 
-        self.range_group.setTitle(self.tr("Spectral Peak Find Range"))
+
         self.result_display_group.setTitle(self.tr("Analysis Results"))
 
         display_name = self.tr(self.mode_name)
@@ -1761,20 +1728,20 @@ Do you wish to continue?'''),
         excitation_wavelength = self.excitation_wavelength_spinbox.value()
         
         if self.wavenumber_toggle.isChecked():
-            # Switch to wavenumber
+            # 切换到波数
             self.wavenumber_toggle.setText(self.tr("Switch to Wavelength"))
             
-            # Convert wavelength to wavenumber
+            # 将波长转换为波数
             wavenumbers = self.wavelength_to_raman_shift(self.full_result_x, excitation_wavelength)
             
-            # Update result plot
+            # 更新结果图
             self.result_curve.setData(wavenumbers, self.full_result_y)
             self.result_plot.setLabel('bottom', self.tr('Raman Shift (cm⁻¹)'))
             
-            # Update peak labels
+            # 更新峰值标签
             self.result_display_layout.labelForField(self.main_peak_wavelength_label).setText(self.tr("Peak Wavenumber (cm⁻¹):"))
             
-            # Update peak markers if any
+            # 更新峰值标记（如果有）
             if hasattr(self, 'peak_markers'):
                 peaks = self.peak_markers.getData()
                 if peaks:
@@ -1792,17 +1759,17 @@ Do you wish to continue?'''),
                     self.main_peak_marker.setData([main_peak_wavenumber], [main_peak_intensity])
                     self.main_peak_wavelength_label.setText(f"{main_peak_wavenumber:.2f}")
         else:
-            # Switch back to wavelength
+            # 切换回波长
             self.wavenumber_toggle.setText(self.tr("Switch to Wavenumber"))
             
-            # Update result plot
+            # 更新结果图
             self.result_curve.setData(self.full_result_x, self.full_result_y)
             self.result_plot.setLabel('bottom', self.tr('Wavelength (nm)'))
             
-            # Update peak labels
+            # 更新峰值标签
             self.result_display_layout.labelForField(self.main_peak_wavelength_label).setText(self.tr("Peak Wavelength (nm):"))
             
-            # Update peak markers if any
+            # 更新峰值标记（如果有）
             if hasattr(self, 'peak_markers'):
                 peaks = self.peak_markers.getData()
                 if peaks:

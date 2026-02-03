@@ -96,30 +96,20 @@ def _calculate_absorbance(signal, background, reference):
 class MultiCurvePlotWindow(pg.QtWidgets.QMainWindow):
     closed = pyqtSignal(object)
 
-    def __init__(self, title, parent=None):
+    def __init__(self, title, parent=None, theme='dark'):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setGeometry(300, 300, 800, 600)
         self.plot_widget = pg.PlotWidget()
         
-        # 根据主题设置背景色和坐标轴样式
-        try:
-            from ..utils.config_manager import load_settings
-            settings = load_settings()
-            theme = settings.get('theme', 'dark')
-            if theme == 'light':
-                self.plot_widget.setBackground('#F0F0F0')
-                self.plot_widget.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
-                self.plot_widget.getAxis('left').setPen(pg.mkPen('#212529', width=1))
-                self.plot_widget.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
-                self.plot_widget.getAxis('left').setTextPen(pg.mkPen('#495057'))
-            else:
-                self.plot_widget.setBackground('#1F2735')
-                self.plot_widget.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
-                self.plot_widget.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
-                self.plot_widget.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
-                self.plot_widget.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
-        except Exception:
+        # Use theme parameter instead of loading from config
+        if theme == 'light':
+            self.plot_widget.setBackground('#F0F0F0')
+            self.plot_widget.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
+            self.plot_widget.getAxis('left').setPen(pg.mkPen('#212529', width=1))
+            self.plot_widget.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
+            self.plot_widget.getAxis('left').setTextPen(pg.mkPen('#495057'))
+        else:
             self.plot_widget.setBackground('#1F2735')
             self.plot_widget.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
             self.plot_widget.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
@@ -128,15 +118,47 @@ class MultiCurvePlotWindow(pg.QtWidgets.QMainWindow):
             
         self.setCentralWidget(self.plot_widget)
         self.plot_widget.addLegend()
+        self.curves = []  # Track existing curves
 
     def update_data(self, wavelengths, spectra_list):
-        self.plot_widget.clear()
-        if wavelengths is not None and spectra_list:
+        """
+        Performance optimized: Incrementally add new curves instead of redrawing all.
+        This fixes the freeze when opening popout window with many spectra.
+        """
+        if wavelengths is None or not spectra_list:
+            return
+        
+        # Only add newly added spectra (incremental update)
+        current_count = len(self.curves)
+        new_count = len(spectra_list)
+        
+        if new_count > current_count:
+            # Add only the new curves
+            for i in range(current_count, new_count):
+                spectrum = spectra_list[i]
+                color = pg.intColor(i, hues=new_count, alpha=150)
+                curve = self.plot_widget.plot(wavelengths, spectrum, pen=pg.mkPen(color), name=f"Result_{i+1}")
+                self.curves.append(curve)
+        
+        # Ensure interactive enhancement is applied if not already
+        if not hasattr(self, '_enhancer'):
+            from ..utils.plot_utils import InteractivePlotEnhancer
+            self._enhancer = InteractivePlotEnhancer(self.plot_widget)
+            self._enhancer.setup_legend_toggle()
+        elif new_count < current_count:
+            # If spectra were removed, redraw from scratch
+            self.plot_widget.clear()
+            self.curves.clear()
             for i, spectrum in enumerate(spectra_list):
-                color = pg.intColor(i, hues=len(spectra_list), alpha=150)
-                self.plot_widget.plot(
-                    wavelengths, spectrum, pen=pg.mkPen(color), name=f"Result_{i+1}"
-                )
+                color = pg.intColor(i, hues=new_count, alpha=150)
+                curve = self.plot_widget.plot(wavelengths, spectrum, pen=pg.mkPen(color), name=f"Result_{i+1}")
+                self.curves.append(curve)
+            
+            # Ensure interactive enhancement is applied if not already
+            if not hasattr(self, '_enhancer'):
+                from ..utils.plot_utils import InteractivePlotEnhancer
+                self._enhancer = InteractivePlotEnhancer(self.plot_widget)
+                self._enhancer.setup_legend_toggle()
 
     def closeEvent(self, event):
         self.closed.emit(self)
@@ -176,6 +198,13 @@ class BatchRunDialog(QDialog):
         self._current_phase: Optional[str] = None
         self._last_import_dir = ""
         self._reference_hint_shown = False
+        
+        # Performance optimization: Cache theme settings
+        self._theme = self._load_theme_setting()
+        
+        # Performance optimization: Dictionary index for peak table
+        self._peak_table_index = {}  # Maps "well_id-point_num" to row number
+        
         self._dummy_strings_for_translator()
         self._init_ui()
         self._connect_signals()
@@ -194,6 +223,15 @@ class BatchRunDialog(QDialog):
         self.tr("Saving data for {well_id}...")
         self.tr("Batch acquisition complete!")
         self.tr("Done")
+
+    def _load_theme_setting(self) -> str:
+        """Load theme setting once during initialization. Returns 'light' or 'dark'."""
+        try:
+            from ..utils.config_manager import load_settings
+            settings = load_settings()
+            return settings.get('theme', 'dark')
+        except Exception:
+            return 'dark'
 
     def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -303,8 +341,8 @@ class BatchRunDialog(QDialog):
             header_layout.setContentsMargins(5, 2, 5, 2)
             title_label = QLabel(self.tr(title_key))
             
-            # 根据主题设置标题颜色
-            if theme == 'light':
+            # Use cached theme setting
+            if self._theme == 'light':
                 title_label.setStyleSheet("color: #495057; font-size: 12pt; font-weight: bold;")
                 header_widget.setStyleSheet("background-color: #F5F6FA;")
             else:
@@ -313,8 +351,8 @@ class BatchRunDialog(QDialog):
             
             popout_button = QToolButton()
         
-            # 根据主题选择图标
-            if theme == 'light':
+            # Use cached theme to select icon
+            if self._theme == 'light':
                 icon_filename = 'zoom_dark.png'  # 浅色主题使用深色图标
             else:
                 icon_filename = 'zoom.png'  # 深色主题使用白色图标
@@ -342,84 +380,101 @@ class BatchRunDialog(QDialog):
             plot_widget.showGrid(x=True, y=True, alpha=0.3)
             return container
 
-        # 根据主题设置背景色
-        theme = 'dark'  # 默认主题
-        try:
-            from ..utils.config_manager import load_settings
-            settings = load_settings()
-            theme = settings.get('theme', 'dark')
-        except Exception:
-            pass
-        
-        if theme == 'light':
+
+        # Use cached theme setting for background color
+        if self._theme == 'light':
             background_color = '#F0F0F0'
         else:
             background_color = '#1F2735'
         
+        # Performance optimization
+        # Performance optimization
+        from ..utils.plot_utils import optimize_plot_performance, InteractivePlotEnhancer
+        
         self.signal_plot = pg.PlotWidget()
         self.signal_plot.setBackground(background_color)
         # 配置坐标轴颜色以适应主题
-        if theme == 'light':
+        if self._theme == 'light':
             self.signal_plot.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
             self.signal_plot.getAxis('left').setPen(pg.mkPen('#212529', width=1))
             self.signal_plot.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
             self.signal_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
-            self.signal_curve = self.signal_plot.plot(pen=pg.mkPen('#1F77B4', width=2))
+            self.signal_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
+            self.signal_curve = self.signal_plot.plot(pen=pg.mkPen('#1F77B4', width=2), name='Signal')
         else:
             self.signal_plot.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
             self.signal_plot.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
             self.signal_plot.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
             self.signal_plot.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
-            self.signal_curve = self.signal_plot.plot(pen="c")
+            self.signal_curve = self.signal_plot.plot(pen="c", name='Signal')
+        
+        optimize_plot_performance(self.signal_plot)  # Enable downsampling
+        InteractivePlotEnhancer(self.signal_plot)
+        self.signal_plot.addLegend()
             
         self.background_plot = pg.PlotWidget()
         self.background_plot.setBackground(background_color)
-        if theme == 'light':
+        if self._theme == 'light':
             self.background_plot.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
             self.background_plot.getAxis('left').setPen(pg.mkPen('#212529', width=1))
             self.background_plot.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
             self.background_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
-            self.background_curve = self.background_plot.plot(pen=pg.mkPen('#FF7F0E', width=2))
+            self.background_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
+            self.background_curve = self.background_plot.plot(pen=pg.mkPen('#FF7F0E', width=2), name='Background')
         else:
             self.background_plot.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
             self.background_plot.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
             self.background_plot.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
             self.background_plot.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
-            self.background_curve = self.background_plot.plot(pen="w")
+            self.background_curve = self.background_plot.plot(pen="w", name='Background')
+        
+        optimize_plot_performance(self.background_plot)  # Enable downsampling
+        InteractivePlotEnhancer(self.background_plot)
+        self.background_plot.addLegend()
             
         self.reference_plot = pg.PlotWidget()
         self.reference_plot.setBackground(background_color)
-        if theme == 'light':
+        if self._theme == 'light':
             self.reference_plot.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
             self.reference_plot.getAxis('left').setPen(pg.mkPen('#212529', width=1))
             self.reference_plot.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
             self.reference_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
-            self.reference_curve = self.reference_plot.plot(pen=pg.mkPen('#2CA02C', width=2))
+            self.reference_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
+            self.reference_curve = self.reference_plot.plot(pen=pg.mkPen('#2CA02C', width=2), name='Reference')
         else:
             self.reference_plot.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
             self.reference_plot.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
             self.reference_plot.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
             self.reference_plot.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
-            self.reference_curve = self.reference_plot.plot(pen="m")
+            self.reference_curve = self.reference_plot.plot(pen="m", name='Reference')
+        
+        optimize_plot_performance(self.reference_plot)  # Enable downsampling
+        InteractivePlotEnhancer(self.reference_plot)
+        self.reference_plot.addLegend()
             
         self.result_plot = pg.PlotWidget()
         self.result_plot.setBackground(background_color)
-        if theme == 'light':
+        if self._theme == 'light':
             self.result_plot.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
             self.result_plot.getAxis('left').setPen(pg.mkPen('#212529', width=1))
             self.result_plot.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
             self.result_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
-            self.result_curve = self.result_plot.plot(pen=pg.mkPen('#D62728', width=2))
+            self.result_plot.getAxis('left').setTextPen(pg.mkPen('#495057'))
+            self.result_curve = self.result_plot.plot(pen=pg.mkPen('#D62728', width=2), name='Result')
         else:
             self.result_plot.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
             self.result_plot.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
             self.result_plot.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
             self.result_plot.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
-            self.result_curve = self.result_plot.plot(pen="y")
+            self.result_curve = self.result_plot.plot(pen="y", name='Result')
+        
+        optimize_plot_performance(self.result_plot)  # Enable downsampling
+        InteractivePlotEnhancer(self.result_plot)
+        self.result_plot.addLegend()
             
         self.summary_plot = pg.PlotWidget()
         self.summary_plot.setBackground(background_color)
-        if theme == 'light':
+        if self._theme == 'light':
             self.summary_plot.getAxis('bottom').setPen(pg.mkPen('#212529', width=1))
             self.summary_plot.getAxis('left').setPen(pg.mkPen('#212529', width=1))
             self.summary_plot.getAxis('bottom').setTextPen(pg.mkPen('#495057'))
@@ -427,8 +482,11 @@ class BatchRunDialog(QDialog):
         else:
             self.summary_plot.getAxis('bottom').setPen(pg.mkPen('#90A4AE', width=1))
             self.summary_plot.getAxis('left').setPen(pg.mkPen('#90A4AE', width=1))
-            self.summary_plot.getAxis('bottom').setTextPen(pg.mkPen('#B0BEC5'))
             self.summary_plot.getAxis('left').setTextPen(pg.mkPen('#B0BEC5'))
+        
+        optimize_plot_performance(self.summary_plot)  # Enable downsampling
+        self.summary_enhancer = InteractivePlotEnhancer(self.summary_plot)
+        self.summary_plot.addLegend()
 
         self.signal_container = create_plot_container(
             self.signal_plot, "Live Signal", lambda: self._open_popout_window("signal")
@@ -616,7 +674,13 @@ class BatchRunDialog(QDialog):
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(5, 2, 5, 2)
         title_label = QLabel(self.tr("Peak Results"))
-        title_label.setStyleSheet("color: #90A4AE; font-size: 12pt;")
+        
+        # Set title color based on theme
+        if self._theme == 'light':
+            title_label.setStyleSheet("color: #495057; font-size: 12pt; font-weight: bold;")
+        else:
+            title_label.setStyleSheet("color: #90A4AE; font-size: 12pt;")
+            
         header_layout.addWidget(title_label)
         header_layout.addStretch()
         
@@ -631,28 +695,54 @@ class BatchRunDialog(QDialog):
             self.tr("Peak Intensity (Abs)")
         ])
         
-        # 设置表格样式
-        self.peak_table.setStyleSheet("""
-            QTableWidget {
-                background-color: rgba(33, 33, 33, 0.8);
-                border: none;
-                color: white;
-            }
-            QTableWidget::item {
-                border-bottom: 1px solid rgba(224, 224, 224, 0.1);
-                padding: 5px;
-            }
-            QTableWidget::item:selected {
-                background-color: rgba(65, 105, 225, 0.5);
-            }
-            QHeaderView::section {
-                background-color: rgba(0, 0, 0, 0.3);
-                border: none;
-                border-bottom: 1px solid rgba(224, 224, 224, 0.2);
-                color: white;
-                padding: 5px;
-            }
-        """)
+        # Set table styles based on theme
+        if self._theme == 'light':
+            self.peak_table.setStyleSheet("""
+                QTableWidget {
+                    background-color: #FFFFFF;
+                    border: 1px solid #D0D0D0;
+                    color: #212529;
+                    gridline-color: #E0E0E0;
+                }
+                QTableWidget::item {
+                    border-bottom: 1px solid #E8E8E8;
+                    padding: 5px;
+                }
+                QTableWidget::item:selected {
+                    background-color: rgba(65, 105, 225, 0.2);
+                    color: #212529;
+                }
+                QHeaderView::section {
+                    background-color: #F5F6FA;
+                    border: none;
+                    border-bottom: 2px solid #D0D0D0;
+                    color: #495057;
+                    padding: 5px;
+                    font-weight: bold;
+                }
+            """)
+        else:
+            self.peak_table.setStyleSheet("""
+                QTableWidget {
+                    background-color: rgba(33, 33, 33, 0.8);
+                    border: none;
+                    color: white;
+                }
+                QTableWidget::item {
+                    border-bottom: 1px solid rgba(224, 224, 224, 0.1);
+                    padding: 5px;
+                }
+                QTableWidget::item:selected {
+                    background-color: rgba(65, 105, 225, 0.5);
+                }
+                QHeaderView::section {
+                    background-color: rgba(0, 0, 0, 0.3);
+                    border: none;
+                    border-bottom: 1px solid rgba(224, 224, 224, 0.2);
+                    color: white;
+                    padding: 5px;
+                }
+            """)
         
         # 设置表头自适应
         self.peak_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -663,26 +753,21 @@ class BatchRunDialog(QDialog):
         return container
     
     def update_peak_table(self, well_id: str, point_num: int, peak_wavelength: float, peak_intensity: float) -> None:
-        """更新峰值表格"""
-        # 查找是否已存在相同的孔位-点数据
+        """
+        Performance optimized: Use dictionary index for O(1) lookup instead of O(n) iteration.
+        """
         well_point_key = f"{well_id}-{point_num}"
-        existing_row = -1
         
-        for row in range(self.peak_table.rowCount()):
-            item = self.peak_table.item(row, 0)
-            if item and item.text() == well_point_key:
-                existing_row = row
-                break
-        
-        if existing_row >= 0:
-            # 更新现有行
-            row = existing_row
+        # Check if row already exists using dictionary index (O(1) instead of O(n))
+        if well_point_key in self._peak_table_index:
+            row = self._peak_table_index[well_point_key]
         else:
-            # 插入新行
+            # Insert new row
             row = self.peak_table.rowCount()
             self.peak_table.insertRow(row)
+            self._peak_table_index[well_point_key] = row
         
-        # 设置单元格内容
+        # Set cell contents
         well_point_item = QTableWidgetItem(well_point_key)
         well_point_item.setTextAlignment(Qt.AlignCenter)
         peak_wl_item = QTableWidgetItem(f"{peak_wavelength:.2f}")
@@ -694,19 +779,28 @@ class BatchRunDialog(QDialog):
         self.peak_table.setItem(row, 1, peak_wl_item)
         self.peak_table.setItem(row, 2, peak_int_item)
         
-        # 自动滚动到最后一行
+        # Auto-scroll to last row
         self.peak_table.scrollToBottom()
     
     def remove_from_peak_table(self, well_id: str, point_num: int) -> None:
-        """从峰值表格中删除指定孔位-点的数据"""
+        """
+        Performance optimized: Use dictionary index for O(1) lookup.
+        从峰值表格中删除指定孔位-点的数据
+        """
         well_point_key = f"{well_id}-{point_num}"
         
-        # 查找并删除匹配的行
-        for row in range(self.peak_table.rowCount()):
-            item = self.peak_table.item(row, 0)
-            if item and item.text() == well_point_key:
-                self.peak_table.removeRow(row)
-                break
+        # Use dictionary for O(1) lookup
+        if well_point_key in self._peak_table_index:
+            row = self._peak_table_index[well_point_key]
+            self.peak_table.removeRow(row)
+            
+            # Remove from index
+            del self._peak_table_index[well_point_key]
+            
+            # Update indices for rows that shifted up
+            for key, idx in list(self._peak_table_index.items()):
+                if idx > row:
+                    self._peak_table_index[key] = idx - 1
 
     def _retranslate_ui(self) -> None:
         self.setWindowTitle(self.tr("Batch Acquisition in Progress..."))
@@ -749,7 +843,7 @@ class BatchRunDialog(QDialog):
         }
         title = title_map.get(plot_type, "Plot")
         if plot_type == "summary":
-            win = MultiCurvePlotWindow(title, self)
+            win = MultiCurvePlotWindow(title, self, theme=self._theme)
         else:
             win = SinglePlotWindow(title, parent=self)
         self.popout_windows.append({"type": plot_type, "window": win})
@@ -798,7 +892,7 @@ class BatchRunDialog(QDialog):
             self.result_curve.setData([], [])
 
         if not self.is_summary_paused and len(all_results) != len(self.summary_curves):
-            self._redraw_summary_plot(result_wavelengths, all_results)
+            self._update_summary_plot(result_wavelengths, all_results)
 
         for item in self.popout_windows:
             win = item["window"]
@@ -814,15 +908,33 @@ class BatchRunDialog(QDialog):
             elif window_type == "summary":
                 win.update_data(result_wavelengths, all_results)
 
-    def _redraw_summary_plot(self, wavelengths, all_results) -> None:
-        self.summary_plot.clear()
-        self.summary_curves.clear()
+    def _update_summary_plot(self, wavelengths, all_results) -> None:
+        """
+        Performance optimized: Incrementally add new curves instead of redrawing all.
+        This changes complexity from O(n²) to O(n).
+        """
         if wavelengths is None:
             return
-        for index, spectrum in enumerate(all_results or []):
-            color = pg.intColor(index, hues=len(all_results), alpha=150)
-            curve = self.summary_plot.plot(wavelengths, spectrum, pen=pg.mkPen(color))
-            self.summary_curves.append(curve)
+        
+        # Only add newly added spectra
+        current_count = len(self.summary_curves)
+        new_count = len(all_results or [])
+        
+        if new_count > current_count:
+            # Add only the new curves
+            for index in range(current_count, new_count):
+                spectrum = all_results[index]
+                color = pg.intColor(index, hues=new_count, alpha=150)
+                curve = self.summary_plot.plot(wavelengths, spectrum, pen=pg.mkPen(color))
+                self.summary_curves.append(curve)
+        elif new_count < current_count:
+            # If results were removed (e.g., cleared), redraw from scratch
+            self.summary_plot.clear()
+            self.summary_curves.clear()
+            for index, spectrum in enumerate(all_results or []):
+                color = pg.intColor(index, hues=new_count, alpha=150)
+                curve = self.summary_plot.plot(wavelengths, spectrum, pen=pg.mkPen(color))
+                self.summary_curves.append(curve)
 
     def _toggle_summary_pause(self, paused: bool) -> None:
         self.is_summary_paused = paused
@@ -833,7 +945,7 @@ class BatchRunDialog(QDialog):
     def _clear_summary_plot(self) -> None:
         self.summary_plot.clear()
         self.summary_curves.clear()
-        self._redraw_summary_plot(None, [])
+        self._update_summary_plot(None, [])
 
     def _toggle_reference_sections(self, hidden: bool) -> None:
         self.background_container.setVisible(not hidden)

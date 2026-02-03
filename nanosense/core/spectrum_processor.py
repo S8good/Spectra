@@ -24,6 +24,20 @@ class SpectrumProcessor(QObject):
         self.background_spectrum = None
         self.reference_spectrum = None
         self.latest_signal_spectrum = None
+        
+        # 平滑参数
+        self.smoothing_method = "Savitzky-Golay"  # 默认方法
+        self.smoothing_window = 11  # 默认窗口
+        self.smoothing_order = 3  # SG滤波器阶数
+
+    def set_smoothing_params(self, method, window, order=3):
+        """设置平滑参数。"""
+        self.smoothing_method = method
+        self.smoothing_window = window
+        self.smoothing_order = order
+        print(f"平滑参数已更新: {method}, window={window}, order={order}")
+        # 参数改变后重新计算
+        self.process_and_emit()
 
     def set_mode(self, mode_name):
         """设置当前的测量模式。"""
@@ -64,6 +78,33 @@ class SpectrumProcessor(QObject):
         self.latest_signal_spectrum = new_signal_spectrum
         self.process_and_emit()
 
+    def _apply_smoothing(self, spectrum):
+        """
+        根据设置的参数应用平滑。
+        支持多种平滑方法：No Smoothing, Savitzky-Golay, Moving Average, Median Filter
+        """
+        if spectrum is None:
+            return None
+        
+        if self.smoothing_method == "No Smoothing" or self.smoothing_method == "不平滑":
+            return spectrum
+        
+        elif self.smoothing_method == "Savitzky-Golay":
+            from scipy.signal import savgol_filter
+            return savgol_filter(spectrum, self.smoothing_window, self.smoothing_order)
+        
+        elif self.smoothing_method == "Moving Average" or self.smoothing_method == "移动平均":
+            from scipy.ndimage import uniform_filter1d
+            return uniform_filter1d(spectrum, size=self.smoothing_window)
+        
+        elif self.smoothing_method == "Median Filter" or self.smoothing_method == "中值滤波":
+            from scipy.signal import medfilt
+            return medfilt(spectrum, kernel_size=self.smoothing_window)
+        
+        else:
+            # 未知方法，使用默认SG滤波
+            return savgol_filter(spectrum, self.smoothing_window, self.smoothing_order)
+
     def process_and_emit(self):
         """
         【已修改 - 裁剪方案】
@@ -74,13 +115,10 @@ class SpectrumProcessor(QObject):
             self.result_updated.emit(self.wavelengths, None)
             return
 
-        # 步骤 1: 平滑输入光谱
-        processed_signal = savgol_filter(self.latest_signal_spectrum, 11, 3)
-        dark = savgol_filter(self.background_spectrum, 11,
-                             3) if self.background_spectrum is not None else np.zeros_like(processed_signal)
-        smoothed_ref = savgol_filter(self.reference_spectrum, 11,
-                                     3) if self.reference_spectrum is not None else np.ones_like(
-            processed_signal)
+        # 步骤 1: 应用平滑（使用UI设置的参数）
+        processed_signal = self._apply_smoothing(self.latest_signal_spectrum)
+        dark = self._apply_smoothing(self.background_spectrum) if self.background_spectrum is not None else np.zeros_like(processed_signal)
+        smoothed_ref = self._apply_smoothing(self.reference_spectrum) if self.reference_spectrum is not None else np.ones_like(processed_signal)
 
         result_spectrum = None
 
