@@ -177,6 +177,7 @@ class BatchRunDialog(QDialog):
     back_triggered = pyqtSignal()
     abort_mission = pyqtSignal()
     peak_method_changed = pyqtSignal(str)
+    processing_settings_changed = pyqtSignal(dict)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -201,6 +202,21 @@ class BatchRunDialog(QDialog):
         
         # Performance optimization: Cache theme settings
         self._theme = self._load_theme_setting()
+        
+        # 初始化处理设置（默认值）
+        self.processing_settings = {
+            'integration_time_ms': 100,
+            'smoothing_method': 'Savitzky-Golay',
+            'smoothing_window': 15,
+            'smoothing_order': 3,
+            'baseline_enabled': True,
+            'baseline_algorithm': 'ALS',
+            'baseline_lambda': 1000000,
+            'baseline_p': 0.001,
+            'baseline_niter': 10,
+            'peak_method': 'gaussian_fit',
+            'peak_height': 0.01
+        }
         
         # Performance optimization: Dictionary index for peak table
         self._peak_table_index = {}  # Maps "well_id-point_num" to row number
@@ -530,18 +546,20 @@ class BatchRunDialog(QDialog):
         plots_layout.addLayout(self.plot_grid, 1)
         main_layout.addWidget(plots_container)
 
-        # Peak analysis controls
-        peak_analysis_layout = QHBoxLayout()
-        peak_analysis_layout.addWidget(QLabel(self.tr("Peak Finding Algorithm:")))
-        self.peak_method_combo = QComboBox()
-        from nanosense.algorithms.peak_analysis import PEAK_METHOD_LABELS
-        for method_key, method_label in PEAK_METHOD_LABELS.items():
-            self.peak_method_combo.addItem(self.tr(method_label), method_key)
-        # 默认选择最高峰值法
-        self.peak_method_combo.setCurrentText(self.tr("Highest Point"))
-        peak_analysis_layout.addWidget(self.peak_method_combo)
-        peak_analysis_layout.addStretch()
-        main_layout.addLayout(peak_analysis_layout)
+        # Processing settings controls
+        processing_settings_layout = QHBoxLayout()
+        processing_settings_layout.addWidget(QLabel(self.tr("Processing Settings:")))
+        
+        self.processing_settings_button = QPushButton()
+        self.processing_settings_button.setMaximumWidth(150)
+        self.processing_settings_button.clicked.connect(self._open_processing_settings)
+        processing_settings_layout.addWidget(self.processing_settings_button)
+        
+        self.settings_summary_label = QLabel()
+        self.settings_summary_label.setStyleSheet("color: #90A4AE; font-size: 11px;")
+        processing_settings_layout.addWidget(self.settings_summary_label)
+        processing_settings_layout.addStretch()
+        main_layout.addLayout(processing_settings_layout)
         
         summary_controls_layout = QHBoxLayout()
         self.toggle_summary_button = QPushButton()
@@ -596,7 +614,6 @@ class BatchRunDialog(QDialog):
         self.toggle_summary_button.toggled.connect(self._toggle_summary_pause)
         self.clear_summary_button.clicked.connect(self._clear_summary_plot)
         self.toggle_reference_button.toggled.connect(self._toggle_reference_sections)
-        self.peak_method_combo.currentIndexChanged.connect(lambda: self.peak_method_changed.emit(self.get_selected_peak_method()))
 
     def _prompt_import(self, spectrum_type: str) -> None:
         start_dir = self._last_import_dir or os.path.expanduser("~")
@@ -828,6 +845,10 @@ class BatchRunDialog(QDialog):
         self.clear_summary_button.setText(self.tr("Clear Summary Plot"))
         self._toggle_reference_sections(self.toggle_reference_button.isChecked())
         self.progress_info_label.setText(self._progress_text())
+        
+        # 更新处理设置按钮文本和初始摘要
+        self.processing_settings_button.setText(self.tr("Settings..."))
+        self._update_settings_summary()
 
     def _open_popout_window(self, plot_type: str) -> None:
         for item in self.popout_windows:
@@ -886,6 +907,11 @@ class BatchRunDialog(QDialog):
             current_result = _calculate_absorbance(
                 signal_cropped, background_cropped, reference_cropped
             )
+            
+            # 应用预处理
+            if current_result is not None:
+                current_result = self._apply_preprocessing(current_result, result_wavelengths)
+            
             result_series = current_result if current_result is not None else []
             self.result_curve.setData(result_wavelengths, result_series)
         else:
@@ -966,7 +992,84 @@ class BatchRunDialog(QDialog):
 
     def get_selected_peak_method(self) -> str:
         """获取当前选择的寻峰算法"""
-        return self.peak_method_combo.currentData()
+        return self.processing_settings.get('peak_method', 'gaussian_fit')
+    
+    def _open_processing_settings(self):
+        """打开预处理设置对话框"""
+        from nanosense.gui.batch_processing_settings_dialog import BatchProcessingSettingsDialog
+        
+        dialog = BatchProcessingSettingsDialog(self, self.processing_settings)
+        if dialog.exec_() == QDialog.Accepted:
+            self.processing_settings = dialog.get_settings()
+            self._update_settings_summary()
+            
+            # 发射信号
+            self.processing_settings_changed.emit(self.processing_settings)
+            self.peak_method_changed.emit(self.processing_settings['peak_method'])
+    
+    def _update_settings_summary(self):
+        """更新设置摘要显示"""
+        from nanosense.gui.batch_processing_settings_dialog import BatchProcessingSettingsDialog
+        
+        # 创建临时dialog实例来获取摘要文本
+        temp_dialog = BatchProcessingSettingsDialog(self, self.processing_settings)
+        summary = temp_dialog.get_settings_summary()
+        self.settings_summary_label.setText(summary)
+    
+    def _apply_preprocessing(self, absorbance, wavelengths):
+        """根据processing_settings应用预处理（与Worker中的方法相同）"""
+        import numpy as np
+        from scipy.signal import savgol_filter
+        from nanosense.algorithms.preprocessing import baseline_als
+        
+        # 复制数据
+        processed = np.array(absorbance, copy=True)
+        
+        # 1. 应用平滑
+        smoothing_method = self.processing_settings.get('smoothing_method', 'Savitzky-Golay')
+        smoothing_window = self.processing_settings.get('smoothing_window', 11)
+        
+        try:
+            if smoothing_method == 'Savitzky-Golay':
+                smoothing_order = self.processing_settings.get('smoothing_order', 3)
+                # 确保窗口是奇数且小于数据长度
+                window = min(smoothing_window, len(processed))
+                if window % 2 == 0:
+                    window -= 1
+                if window >= smoothing_order + 2:
+                    processed = savgol_filter(processed, window, smoothing_order)
+            elif smoothing_method == 'Moving Average':
+                # 简单移动平均
+                window = min(smoothing_window, len(processed))
+                if window % 2 == 0:
+                    window -= 1
+                kernel = np.ones(window) / window
+                processed = np.convolve(processed, kernel, mode='same')
+        except Exception as e:
+            print(f"Smoothing error: {e}")
+        
+        # 2. 应用基线校正
+        baseline_enabled = self.processing_settings.get('baseline_enabled', False)
+        if baseline_enabled:
+            baseline_algorithm = self.processing_settings.get('baseline_algorithm', 'ALS')
+            
+            try:
+                if baseline_algorithm == 'ALS':
+                    lambda_param = self.processing_settings.get('baseline_lambda', 5000000)
+                    p_param = self.processing_settings.get('baseline_p', 0.001)
+                    niter = self.processing_settings.get('baseline_niter', 10)
+                    baseline = baseline_als(processed, lam=lambda_param, p=p_param, niter=int(niter))
+                    processed = processed - baseline
+                elif baseline_algorithm == 'SNIP':
+                    baseline = correct_baseline(wavelengths, processed, method='snip')
+                    processed = processed - baseline
+                elif baseline_algorithm == 'Linear':
+                    baseline = correct_baseline(wavelengths, processed, method='linear')
+                    processed = processed - baseline
+            except Exception as e:
+                print(f"Baseline correction error: {e}")
+        
+        return processed
     
     def _progress_text(self) -> str:
         return self.tr("Total progress: {total}% | Current well: {point}%").format(
@@ -1072,6 +1175,7 @@ class BatchAcquisitionWorker(QObject):
         instrument_info: Optional[Dict[str, Any]] = None,
         processing_info: Optional[Dict[str, Any]] = None,
         peak_method: str = "highest_point",
+        processing_settings: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.controller = controller
@@ -1086,6 +1190,11 @@ class BatchAcquisitionWorker(QObject):
         self.intra_well_interval = intra_well_interval
         self.inter_well_interval = inter_well_interval
         self.peak_method = peak_method
+        
+        # 处理设置（如果提供）
+        self.processing_settings = processing_settings or {}
+        if self.processing_settings and 'peak_method' in self.processing_settings:
+            self.peak_method = self.processing_settings['peak_method']
         
         # Initialize worker state
         self._is_running = True
@@ -1159,6 +1268,74 @@ class BatchAcquisitionWorker(QObject):
     def update_peak_method(self, new_method: str):
         """更新寻峰方法"""
         self.peak_method = new_method
+    
+    def update_processing_settings(self, new_settings: dict):
+        """更新全部处理设置"""
+        self.processing_settings = new_settings.copy()
+        
+        # 同步峰值方法
+        if 'peak_method' in new_settings:
+            self.peak_method = new_settings['peak_method']
+        
+        print(f"Processing settings updated:")
+        print(f"  - Smoothing: {new_settings.get('smoothing_method', 'N/A')} (window={new_settings.get('smoothing_window', 'N/A')})")
+        print(f"  - Baseline: {new_settings.get('baseline_algorithm', 'N/A')} (enabled={new_settings.get('baseline_enabled', False)})")
+        print(f"  - Peak: {new_settings.get('peak_method', 'N/A')}")
+    
+    def _apply_preprocessing(self, absorbance, wavelengths):
+        """根据processing_settings应用预处理"""
+        import numpy as np
+        from scipy.signal import savgol_filter
+        from nanosense.algorithms.preprocessing import baseline_als
+        
+        # 复制数据
+        processed = np.array(absorbance, copy=True)
+        
+        # 1. 应用平滑
+        smoothing_method = self.processing_settings.get('smoothing_method', 'Savitzky-Golay')
+        smoothing_window = self.processing_settings.get('smoothing_window', 11)
+        
+        try:
+            if smoothing_method == 'Savitzky-Golay':
+                smoothing_order = self.processing_settings.get('smoothing_order', 3)
+                # 确conserve窗口是奇数且小于数据长度
+                window = min(smoothing_window, len(processed))
+                if window % 2 == 0:
+                    window -= 1
+                if window >= smoothing_order + 2:
+                    processed = savgol_filter(processed, window, smoothing_order)
+            elif smoothing_method == 'Moving Average':
+                # 简单移动平均
+                window = min(smoothing_window, len(processed))
+                if window % 2 == 0:
+                    window -= 1
+                kernel = np.ones(window) / window
+                processed = np.convolve(processed, kernel, mode='same')
+        except Exception as e:
+            print(f"Smoothing error: {e}")
+        
+        # 2. 应用基线校正
+        baseline_enabled = self.processing_settings.get('baseline_enabled', False)
+        if baseline_enabled:
+            baseline_algorithm = self.processing_settings.get('baseline_algorithm', 'ALS')
+            
+            try:
+                if baseline_algorithm == 'ALS':
+                    lambda_param = self.processing_settings.get('baseline_lambda', 5000000)
+                    p_param = self.processing_settings.get('baseline_p', 0.001)
+                    niter = self.processing_settings.get('baseline_niter', 10)
+                    baseline = baseline_als(processed, lam=lambda_param, p=p_param, niter=int(niter))
+                    processed = processed - baseline
+                elif baseline_algorithm == 'SNIP':
+                    baseline = correct_baseline(wavelengths, processed, method='snip')
+                    processed = processed - baseline
+                elif baseline_algorithm == 'Linear':
+                    baseline = correct_baseline(wavelengths, processed, method='linear')
+                    processed = processed - baseline
+            except Exception as e:
+                print(f"Baseline correction error: {e}")
+        
+        return processed
 
 
     def request_collect(self):
@@ -1553,6 +1730,12 @@ class BatchAcquisitionWorker(QObject):
                         well_data["absorbance"][k]
                         for k in sorted(well_data["absorbance"])
                     ]
+                    # 提取全波长吸光度列表（用于full_range_spectra导出）
+                    full_absorbance_dict = well_data.get("full_absorbance", {})
+                    full_absorbance_list = [
+                        full_absorbance_dict[k]
+                        for k in sorted(full_absorbance_dict)
+                    ] if full_absorbance_dict else None
                     concentration = self.layout_data[well_id].get("concentration", 0.0)
                     timestamp_file = time.strftime("%Y%m%d-%H%M%S")
                     filename = f"{timestamp_file}_{well_id}_{concentration}nM{self.file_extension}"
@@ -1561,7 +1744,7 @@ class BatchAcquisitionWorker(QObject):
                         file_path=output_path,
                         wavelengths=self.wavelengths,
                         absorbance_spectra=absorbance_list,
-                        signals_list=signals_list,
+                        full_absorbance_list=full_absorbance_list,
                         background=well_data.get("background"),
                         reference=well_data.get("reference"),
                         crop_start_wl=self.crop_start_wl,
@@ -1720,12 +1903,17 @@ class BatchAcquisitionWorker(QObject):
                         signal_cropped, bg_cropped, ref_cropped = spectrum, bg, ref
                     absorbance = _calculate_absorbance(signal_cropped, bg_cropped, ref_cropped)
                     if absorbance is not None:
-                        self.collected_data[well_id]["absorbance"][point_num] = absorbance
+                        # 定义result_wavelengths（必须在_apply_preprocessing之前）
                         result_wavelengths = (
                             self.cropped_wavelengths
                             if self.wavelength_mask is not None
                             else self.wavelengths
                         )
+                        
+                        # 应用预处理（平滑+基线校正）
+                        absorbance = self._apply_preprocessing(absorbance, result_wavelengths)
+                        
+                        self.collected_data[well_id]["absorbance"][point_num] = absorbance
                         
                         # 计算寻峰结果
                         from nanosense.algorithms.peak_analysis import find_main_resonance_peak, calculate_fwhm
@@ -1757,6 +1945,16 @@ class BatchAcquisitionWorker(QObject):
                             result_wavelengths,
                             absorbance,
                         )
+                    
+                    # 计算全波长范围的吸光度（用于full_range_spectra导出）
+                    full_absorbance = _calculate_absorbance(spectrum, bg, ref)
+                    if full_absorbance is not None:
+                        # 对全波长吸光度应用相同的预处理（平滑+基线校正）
+                        full_absorbance = self._apply_preprocessing(full_absorbance, self.wavelengths)
+                        if "full_absorbance" not in self.collected_data[well_id]:
+                            self.collected_data[well_id]["full_absorbance"] = {}
+                        self.collected_data[well_id]["full_absorbance"][point_num] = full_absorbance
+                    
                     self._record_batch_capture(well_id, status="collecting")
 
                 self.task_index += 1

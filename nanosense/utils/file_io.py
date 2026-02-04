@@ -298,11 +298,11 @@ def load_xy_data_from_file(parent, default_path=""):
 
     return None, None
 
-def save_batch_spectrum_data(file_path, wavelengths, absorbance_spectra, signals_list=None, background=None,
+def save_batch_spectrum_data(file_path, wavelengths, absorbance_spectra, full_absorbance_list=None, background=None,
                              reference=None, crop_start_wl=None, crop_end_wl=None):
     """
     【已重构】将一个孔位的数据保存到文件中。
-    - 保存全波长范围的原始数据。
+    - 保存全波长范围的处理后吸光度数据（如已启用平滑和基线校正则包含这些处理）。
     - 如果提供了裁切范围，则在子文件夹中创建三种不同格式的裁切后报告。
     """
     try:
@@ -312,25 +312,26 @@ def save_batch_spectrum_data(file_path, wavelengths, absorbance_spectra, signals
 
         # 确保波长是Numpy数组
         wavelengths = np.array(wavelengths)
-        # --- 【修复】第1步: 准备并保存只包含全波长范围原始数据的DataFrame ---
-        raw_data_dict = {'Wavelength': wavelengths}
-        if background is not None: raw_data_dict['Background'] = background
-        if reference is not None: raw_data_dict['Reference'] = reference
-        if signals_list:
-            for i, sig in enumerate(signals_list):
-                if sig is not None: raw_data_dict[f"Signal_{i + 1}"] = sig
+        # --- 第1步: 准备并保存全波长范围数据的DataFrame ---
+        full_data_dict = {'Wavelength': wavelengths}
+        if background is not None: full_data_dict['Background'] = background
+        if reference is not None: full_data_dict['Reference'] = reference
+        # 导出全波长处理后的吸光度（而非原始信号）
+        if full_absorbance_list:
+            for i, abso in enumerate(full_absorbance_list):
+                if abso is not None: full_data_dict[f"Absorbance_{i + 1}"] = abso
 
-        df_raw_full = pd.DataFrame(raw_data_dict)
+        df_full = pd.DataFrame(full_data_dict)
 
         full_range_dir = os.path.join(output_dir, 'full_range_spectra')
         os.makedirs(full_range_dir, exist_ok=True)
         full_range_output_path = os.path.join(full_range_dir, base_filename)
 
         if file_extension == '.xlsx':
-            df_raw_full.to_excel(full_range_output_path, index=False, engine='openpyxl')
+            df_full.to_excel(full_range_output_path, index=False, engine='openpyxl')
         else:
-            df_raw_full.to_csv(full_range_output_path, index=False, float_format='%.8f')
-        print(f"全波长范围原始数据已保存到: {full_range_output_path}")
+            df_full.to_csv(full_range_output_path, index=False, float_format='%.8f')
+        print(f"全波长范围处理后吸光度数据已保存到: {full_range_output_path}")
 
         # --- 如果没有提供裁切范围或吸收光谱数据，则在此结束 ---
         if crop_start_wl is None or crop_end_wl is None or not absorbance_spectra:
@@ -350,7 +351,7 @@ def save_batch_spectrum_data(file_path, wavelengths, absorbance_spectra, signals
             return
 
         df_results_cropped = pd.DataFrame(results_data_dict)
-        df_raw_cropped = df_raw_full[mask].copy().reset_index(drop=True)
+        df_full_cropped = df_full[mask].copy().reset_index(drop=True)
 
         # --- 后续的报告生成逻辑现在使用正确的数据源 ---
         start_int, end_int = int(crop_start_wl), int(crop_end_wl)
@@ -363,13 +364,13 @@ def save_batch_spectrum_data(file_path, wavelengths, absorbance_spectra, signals
         os.makedirs(spectra_data_dir, exist_ok=True)
         spectra_data_path = os.path.join(spectra_data_dir, cropped_filename)
 
-        # 【核心修复】从裁切后的原始数据中只选择基础列
+        # 从裁切后的数据中只选择基础列
         base_columns = ['Wavelength']
-        if 'Background' in df_raw_cropped:
+        if 'Background' in df_full_cropped:
             base_columns.append('Background')
-        if 'Reference' in df_raw_cropped:
+        if 'Reference' in df_full_cropped:
             base_columns.append('Reference')
-        df_base_cropped = df_raw_cropped[base_columns]
+        df_base_cropped = df_full_cropped[base_columns]
 
         # 合并基础数据和结果数据进行保存
         df_combined_cropped = pd.concat([df_base_cropped, df_results_cropped.drop('Wavelength', axis=1)], axis=1)
@@ -388,10 +389,9 @@ def save_batch_spectrum_data(file_path, wavelengths, absorbance_spectra, signals
         agg_data = {'Wavelength': df_combined_cropped['Wavelength']}
         if 'Background' in df_combined_cropped: agg_data['Background'] = df_combined_cropped['Background']
         if 'Reference' in df_combined_cropped: agg_data['Reference'] = df_combined_cropped['Reference']
-        for i in range(len(signals_list)):
+        for i in range(len(absorbance_spectra)):
             point_num = i + 1
-            sig_col, abs_col = f"Signal_{point_num}", f"Absorbance_{point_num}"
-            if sig_col in df_combined_cropped: agg_data[sig_col] = df_combined_cropped[sig_col]
+            abs_col = f"Absorbance_{point_num}"
             if abs_col in df_combined_cropped: agg_data[abs_col] = df_combined_cropped[abs_col]
         df_aggregated = pd.DataFrame(agg_data)
 
@@ -409,7 +409,7 @@ def save_batch_spectrum_data(file_path, wavelengths, absorbance_spectra, signals
         per_point_path = os.path.join(per_point_dir, f"per_point_{per_point_base}.xlsx")
 
         with pd.ExcelWriter(per_point_path, engine='openpyxl') as writer:
-            for i in range(len(signals_list)):
+            for i in range(len(absorbance_spectra)):
                 point_num = i + 1
                 sheet_name = f"Point_{point_num}"
 
@@ -417,8 +417,7 @@ def save_batch_spectrum_data(file_path, wavelengths, absorbance_spectra, signals
                 if 'Background' in df_combined_cropped: sheet_data['Background'] = df_combined_cropped['Background']
                 if 'Reference' in df_combined_cropped: sheet_data['Reference'] = df_combined_cropped['Reference']
 
-                sig_col, abs_col = f"Signal_{point_num}", f"Absorbance_{point_num}"
-                if sig_col in df_combined_cropped: sheet_data['Signal'] = df_combined_cropped[sig_col]
+                abs_col = f"Absorbance_{point_num}"
                 if abs_col in df_combined_cropped: sheet_data['Absorbance'] = df_combined_cropped[abs_col]
 
                 df_sheet = pd.DataFrame(sheet_data)

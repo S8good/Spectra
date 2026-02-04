@@ -1004,6 +1004,7 @@ CollapsibleBox > QToolButton:hover {
         self.baseline_spectrum_y = None
         self.realtime_spectrum_x = None
         self.realtime_spectrum_y = None
+        self.baseline_peak_wavelength = None  # 清除基线峰值
 
         self.sensorgram_curve.clear()
         self.peak_shift_curve.clear()
@@ -1051,6 +1052,10 @@ CollapsibleBox > QToolButton:hover {
         result_y = data_package.get("result_y")
         elapsed_time = data_package.get("elapsed_time")
         peak_wl = data_package.get("peak_wl")
+        
+        # DEBUG: 检查接收的数据范围
+        if result_y is not None:
+            print(f"DEBUG: 接收数据 Y值范围: min={np.min(result_y):.4f}, max={np.max(result_y):.4f}, len={len(result_y)}")
 
         # 捕获基线光谱（仅在开始时，第一次数据到达时）
         if self.baseline_spectrum_x is None and result_x is not None and result_y is not None:
@@ -1061,19 +1066,42 @@ CollapsibleBox > QToolButton:hover {
             # 设置基线峰值波长，用于计算峰位移
             if peak_wl is not None:
                 self.baseline_peak_wavelength = float(peak_wl)
+                # 同步到spinbox和状态标签
+                block = self.baseline_spinbox.blockSignals(True)
+                self.baseline_spinbox.setValue(self.baseline_peak_wavelength)
+                self.baseline_spinbox.blockSignals(block)
+                self._update_baseline_status()
                 print(f"基线光谱已捕获，波长范围: {self.baseline_spectrum_x[0]:.1f}-{self.baseline_spectrum_x[-1]:.1f} nm，基线峰值: {self.baseline_peak_wavelength:.2f} nm")
             else:
                 print(f"基线光谱已捕获，波长范围: {self.baseline_spectrum_x[0]:.1f}-{self.baseline_spectrum_x[-1]:.1f} nm")
+            
+            # DEBUG: 检查主窗口属性
+            print(f"DEBUG: main_window存在: {self.main_window is not None}")
+            
+            # 获取measurement_widget (可能是main_window本身或其子组件)
+            measurement_widget = None
+            if hasattr(self.main_window, 'analysis_start_spinbox'):
+                measurement_widget = self.main_window
+            elif hasattr(self.main_window, 'measurement_page'):
+                measurement_widget = self.main_window.measurement_page
+            
+            print(f"DEBUG: measurement_widget存在: {measurement_widget is not None}")
+            
+            # 初始设置X轴范围为分析范围
+            if measurement_widget and hasattr(measurement_widget, 'analysis_start_spinbox') and hasattr(measurement_widget, 'analysis_end_spinbox'):
+                analysis_start = measurement_widget.analysis_start_spinbox.value()
+                analysis_end = measurement_widget.analysis_end_spinbox.value()
+                print(f"DEBUG: 分析范围值 = {analysis_start} - {analysis_end}")
+                self.comparison_plot.setXRange(analysis_start, analysis_end, padding=0.02)
+                print(f"光谱对比图X轴范围设置为: {analysis_start:.1f}-{analysis_end:.1f} nm")
+            else:
+                print("DEBUG: 无法获取分析范围spinbox")
         
         # 更新实时光谱
         if result_x is not None and result_y is not None:
             self.realtime_spectrum_x = np.array(result_x, copy=True)
             self.realtime_spectrum_y = np.array(result_y, copy=True)
             self.realtime_curve.setData(self.realtime_spectrum_x, self.realtime_spectrum_y)
-            
-            # 如果没有用户交互，自动调整视图范围
-            if not self._comparison_user_interacted:
-                self.comparison_plot.enableAutoRange(x=True, y=True)
 
         # 更新动力学曲线（时间 vs 峰位）
         if elapsed_time is not None and peak_wl is not None:
@@ -1082,6 +1110,9 @@ CollapsibleBox > QToolButton:hover {
             self.kinetics_time_data.append(elapsed_time)
             self.kinetics_wavelength_data.append(peak_wl)
             self.sensorgram_curve.setData(self.kinetics_time_data, self.kinetics_wavelength_data)
+            
+            # DEBUG: 检查峰位移计算
+            print(f"更新峰位移: time={elapsed_time:.2f}s, peak={peak_wl:.2f}nm, baseline={self.baseline_peak_wavelength}")
             self._update_peak_shift_series(elapsed_time, peak_wl)
             
             # 更新峰位标记以显示 Δλ

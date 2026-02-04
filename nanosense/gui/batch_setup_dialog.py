@@ -68,8 +68,8 @@ class BatchSetupDialog(QDialog):
             spinbox.setSingleStep(10.0)
             spinbox.setSuffix(" nm")
 
-        self.crop_start_spinbox.setValue(450.0)
-        self.crop_end_spinbox.setValue(750.0)
+        self.crop_start_spinbox.setValue(500.0)
+        self.crop_end_spinbox.setValue(900.0)
 
         self.crop_start_label = QLabel(self.tr("Crop Start Wavelength:"))
         self.crop_end_label = QLabel(self.tr("Crop End Wavelength:"))

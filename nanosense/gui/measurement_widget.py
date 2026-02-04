@@ -111,14 +111,14 @@ class MeasurementWidget(QWidget):
 
         # --- 采集控制 ---
         self.acq_box = CollapsibleBox(self.tr("Acquisition Control"))
-        acq_layout = QVBoxLayout()
-        acq_layout.setSpacing(10)
+        acq_layout = QFormLayout()
         self.toggle_acq_button = QPushButton(self.tr("Start Acquisition"))
-        self.capture_dark_button = QPushButton(self.tr("Capture Background (Dark)"))
-        self.capture_ref_button = QPushButton(self.tr("Capture Reference (Ref)"))
-        acq_layout.addWidget(self.toggle_acq_button)
-        acq_layout.addWidget(self.capture_dark_button)
-        acq_layout.addWidget(self.capture_ref_button)
+        self.toggle_acq_button.setCheckable(True)
+        acq_layout.addRow(self.toggle_acq_button)
+        self.capture_dark_button = QPushButton(self.tr("Capture Dark"))
+        acq_layout.addRow(self.capture_dark_button)
+        self.capture_ref_button = QPushButton(self.tr("Capture Ref"))
+        acq_layout.addRow(self.capture_ref_button)
         
         # --- 拉曼专用控件 ---
         self.raman_group = QGroupBox(self.tr("Raman Settings"))
@@ -139,8 +139,8 @@ class MeasurementWidget(QWidget):
         common_wavelengths = [532.0, 633.0, 785.0]
         self.wavelength_buttons = []
         for wl in common_wavelengths:
-            button = QPushButton(f"{wl} nm")
-            button.setFixedWidth(80)
+            button = QPushButton(f"{int(wl)}")
+            button.setFixedWidth(60)
             button.clicked.connect(lambda checked, w=wl: self.excitation_wavelength_spinbox.setValue(w))
             self.wavelength_buttons.append(button)
             wavelength_buttons_layout.addWidget(button)
@@ -230,6 +230,53 @@ class MeasurementWidget(QWidget):
         self.params_layout.addRow(self.tr("Integration Time:"), self.integration_time_spinbox)
         self.params_layout.addRow(self.tr("Smoothing Method:"), self.smooth_method_combo)
         self.params_layout.addRow(self.tr("Smoothing Window:"), self.smoothing_window_spinbox)
+        
+        # 基线校正控件
+        self.baseline_group = QGroupBox(self.tr("Baseline Correction"))
+        baseline_layout = QFormLayout(self.baseline_group)
+        
+        # 启用基线校正
+        self.baseline_enable_checkbox = QCheckBox(self.tr("Enable Baseline Correction"))
+        self.baseline_enable_checkbox.setChecked(False)
+        baseline_layout.addRow(self.baseline_enable_checkbox)
+        
+        # 算法选择
+        self.baseline_algorithm_combo = QComboBox()
+        self.baseline_algorithm_combo.addItems(["ALS"])  # 未来可扩展ArPLS, Polynomial
+        baseline_layout.addRow(self.tr("Algorithm:"), self.baseline_algorithm_combo)
+        
+        # Lambda 参数 (平滑度)
+        self.baseline_lambda_spinbox = QDoubleSpinBox()
+        self.baseline_lambda_spinbox.setRange(1e2, 1e9)
+        self.baseline_lambda_spinbox.setValue(1e6)
+        self.baseline_lambda_spinbox.setDecimals(0)
+        self.baseline_lambda_spinbox.setSingleStep(1e5)
+        self.baseline_lambda_spinbox.setToolTip(
+            self.tr("Larger values = smoother baseline (typical: 1e5 - 1e7)")
+        )
+        baseline_layout.addRow(self.tr("Lambda (平滑度):"), self.baseline_lambda_spinbox)
+        
+        # p 参数 (不对称性)
+        self.baseline_p_spinbox = QDoubleSpinBox()
+        self.baseline_p_spinbox.setRange(0.001, 0.1)
+        self.baseline_p_spinbox.setValue(0.01)
+        self.baseline_p_spinbox.setDecimals(3)
+        self.baseline_p_spinbox.setSingleStep(0.001)
+        self.baseline_p_spinbox.setToolTip(
+            self.tr("Asymmetry parameter (typical: 0.001 - 0.1)")
+        )
+        baseline_layout.addRow(self.tr("p (不对称性):"), self.baseline_p_spinbox)
+        
+        # 迭代次数
+        self.baseline_niter_spinbox = QSpinBox()
+        self.baseline_niter_spinbox.setRange(1, 50)
+        self.baseline_niter_spinbox.setValue(10)
+        self.baseline_niter_spinbox.setToolTip(
+            self.tr("Number of iterations (typical: 10-20)")
+        )
+        baseline_layout.addRow(self.tr("Iterations:"), self.baseline_niter_spinbox)
+        
+        self.params_layout.addRow(self.baseline_group)
         self.params_layout.addRow(self.baseline_correction_button)
         self.params_layout.addRow(self.raman_preprocessing_group)
         
@@ -248,7 +295,7 @@ class MeasurementWidget(QWidget):
         
         self.analysis_end_spinbox = QDoubleSpinBox()
         self.analysis_end_spinbox.setRange(200.0, 1200.0)
-        self.analysis_end_spinbox.setValue(800.0)
+        self.analysis_end_spinbox.setValue(900.0)
         self.analysis_end_spinbox.setSuffix(" nm")
         self.analysis_end_spinbox.setDecimals(1)
         self.analysis_end_spinbox.setToolTip(
@@ -300,11 +347,16 @@ class MeasurementWidget(QWidget):
         self.result_display_layout.addRow(self.tr("Peak Wavelength (nm):"), self.main_peak_wavelength_label)
         self.result_display_layout.addRow(self.tr("Peak Intensity:"), self.main_peak_intensity_label)
         
-        # 拉曼光谱的波长/波数切换
+        # 波长/波数切换按钮
         self.wavenumber_toggle = QPushButton(self.tr("Switch to Wavenumber"))
         self.wavenumber_toggle.setCheckable(True)
         analysis_outer_layout.addWidget(self.wavenumber_toggle)
         
+        # 初始化processor的分析范围
+        self.processor.set_analysis_range(
+            self.analysis_start_spinbox.value(),
+            self.analysis_end_spinbox.value()
+        )
         analysis_outer_layout.addWidget(self.result_display_group)
         self.analysis_box.setContentLayout(analysis_outer_layout)
         panel_layout.addWidget(self.analysis_box)
@@ -711,6 +763,13 @@ class MeasurementWidget(QWidget):
         self.wavenumber_toggle.clicked.connect(self._toggle_wavelength_wavenumber)
         self.save_all_button.clicked.connect(self._save_all_spectra)
         
+        # 连接基线校正参数信号
+        self.baseline_enable_checkbox.stateChanged.connect(self._update_baseline_params)
+        self.baseline_algorithm_combo.currentTextChanged.connect(self._update_baseline_params)
+        self.baseline_lambda_spinbox.valueChanged.connect(self._update_baseline_params)
+        self.baseline_p_spinbox.valueChanged.connect(self._update_baseline_params)
+        self.baseline_niter_spinbox.valueChanged.connect(self._update_baseline_params)
+        
         # SERS分析
         self.calculate_sers_button.clicked.connect(self._calculate_sers_enhancement)
         
@@ -776,10 +835,20 @@ class MeasurementWidget(QWidget):
     def _build_processing_metadata(self, spectrum_role=None):
         parameters = {
             'mode': self.mode_name,
+            # 平滑参数
             'smoothing_method': self.smooth_method_combo.currentText() if hasattr(self, 'smooth_method_combo') else None,
             'smoothing_window': int(self.smoothing_window_spinbox.value()) if hasattr(self, 'smoothing_window_spinbox') else None,
+            'smoothing_order': int(self.poly_order_spinbox.value()) if hasattr(self, 'poly_order_spinbox') else None,
+            # 基线校正参数
+            'baseline_enabled': self.baseline_enabled_checkbox.isChecked() if hasattr(self, 'baseline_enabled_checkbox') else None,
+            'baseline_algorithm': self.baseline_algorithm_combo.currentText() if hasattr(self, 'baseline_algorithm_combo') else None,
+            'baseline_lambda': float(self.baseline_lambda_spinbox.value()) if hasattr(self, 'baseline_lambda_spinbox') else None,
+            'baseline_p': float(self.baseline_p_spinbox.value()) if hasattr(self, 'baseline_p_spinbox') else None,
+            'baseline_niter': int(self.baseline_niter_spinbox.value()) if hasattr(self, 'baseline_niter_spinbox') else None,
+            # 寻峰参数
             'peak_method': self.peak_method_combo.currentData() if hasattr(self, 'peak_method_combo') and self.peak_method_combo.currentData() else (self.peak_method_combo.currentText() if hasattr(self, 'peak_method_combo') else None),
             'peak_height_threshold': float(self.peak_height_spinbox.value()) if hasattr(self, 'peak_height_spinbox') else None,
+            # 分析范围
             'analysis_start_nm': float(self.analysis_start_spinbox.value()) if hasattr(self, 'analysis_start_spinbox') else None,
             'analysis_end_nm': float(self.analysis_end_spinbox.value()) if hasattr(self, 'analysis_end_spinbox') else None,
             'baseline_defined': self.kinetics_baseline_value is not None
@@ -819,50 +888,58 @@ class MeasurementWidget(QWidget):
                 if experiment_id:
                     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                     instrument_info = self._build_instrument_metadata()
+                    
+                    # 创建裁剪mask用于信号/背景/参考光谱
+                    wl_mask = (self.wavelengths >= min_wl) & (self.wavelengths <= max_wl)
+                    wavelengths_cropped = self.wavelengths[wl_mask]
 
+                    # 保存结果光谱（使用裁剪数据）
                     self.db_manager.save_spectrum(
                         experiment_id,
                         f"Result_{self.mode_name}",
                         timestamp,
-                        full_x_data,
-                        full_y_data,
+                        x_data_sliced,
+                        y_data_sliced,
                         instrument_info=instrument_info,
                         processing_info=self._build_processing_metadata('Result'),
                     )
+                    # 保存信号光谱（裁剪到分析范围）
                     if self.processor.latest_signal_spectrum is not None:
                         self.db_manager.save_spectrum(
                             experiment_id,
                             "Signal",
                             timestamp,
-                            self.wavelengths,
-                            self.processor.latest_signal_spectrum,
+                            wavelengths_cropped,
+                            self.processor.latest_signal_spectrum[wl_mask],
                             instrument_info=instrument_info,
                             processing_info=self._build_processing_metadata('Signal'),
                         )
+                    # 保存背景光谱（裁剪到分析范围）
                     if self.processor.background_spectrum is not None:
                         self.db_manager.save_spectrum(
                             experiment_id,
                             "Background",
                             timestamp,
-                            self.wavelengths,
-                            self.processor.background_spectrum,
+                            wavelengths_cropped,
+                            self.processor.background_spectrum[wl_mask],
                             instrument_info=instrument_info,
                             processing_info=self._build_processing_metadata('Background'),
                         )
+                    # 保存参考光谱（裁剪到分析范围）
                     if self.processor.reference_spectrum is not None:
                         self.db_manager.save_spectrum(
                             experiment_id,
                             "Reference",
                             timestamp,
-                            self.wavelengths,
-                            self.processor.reference_spectrum,
+                            wavelengths_cropped,
+                            self.processor.reference_spectrum[wl_mask],
                             instrument_info=instrument_info,
                             processing_info=self._build_processing_metadata('Reference'),
                         )
-                    print(f"光谱数据已同步保存到数据库，实验ID: {experiment_id}")
+                    print(f"光谱数据已同步保存到数据库，实验ID: {experiment_id}，范围: {min_wl}-{max_wl} nm")
                     QMessageBox.information(self, self.tr("Database Sync"),
                                             self.tr("Spectrum data has been successfully saved to file and database.\n"
-                                                    "Experiment ID: {0}").format(experiment_id))
+                                                    "Experiment ID: {0}\nWavelength Range: {1}-{2} nm").format(experiment_id, min_wl, max_wl))
             except Exception as e:
                 print(f"同步到数据库时出错: {e}")
                 QMessageBox.warning(self, self.tr("Database Error"),
@@ -903,13 +980,15 @@ class MeasurementWidget(QWidget):
         )
 
     def _on_analysis_range_changed(self):
-        """当分析范围改变时更新显示和处理。"""
-        # 更新result_plot显示
-        self._update_result_plot_with_crop()
+        """分析范围改变时更新processor和UI"""
+        start = self.analysis_start_spinbox.value()
+        end = self.analysis_end_spinbox.value()
         
-        # 如果启用了基线校正，重新处理
-        if hasattr(self, 'baseline_correction_enabled') and self.baseline_correction_enabled:
-            self.processor.process_and_emit()
+        if start >= end:
+            return  # 无效范围
+        
+        # 通知processor更新分析范围（会触发重新处理）
+        self.processor.set_analysis_range(start, end)
 
     def set_mode(self, mode_name):
         # 若正在动力学监测，先关闭
@@ -940,16 +1019,23 @@ class MeasurementWidget(QWidget):
         # 显示/隐藏拉曼专用控件
         if hasattr(self, 'raman_group'):
             if self.mode_name == "Raman":
-                self.raman_group.show()
+                self.raman_group.setVisible(True)
             else:
-                self.raman_group.hide()
+                self.raman_group.setVisible(False)
         
         # 显示/隐藏拉曼预处理控件
         if hasattr(self, 'raman_preprocessing_group'):
             if self.mode_name == "Raman":
-                self.raman_preprocessing_group.show()
+                self.raman_preprocessing_group.setVisible(True)
             else:
-                self.raman_preprocessing_group.hide()
+                self.raman_preprocessing_group.setVisible(False)
+        
+        # 显示/隐藏波数切换按钮（仅拉曼模式）
+        if hasattr(self, 'wavenumber_toggle'):
+            if self.mode_name == "Raman":
+                self.wavenumber_toggle.setVisible(True)
+            else:
+                self.wavenumber_toggle.setVisible(False)
         
         # 显示/隐藏SERS分析控件
         if hasattr(self, 'sers_box'):
@@ -1011,10 +1097,19 @@ class MeasurementWidget(QWidget):
                     peak_wl = self._get_main_peak_wavelength(y_data=self.full_result_y)
                     if peak_wl is not None:
                         elapsed_time = current_time - self.kinetics_start_time
+                        
+                        # 裁剪到分析范围，避免发送范围外的原始信号值
+                        analysis_start = self.analysis_start_spinbox.value()
+                        analysis_end = self.analysis_end_spinbox.value()
+                        
+                        # 创建分析范围内的数据
+                        mask = (self.full_result_x >= analysis_start) & (self.full_result_x <= analysis_end)
+                        cropped_x = self.full_result_x[mask]
+                        cropped_y = self.full_result_y[mask]
 
                         data_package = {
-                            'result_x': self.full_result_x,
-                            'result_y': self.full_result_y,
+                            'result_x': cropped_x,
+                            'result_y': cropped_y,
                             'elapsed_time': float(elapsed_time),
                             'peak_wl': float(peak_wl)
                         }
@@ -1064,6 +1159,17 @@ class MeasurementWidget(QWidget):
             window += 1
             self.smoothing_window_spinbox.setValue(window)
         self.processor.set_smoothing_params(method, window)
+    
+    def _update_baseline_params(self):
+        """更新处理器的基线校正参数。"""
+        enabled = self.baseline_enable_checkbox.isChecked()
+        algorithm = self.baseline_algorithm_combo.currentText()
+        lam = self.baseline_lambda_spinbox.value()
+        p = self.baseline_p_spinbox.value()
+        niter = self.baseline_niter_spinbox.value()
+        
+        # 调用处理器的设置方法
+        self.processor.set_baseline_params(enabled, algorithm, lam, p, niter)
 
     def _update_result_plot_with_crop(self):
         """
