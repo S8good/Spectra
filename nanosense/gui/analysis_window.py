@@ -21,7 +21,12 @@ from nanosense.algorithms.peak_analysis import (
     PEAK_METHOD_LABELS,
     estimate_peak_position,
 )
-from nanosense.algorithms.preprocessing import baseline_als, smooth_savitzky_golay
+from nanosense.algorithms.preprocessing import (
+    baseline_als, 
+    smooth_savitzky_golay,
+    smooth_moving_average,
+    smooth_median
+)
 from .collapsible_box import CollapsibleBox
 from .preprocessing_dialog import PreprocessingDialog
 
@@ -58,16 +63,28 @@ class SummaryReportWorker(QThread):
             baseline = baseline_als(working, lam=als_lambda, p=als_p)
             working = working - baseline
         if self.apply_smoothing:
-            sg_window_coarse = self.preprocessing_params.get("sg_window_coarse", 14)
-            sg_poly_coarse = self.preprocessing_params.get("sg_polyorder_coarse", 3)
-            sg_window_fine = self.preprocessing_params.get("sg_window_fine", 8)
-            sg_poly_fine = self.preprocessing_params.get("sg_polyorder_fine", 3)
-            sg_two_stage = self.preprocessing_params.get("sg_two_stage", True)
-            coarse = smooth_savitzky_golay(working, window_length=sg_window_coarse, polyorder=sg_poly_coarse)
-            if sg_two_stage:
-                working = smooth_savitzky_golay(coarse, window_length=sg_window_fine, polyorder=sg_poly_fine)
-            else:
-                working = coarse
+            method = self.preprocessing_params.get("smoothing_method", "Savitzky-Golay")
+            
+            if method == "Savitzky-Golay":
+                sg_window_coarse = self.preprocessing_params.get("sg_window_coarse", 14)
+                sg_poly_coarse = self.preprocessing_params.get("sg_polyorder_coarse", 3)
+                sg_window_fine = self.preprocessing_params.get("sg_window_fine", 8)
+                sg_poly_fine = self.preprocessing_params.get("sg_polyorder_fine", 3)
+                sg_two_stage = self.preprocessing_params.get("sg_two_stage", True)
+                coarse = smooth_savitzky_golay(working, window_length=sg_window_coarse, polyorder=sg_poly_coarse)
+                if sg_two_stage:
+                    working = smooth_savitzky_golay(coarse, window_length=sg_window_fine, polyorder=sg_poly_fine)
+                else:
+                    working = coarse
+            
+            elif method == "Moving Average":
+                window_size = self.preprocessing_params.get("ma_window", 5)
+                working = smooth_moving_average(working, window_size=window_size)
+                
+            elif method == "Median Filter":
+                kernel_size = self.preprocessing_params.get("med_kernel", 5)
+                working = smooth_median(working, kernel_size=kernel_size)
+                
         return working
 
     def _format_value(self, value, precision=4):
@@ -382,11 +399,14 @@ class AnalysisWindow(QMainWindow):
         default_preprocessing_params = {
             'als_lambda': 1e9,
             'als_p': 0.01,
+            'smoothing_method': 'Savitzky-Golay',
             'sg_window_coarse': 14,
             'sg_polyorder_coarse': 3,
             'sg_window_fine': 8,
             'sg_polyorder_fine': 3,
-            'sg_two_stage': True
+            'sg_two_stage': True,
+            'ma_window': 5,
+            'med_kernel': 5,
         }
         stored_params = self.app_settings.get("analysis_preprocessing_params")
         self.preprocessing_params = default_preprocessing_params.copy()
@@ -445,7 +465,7 @@ class AnalysisWindow(QMainWindow):
 
         self.plot_widget.clear()
         self.plot_widget.addItem(self.main_peak_marker)
-        self.plot_widget.addItem(self.region_selector)
+        # self.plot_widget.addItem(self.region_selector)
         self.main_peak_marker.clear()
 
         if self.average_curve_item:
@@ -542,7 +562,7 @@ class AnalysisWindow(QMainWindow):
             x_max = np.max(x_vals) if x_max is None else max(x_max, np.max(x_vals))
         if x_min is None or x_max is None:
             return
-        range_min, range_max = self.region_selector.getRegion()
+        range_min, range_max = self.range_start_spinbox.value(), self.range_end_spinbox.value()
         if range_min > range_max:
             range_min, range_max = range_max, range_min
         full_span = x_max - x_min
@@ -555,7 +575,7 @@ class AnalysisWindow(QMainWindow):
             return
         if not self.spectra:
             return
-        range_min, range_max = self.region_selector.getRegion()
+        range_min, range_max = self.range_start_spinbox.value(), self.range_end_spinbox.value()
         if range_min > range_max:
             range_min, range_max = range_max, range_min
         noise_min = self.noise_range_start_spinbox.value()
@@ -646,7 +666,7 @@ class AnalysisWindow(QMainWindow):
         ]
 
         # 2. 获取参数设置
-        min_wl, max_wl = self.region_selector.getRegion()
+        min_wl, max_wl = self.range_start_spinbox.value(), self.range_end_spinbox.value()
         if min_wl > max_wl:
             min_wl, max_wl = max_wl, min_wl
 
@@ -1032,9 +1052,7 @@ class AnalysisWindow(QMainWindow):
         plot_widget.addItem(self.main_peak_marker)
         self.plot_widget = plot_widget
 
-        self.region_selector = pg.LinearRegionItem(values=[450, 750], orientation=pg.LinearRegionItem.Vertical,
-                                                   brush=pg.mkBrush(200, 200, 220, 40))
-        plot_widget.addItem(self.region_selector)
+
 
         # 更新图表样式以适配当前主题
         self._update_plot_styles()
@@ -1136,7 +1154,7 @@ class AnalysisWindow(QMainWindow):
 
         self.range_start_spinbox.valueChanged.connect(self._on_range_spinbox_changed)
         self.range_end_spinbox.valueChanged.connect(self._on_range_spinbox_changed)
-        self.region_selector.sigRegionChanged.connect(self._on_region_changed)
+        # self.region_selector.sigRegionChanged.connect(self._on_region_changed)
         self.reset_range_button.clicked.connect(self._reset_find_range)
         self.noise_range_start_spinbox.valueChanged.connect(self._on_noise_range_spinbox_changed)
         self.noise_range_end_spinbox.valueChanged.connect(self._on_noise_range_spinbox_changed)
@@ -1178,7 +1196,7 @@ class AnalysisWindow(QMainWindow):
         self.preprocessing_box.toggle_button.setText(self.tr("Preprocessing"))
         self.preprocessing_enabled_checkbox.setText(self.tr("Enable preprocessing"))
         self.baseline_checkbox.setText(self.tr("ALS baseline"))
-        self.smoothing_checkbox.setText(self.tr("Savitzky-Golay"))
+        self.smoothing_checkbox.setText(self.tr("Smoothing"))
         self.preprocessing_settings_button.setText(self.tr("Adjust Preprocessing Parameters..."))
 
         self.analysis_box.toggle_button.setText(self.tr("Static Analysis"))
@@ -1320,16 +1338,28 @@ class AnalysisWindow(QMainWindow):
             baseline = baseline_als(working, lam=als_lambda, p=als_p)
             working = working - baseline
         if self.smoothing_checkbox.isChecked():
-            sg_window_coarse = self.preprocessing_params.get("sg_window_coarse", 14)
-            sg_poly_coarse = self.preprocessing_params.get("sg_polyorder_coarse", 3)
-            sg_window_fine = self.preprocessing_params.get("sg_window_fine", 8)
-            sg_poly_fine = self.preprocessing_params.get("sg_polyorder_fine", 3)
-            sg_two_stage = self.preprocessing_params.get("sg_two_stage", True)
-            coarse = smooth_savitzky_golay(working, window_length=sg_window_coarse, polyorder=sg_poly_coarse)
-            if sg_two_stage:
-                working = smooth_savitzky_golay(coarse, window_length=sg_window_fine, polyorder=sg_poly_fine)
-            else:
-                working = coarse
+            method = self.preprocessing_params.get("smoothing_method", "Savitzky-Golay")
+            
+            if method == "Savitzky-Golay":
+                sg_window_coarse = self.preprocessing_params.get("sg_window_coarse", 14)
+                sg_poly_coarse = self.preprocessing_params.get("sg_polyorder_coarse", 3)
+                sg_window_fine = self.preprocessing_params.get("sg_window_fine", 8)
+                sg_poly_fine = self.preprocessing_params.get("sg_polyorder_fine", 3)
+                sg_two_stage = self.preprocessing_params.get("sg_two_stage", True)
+                coarse = smooth_savitzky_golay(working, window_length=sg_window_coarse, polyorder=sg_poly_coarse)
+                if sg_two_stage:
+                    working = smooth_savitzky_golay(coarse, window_length=sg_window_fine, polyorder=sg_poly_fine)
+                else:
+                    working = coarse
+            
+            elif method == "Moving Average":
+                window_size = self.preprocessing_params.get("ma_window", 5)
+                working = smooth_moving_average(working, window_size=window_size)
+            
+            elif method == "Median Filter":
+                kernel_size = self.preprocessing_params.get("med_kernel", 5)
+                working = smooth_median(working, kernel_size=kernel_size)
+
         return working, baseline
 
     def _on_preprocessing_toggle_changed(self):
@@ -1432,7 +1462,7 @@ class AnalysisWindow(QMainWindow):
         if y_data is None or len(y_data) == 0: return
 
         # 1. 从UI获取寻峰范围
-        min_wl, max_wl = self.region_selector.getRegion()
+        min_wl, max_wl = self.range_start_spinbox.value(), self.range_end_spinbox.value()
 
         # 2. 创建掩码并裁切数据
         region_indices = np.where((x_data >= min_wl) & (x_data <= max_wl))[0]
@@ -1518,7 +1548,7 @@ class AnalysisWindow(QMainWindow):
             apply_baseline=bool(self.baseline_checkbox.isChecked()),
             apply_smoothing=bool(self.smoothing_checkbox.isChecked()),
             preprocessing_enabled=bool(self.preprocessing_enabled_checkbox.isChecked()),
-            find_range=self.region_selector.getRegion(),
+            find_range=(self.range_start_spinbox.value(), self.range_end_spinbox.value()),
             noise_range=(noise_start, noise_end),
             peak_method=peak_method,
             min_height=min_height
@@ -1612,7 +1642,7 @@ class AnalysisWindow(QMainWindow):
             exporter.export(image_path)
             return
 
-        range_min, range_max = self.region_selector.getRegion()
+        range_min, range_max = self.range_start_spinbox.value(), self.range_end_spinbox.value()
         if range_min > range_max:
             range_min, range_max = range_max, range_min
 
@@ -1752,20 +1782,14 @@ class AnalysisWindow(QMainWindow):
         """当输入框数值改变时，更新图表上的区域。"""
         start_val = self.range_start_spinbox.value()
         end_val = self.range_end_spinbox.value()
-        self.region_selector.blockSignals(True)
-        self.region_selector.setRegion((start_val, end_val))
-        self.region_selector.blockSignals(False)
-
-    def _on_region_changed(self):
-        """当图表上的区域被拖拽时，更新输入框的数值。"""
-        min_val, max_val = self.region_selector.getRegion()
-        self.range_start_spinbox.blockSignals(True)
-        self.range_end_spinbox.blockSignals(True)
-        self.range_start_spinbox.setValue(min_val)
-        self.range_end_spinbox.setValue(max_val)
-        self.range_start_spinbox.blockSignals(False)
-        self.range_end_spinbox.blockSignals(False)
+        # self.region_selector.blockSignals(True)
+        # self.region_selector.setRegion((start_val, end_val))
+        # self.region_selector.blockSignals(False)
+        # 更新相关逻辑
         self._refresh_metrics_table()
+        self._auto_y_range()
+
+
 
     def _on_noise_range_spinbox_changed(self):
         start_val = self.noise_range_start_spinbox.value()
@@ -1816,6 +1840,15 @@ class AnalysisWindow(QMainWindow):
                 ax = self.plot_widget.getPlotItem().getAxis(axis)
                 ax.setPen(axis_pen)
                 ax.setTextPen(text_pen)
+
+            # 更新图例文字颜色
+            legend = self.plot_widget.getPlotItem().legend
+            if legend:
+                text_color = '#000000' if theme == 'light' else '#E2E8F0'
+                for item in legend.items:
+                    label = item[1]  # item is a tuple (sample, label)
+                    label.setText(label.text, color=text_color)
+            
             self._apply_metrics_table_theme(theme)
         except Exception:
             pass  # 忽略错误

@@ -3,11 +3,19 @@
 import numpy as np
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QGroupBox,
                              QFormLayout, QLabel, QSpinBox, QDoubleSpinBox, QDialogButtonBox, QComboBox,
-                             QCheckBox)
+                             QFormLayout, QLabel, QSpinBox, QDoubleSpinBox, QDialogButtonBox, QComboBox,
+                             QCheckBox, QWidget)
 from PyQt5.QtCore import Qt, QEvent  # 导入 QEvent
 import pyqtgraph as pg
 
-from nanosense.algorithms.preprocessing import baseline_als, smooth_savitzky_golay
+from nanosense.algorithms.preprocessing import (
+    baseline_als, 
+    smooth_savitzky_golay,
+    smooth_moving_average,
+    smooth_median
+)
+
+
 
 
 class PreprocessingDialog(QDialog):
@@ -69,8 +77,27 @@ class PreprocessingDialog(QDialog):
         self.als_p_label = QLabel()
         als_layout.addRow(self.als_lambda_label, self.als_lambda_input);
         als_layout.addRow(self.als_p_label, self.als_p_input)
+        
+        # --- Smoothing Group ---
         self.sg_group = QGroupBox()
+        # Rename internal variable to generic name if preferred, but keeping sg_group to minimize diffs is fine, 
+        # but the title will be updated in _retranslate_ui
         sg_layout = QFormLayout(self.sg_group)
+        
+        # Method Selection
+        self.smoothing_method_combo = QComboBox()
+        # Items will be added in _retranslate_ui or here. Let's add keys here and labels in retranslate.
+        self.smoothing_method_combo.addItem("Savitzky-Golay", "Savitzky-Golay")
+        self.smoothing_method_combo.addItem("Moving Average", "Moving Average")
+        self.smoothing_method_combo.addItem("Median Filter", "Median Filter")
+        
+        sg_layout.addRow(QLabel("Method:"), self.smoothing_method_combo)
+        
+        # S-G Widgets
+        self.sg_widgets_container = QWidget()
+        self.sg_widgets_layout = QFormLayout(self.sg_widgets_container)
+        self.sg_widgets_layout.setContentsMargins(0,0,0,0)
+        
         self.sg_window_coarse_input = QSpinBox();
         self.sg_window_coarse_input.setRange(3, 199);
         self.sg_window_coarse_input.setSingleStep(2)
@@ -83,15 +110,40 @@ class PreprocessingDialog(QDialog):
         self.sg_poly_fine_input.setRange(1, 10)
         self.sg_two_stage_checkbox = QCheckBox()
         self.sg_window_coarse_label = QLabel();
-        sg_layout.addRow(self.sg_two_stage_checkbox)
         self.sg_poly_coarse_label = QLabel()
         self.sg_window_fine_label = QLabel();
         self.sg_poly_fine_label = QLabel()
-        sg_layout.addRow(self.sg_window_coarse_label, self.sg_window_coarse_input);
-        sg_layout.addRow(self.sg_poly_coarse_label, self.sg_poly_coarse_input)
-        sg_layout.addRow(QLabel("---"));
-        sg_layout.addRow(self.sg_window_fine_label, self.sg_window_fine_input);
-        sg_layout.addRow(self.sg_poly_fine_label, self.sg_poly_fine_input)
+        
+        self.sg_widgets_layout.addRow(self.sg_two_stage_checkbox)
+        self.sg_widgets_layout.addRow(self.sg_window_coarse_label, self.sg_window_coarse_input);
+        self.sg_widgets_layout.addRow(self.sg_poly_coarse_label, self.sg_poly_coarse_input)
+        self.sg_widgets_layout.addRow(QLabel("---"));
+        self.sg_widgets_layout.addRow(self.sg_window_fine_label, self.sg_window_fine_input);
+        self.sg_widgets_layout.addRow(self.sg_poly_fine_label, self.sg_poly_fine_input)
+        
+        sg_layout.addRow(self.sg_widgets_container)
+
+        # Moving Average Widgets
+        self.ma_widgets_container = QWidget()
+        self.ma_widgets_layout = QFormLayout(self.ma_widgets_container)
+        self.ma_widgets_layout.setContentsMargins(0,0,0,0)
+        self.ma_window_input = QSpinBox()
+        self.ma_window_input.setRange(1, 199)
+        self.ma_window_label = QLabel()
+        self.ma_widgets_layout.addRow(self.ma_window_label, self.ma_window_input)
+        sg_layout.addRow(self.ma_widgets_container)
+        
+        # Median Filter Widgets
+        self.med_widgets_container = QWidget()
+        self.med_widgets_layout = QFormLayout(self.med_widgets_container)
+        self.med_widgets_layout.setContentsMargins(0,0,0,0)
+        self.med_kernel_input = QSpinBox()
+        self.med_kernel_input.setRange(1, 199)
+        self.med_kernel_input.setSingleStep(2)
+        self.med_kernel_label = QLabel()
+        self.med_widgets_layout.addRow(self.med_kernel_label, self.med_kernel_input)
+        sg_layout.addRow(self.med_widgets_container)
+
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         control_layout.addWidget(self.als_group);
         control_layout.addWidget(self.sg_group);
@@ -110,13 +162,21 @@ class PreprocessingDialog(QDialog):
     def _connect_signals(self):
         if self.preview_combo is not None:
             self.preview_combo.currentIndexChanged.connect(self._on_preview_changed)
+        
+        self.smoothing_method_combo.currentIndexChanged.connect(self._on_smoothing_method_changed)
+        
         self.sg_two_stage_checkbox.toggled.connect(self._on_smoothing_mode_changed)
         self.als_lambda_input.valueChanged.connect(self._update_plot)
         self.als_p_input.valueChanged.connect(self._update_plot)
+        
         self.sg_window_coarse_input.valueChanged.connect(self._update_plot)
         self.sg_poly_coarse_input.valueChanged.connect(self._update_plot)
         self.sg_window_fine_input.valueChanged.connect(self._update_plot)
         self.sg_poly_fine_input.valueChanged.connect(self._update_plot)
+        
+        self.ma_window_input.valueChanged.connect(self._update_plot)
+        self.med_kernel_input.valueChanged.connect(self._update_plot)
+        
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
 
@@ -139,12 +199,20 @@ class PreprocessingDialog(QDialog):
         self.als_lambda_label.setText(self.tr("Lambda (λ):"))
         self.als_p_label.setText("p:")
 
-        self.sg_group.setTitle(self.tr("2. Smoothing (S-G)"))
+        self.sg_group.setTitle(self.tr("2. Smoothing"))
+        
+        self.smoothing_method_combo.setItemText(0, self.tr("Savitzky-Golay"))
+        self.smoothing_method_combo.setItemText(1, self.tr("Moving Average"))
+        self.smoothing_method_combo.setItemText(2, self.tr("Median Filter"))
+
         self.sg_two_stage_checkbox.setText(self.tr("Two-stage smoothing"))
         self.sg_window_coarse_label.setText(self.tr("Coarse Smoothing Window:"))
         self.sg_poly_coarse_label.setText(self.tr("Coarse Smoothing Order:"))
         self.sg_window_fine_label.setText(self.tr("Fine Smoothing Window:"))
         self.sg_poly_fine_label.setText(self.tr("Fine Smoothing Order:"))
+        
+        self.ma_window_label.setText(self.tr("Window Size:"))
+        self.med_kernel_label.setText(self.tr("Kernel Size:"))
 
         self.button_box.button(QDialogButtonBox.Ok).setText(self.tr("OK"))
         self.button_box.button(QDialogButtonBox.Cancel).setText(self.tr("Cancel"))
@@ -168,15 +236,27 @@ class PreprocessingDialog(QDialog):
 
     def _populate_initial_values(self):
         """用初始参数填充UI控件"""
-        self.als_lambda_input.setValue(self.params['als_lambda'])
-        self.als_p_input.setValue(self.params['als_p'])
-        self.sg_window_coarse_input.setValue(self.params['sg_window_coarse'])
-        self.sg_poly_coarse_input.setValue(self.params['sg_polyorder_coarse'])
-        self.sg_window_fine_input.setValue(self.params['sg_window_fine'])
-        self.sg_poly_fine_input.setValue(self.params['sg_polyorder_fine'])
+        self.als_lambda_input.setValue(self.params.get('als_lambda', 1e6))
+        self.als_p_input.setValue(self.params.get('als_p', 0.01))
+        
+        # Set smoothing method
+        current_method = self.params.get('smoothing_method', 'Savitzky-Golay')
+        index = self.smoothing_method_combo.findData(current_method)
+        if index == -1: index = 0
+        self.smoothing_method_combo.setCurrentIndex(index)
+        
+        self.sg_window_coarse_input.setValue(self.params.get('sg_window_coarse', 11))
+        self.sg_poly_coarse_input.setValue(self.params.get('sg_polyorder_coarse', 3))
+        self.sg_window_fine_input.setValue(self.params.get('sg_window_fine', 5))
+        self.sg_poly_fine_input.setValue(self.params.get('sg_polyorder_fine', 3))
         self.sg_two_stage_checkbox.setChecked(self.params.get('sg_two_stage', True))
+        
+        self.ma_window_input.setValue(self.params.get('ma_window', 5))
+        self.med_kernel_input.setValue(self.params.get('med_kernel', 5))
+        
         self._normalize_sg_controls()
         self._set_smoothing_mode()
+        self._update_visible_widgets()
 
     def _normalize_sg_controls(self):
         self._normalize_sg_pair(self.sg_window_coarse_input, self.sg_poly_coarse_input)
@@ -207,28 +287,50 @@ class PreprocessingDialog(QDialog):
 
     def _update_plot(self):
         self._normalize_sg_controls()
+        
+        # Save params
         self.params['als_lambda'] = self.als_lambda_input.value()
         self.params['als_p'] = self.als_p_input.value()
+        
+        current_method = self.smoothing_method_combo.currentData()
+        self.params['smoothing_method'] = current_method
+        
         self.params['sg_window_coarse'] = self.sg_window_coarse_input.value()
         self.params['sg_polyorder_coarse'] = self.sg_poly_coarse_input.value()
         self.params['sg_window_fine'] = self.sg_window_fine_input.value()
         self.params['sg_polyorder_fine'] = self.sg_poly_fine_input.value()
         self.params['sg_two_stage'] = self.sg_two_stage_checkbox.isChecked()
+        
+        self.params['ma_window'] = self.ma_window_input.value()
+        self.params['med_kernel'] = self.med_kernel_input.value()
 
         self.raw_curve.setData(self.wavelengths, self.raw_intensity, pen=self.raw_pen)
+        
+        # 1. Baseline
         baseline = baseline_als(self.raw_intensity, lam=self.params['als_lambda'], p=self.params['als_p'])
         baseline_corrected = self.raw_intensity - baseline
-        coarse_smoothed = smooth_savitzky_golay(baseline_corrected,
-                                                window_length=self.params['sg_window_coarse'],
-                                                polyorder=self.params['sg_polyorder_coarse'])
-        if self.params['sg_two_stage']:
-            fine_smoothed = smooth_savitzky_golay(coarse_smoothed,
+        
+        # 2. Smoothing
+        smoothed = baseline_corrected
+        
+        if current_method == 'Savitzky-Golay':
+            coarse = smooth_savitzky_golay(baseline_corrected,
+                                            window_length=self.params['sg_window_coarse'],
+                                            polyorder=self.params['sg_polyorder_coarse'])
+            if self.params['sg_two_stage']:
+                smoothed = smooth_savitzky_golay(coarse,
                                                   window_length=self.params['sg_window_fine'],
                                                   polyorder=self.params['sg_polyorder_fine'])
-        else:
-            fine_smoothed = coarse_smoothed
-        self.baseline_curve.setData(self.wavelengths, baseline, pen=self.baseline_pen)
-        self.processed_curve.setData(self.wavelengths, fine_smoothed, pen=self.processed_pen)
+            else:
+                smoothed = coarse
+                
+        elif current_method == 'Moving Average':
+            smoothed = smooth_moving_average(baseline_corrected, window_size=self.params['ma_window'])
+            
+        elif current_method == 'Median Filter':
+            smoothed = smooth_median(baseline_corrected, kernel_size=self.params['med_kernel'])
+
+        self.processed_curve.setData(self.wavelengths, smoothed, pen=self.processed_pen)
 
     def _set_smoothing_mode(self):
         use_two_stage = bool(self.sg_two_stage_checkbox.isChecked())
@@ -236,6 +338,16 @@ class PreprocessingDialog(QDialog):
         self.sg_poly_fine_input.setEnabled(use_two_stage)
         self.sg_window_fine_label.setEnabled(use_two_stage)
         self.sg_poly_fine_label.setEnabled(use_two_stage)
+        
+    def _on_smoothing_method_changed(self):
+        self._update_visible_widgets()
+        self._update_plot()
+        
+    def _update_visible_widgets(self):
+        method = self.smoothing_method_combo.currentData()
+        self.sg_widgets_container.setVisible(method == 'Savitzky-Golay')
+        self.ma_widgets_container.setVisible(method == 'Moving Average')
+        self.med_widgets_container.setVisible(method == 'Median Filter')
 
     def _on_smoothing_mode_changed(self):
         self._set_smoothing_mode()
@@ -285,3 +397,11 @@ class PreprocessingDialog(QDialog):
             self.baseline_curve.setPen(self.baseline_pen)
         if hasattr(self, "processed_curve"):
             self.processed_curve.setPen(self.processed_pen)
+
+        # 更新图例文字颜色
+        legend = self.plot_widget.getPlotItem().legend
+        if legend:
+            text_color = '#000000' if theme == 'light' else '#E2E8F0'
+            for item in legend.items:
+                label = item[1]  # item is a tuple (sample, label)
+                label.setText(label.text, color=text_color)

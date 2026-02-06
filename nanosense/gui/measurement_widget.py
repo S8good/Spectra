@@ -1790,6 +1790,15 @@ Do you wish to continue?'''),
                     ax = plot.getPlotItem().getAxis(axis)
                     ax.setPen(axis_pen)
                     ax.setTextPen(text_pen)
+                
+            # 更新图例文字颜色
+            text_color = '#000000' if theme == 'light' else '#E2E8F0'
+            for plot in [self.signal_plot, self.background_plot, self.reference_plot, self.result_plot]:
+                legend = plot.getPlotItem().legend
+                if legend:
+                    for item in legend.items:
+                        label = item[1]  # item is a tuple (sample, label)
+                        label.setText(label.text, color=text_color)
         except Exception:
             pass  # 忽略错误
     
